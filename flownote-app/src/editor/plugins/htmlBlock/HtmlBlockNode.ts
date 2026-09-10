@@ -1,12 +1,11 @@
 import { $node } from '@milkdown/utils';
 
 /**
- * FlowNote HTML Block Node Schema
+ * FlowNote HTML Block Node
  */
 export const htmlBlockNode = $node('html_block', () => ({
   group: 'block',
   atom: true,
-  isolating: true,
   attrs: {
     id: { default: '' },
     width: { default: 'normal' },
@@ -25,15 +24,26 @@ export const htmlBlockNode = $node('html_block', () => ({
     },
   ],
   toDOM: (node) => {
+    const { id, width } = node.attrs;
     return [
       'div',
       {
         'data-type': 'html-block',
-        'data-id': node.attrs.id,
-        'data-width': node.attrs.width,
-        class: `flownote-html-block flownote-html-block--${node.attrs.width}`,
+        'data-id': id,
+        'data-width': width,
+        class: `html-block-container html-block-container--${width}`,
       },
-      0,
+      [
+        'div',
+        { class: 'html-block-header' },
+        ['span', { class: 'html-block-label' }, 'HTML'],
+        ['span', { class: 'html-block-id' }, id],
+      ],
+      [
+        'div',
+        { class: 'html-block-content' },
+        ['div', { class: 'html-block-placeholder' }, `HTML Block: ${id}`],
+      ],
     ];
   },
   parseMarkdown: {

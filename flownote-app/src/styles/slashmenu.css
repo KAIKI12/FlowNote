@@ -1,0 +1,88 @@
+/* Slash Menu 样式 */
+
+.slash-menu {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  padding: 8px;
+  min-width: 280px;
+  max-width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.slash-menu-section {
+  margin-bottom: 4px;
+}
+
+.slash-menu-section:last-child {
+  margin-bottom: 0;
+}
+
+.slash-menu-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  padding: 8px 12px 4px;
+  letter-spacing: 0.5px;
+}
+
+.slash-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.slash-menu-item:hover,
+.slash-menu-item.selected {
+  background: var(--bg-tertiary);
+}
+
+.slash-menu-item-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.slash-menu-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.slash-menu-item-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.slash-menu-item-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slash-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+/* 当 Slash Menu 获得焦点时 */
+.slash-menu:focus {
+  outline: none;
+}

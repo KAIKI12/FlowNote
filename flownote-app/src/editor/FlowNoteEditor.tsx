@@ -7,7 +7,7 @@ import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { block } from '@milkdown/plugin-block';
 import { useNoteStore } from '../note/noteStore';
 import { FlowNoteEditorApi, EditorMode } from './editorTypes';
-import { htmlBlockNode } from './plugins/htmlBlock/HtmlBlockNode';
+import { htmlBlockPlugin } from './plugins/htmlBlock/htmlBlockPlugin';
 
 interface FlowNoteEditorProps {
   initialContent?: string;
@@ -38,8 +38,32 @@ export const FlowNoteEditor = forwardRef<FlowNoteEditorApi, FlowNoteEditorProps>
 
       insertHtmlBlock: (id: string, width = 'normal') => {
         if (!editorRef.current) return;
-        // TODO: 插入 HTML Block Node
-        console.log('插入 HTML Block:', id, width);
+
+        editorRef.current.action((ctx) => {
+          const view = ctx.get(rootCtx);
+          if (!view || typeof view === 'string') return;
+
+          // 获取当前 schema 和 state
+          const { state, dispatch } = view as any;
+          const { schema, selection } = state;
+
+          // 查找 html_block node type
+          const htmlBlockType = schema.nodes.html_block;
+          if (!htmlBlockType) {
+            console.error('html_block node type 未找到');
+            return;
+          }
+
+          // 创建 HTML Block node
+          const node = htmlBlockType.create({
+            id,
+            width,
+          });
+
+          // 在当前位置插入
+          const tr = state.tr.replaceSelectionWith(node);
+          dispatch(tr);
+        });
       },
 
       insertImage: (path: string, alt = '') => {
@@ -93,7 +117,7 @@ export const FlowNoteEditor = forwardRef<FlowNoteEditorApi, FlowNoteEditorProps>
         .use(gfm)
         .use(listener)
         .use(block)
-        .use(htmlBlockNode);
+        .use(htmlBlockPlugin);
 
       editorRef.current = editor;
       return editor;

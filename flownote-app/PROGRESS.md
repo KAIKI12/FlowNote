@@ -1,8 +1,44 @@
 # FlowNote 开发进度
 
-## 当前状态：HTML Block Vertical Slice 实现中
+**最后更新**: 2026-09-10
 
-### ✅ 已完成
+> 💡 详细的项目状态、设计决策、未来计划请查看 [STATUS.md](./STATUS.md)
+
+---
+
+## 快速概览
+
+**当前阶段**: HTML Block Vertical Slice 实现中  
+**总体进度**: 约 25%  
+**本周目标**: 完成 HTML Block 完整生命周期
+
+### ✅ 本周已完成
+
+1. ✅ 项目架构重构（按功能模块组织）
+2. ✅ Milkdown 编辑器集成（所见即所得 + IME 支持）
+3. ✅ Note 数据模型设计
+4. ✅ HTML Block 插件基础（自定义 Node）
+5. ✅ HTML 沙箱渲染（iframe sandbox）
+6. ✅ 状态管理（Zustand + AutoSaver）
+7. ✅ 编辑器 API 设计
+
+### 🚧 进行中
+
+- HTML Block 插入功能（70%）
+- Slash Menu UI（30%）
+- 类型错误修复
+
+### ⏳ 本周待完成
+
+- [ ] 修复 TypeScript 类型错误
+- [ ] 完成 HTML Block 渲染（加载实际 HTML）
+- [ ] 集成 Tauri 文件系统 API
+- [ ] 实现 .note 文件读写
+- [ ] 测试完整的保存-关闭-重开流程
+
+---
+
+**阶段一：项目架构搭建（已完成）**
 
 1. **项目架构重构**
    - 按功能模块重新组织代码结构
@@ -23,8 +59,9 @@
 
 4. **HTML Block 插件**
    - `HtmlBlockNode.ts` - 自定义 Node 定义
-   - `HtmlBlockView.tsx` - React 视图组件
    - Markdown 序列化/反序列化 (`flownote-html` 代码块)
+   - DOM 渲染（占位符版本）
+   - 通过按钮插入 HTML Block
 
 5. **HTML 沙箱渲染**
    - `HtmlSandbox.tsx` - iframe sandbox 隔离
@@ -37,24 +74,34 @@
    - 演示视图（显示 Note 状态）
    - 响应式样式
 
+**当前可测试：**
+- ✅ Milkdown 编辑器正常工作
+- ✅ HTML Block 可以插入到编辑器
+- ✅ Markdown 包含 `flownote-html` 代码块
+- ✅ 编辑器显示 HTML Block 占位符
+- ✅ 状态管理正常工作
+
 ### 🚧 进行中
 
-**当前任务：完成 HTML Block 的完整生命周期**
+**当前任务：完成 HTML Block 的实际渲染和文件系统集成**
 
-需要实现：
-1. `/html` 斜杠命令 (Slash Menu)
-2. 插入 HTML Block 到编辑器
-3. Markdown ↔ HTML Block 双向同步
-4. 保存到磁盘（`.note/blocks/html_001/index.html`）
-5. 关闭重开后恢复
+下一步需要实现：
+1. **HTML Block NodeView 动态渲染** - 让 HTML 真正显示在 iframe 中
+2. **Tauri 文件系统 API 集成** - 实现真正的文件读写
+3. **.note 文件夹完整读写** - 保存和加载所有文件
+4. **完整生命周期测试** - 保存 → 关闭 → 重开 → 恢复
 
 ### ⏳ 待实现
 
 **第一阶段核心功能：**
-- [ ] Slash Menu 插件 (`/html`, `/image`)
-- [ ] HTML Block 编辑器（双击编辑）
+- [x] 项目脚手架搭建
+- [x] Milkdown 集成
+- [x] HTML Block Node 定义
+- [x] 通过按钮插入 HTML Block
+- [ ] HTML Block 动态渲染（NodeView）
 - [ ] Tauri 文件系统集成
 - [ ] .note 文件夹读写
+- [ ] Slash Menu (`/html`)
 - [ ] 图片粘贴和本地存储
 
 **第二阶段增强功能：**

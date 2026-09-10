@@ -32,6 +32,33 @@ FlowNote 项目的技术可行性验证原型。
 - assets 资源路径映射
 - 保存修改并更新文件
 
+## 快速测试当前进度
+
+### 启动应用
+
+```bash
+cd flownote-app
+npm run dev
+```
+
+或双击 `启动Web版本.bat`
+
+### 当前功能
+
+**✅ 已实现：**
+- Milkdown 所见即所得编辑
+- HTML Block 插入（通过按钮）
+- Markdown 包含 `flownote-html` 代码块
+- HTML Block 占位符显示
+- 状态管理和自动保存（模拟）
+
+**⏳ 进行中：**
+- HTML Block 实际渲染（iframe）
+- Tauri 文件系统集成
+- .note 文件夹读写
+
+详细进度查看：`PROGRESS.md` 和 `测试当前进度.md`
+
 ## 快速开始 (Windows)
 
 ### 方式一：使用批处理脚本

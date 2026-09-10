@@ -16,9 +16,38 @@ function App() {
   // 初始化：加载测试笔记
   useEffect(() => {
     loadNote("test.note").then((note) => {
+      // 设置初始 Markdown 内容（包含 HTML Block 引用）
+      note.contentMd = `# FlowNote 测试笔记
+
+欢迎使用 FlowNote！这是一个混合笔记系统。
+
+## Markdown 内容
+
+这是普通的 Markdown 文本。你可以：
+
+- 写作
+- **加粗**
+- *斜体*
+- 代码 \`inline code\`
+
+## HTML Block 演示
+
+下面是一个 HTML Block：
+
+\`\`\`flownote-html
+{"id":"html_001"}
+\`\`\`
+
+继续写 Markdown...
+
+## 功能测试
+
+点击左侧的 "➕ 插入 HTML Block" 按钮可以插入新的 HTML Block。
+`;
+
       setCurrentNote(note);
 
-      // 添加一些测试 HTML Blocks
+      // 添加测试 HTML Block
       addHtmlBlock(
         "html_001",
         `<!DOCTYPE html>
@@ -41,6 +70,8 @@ function App() {
       box-shadow: 0 10px 40px rgba(0,0,0,0.2);
       text-align: center;
     }
+    h2 { color: #667eea; margin: 0 0 10px 0; }
+    p { margin: 0; color: #666; }
   </style>
 </head>
 <body>
@@ -77,13 +108,31 @@ function App() {
 <html>
 <head>
   <style>
-    body { padding: 20px; font-family: system-ui; }
-    h1 { color: #667eea; }
+    body {
+      padding: 20px;
+      font-family: system-ui;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 150px;
+    }
+    .content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 { color: #667eea; margin: 0 0 10px 0; font-size: 20px; }
+    p { margin: 0; color: #666; font-size: 14px; }
   </style>
 </head>
 <body>
-  <h1>新的 HTML Block</h1>
-  <p>ID: ${newId}</p>
+  <div class="content">
+    <h1>✨ 新的 HTML Block</h1>
+    <p>ID: ${newId}</p>
+    <p>创建时间: ${new Date().toLocaleTimeString()}</p>
+  </div>
 </body>
 </html>`
     );
