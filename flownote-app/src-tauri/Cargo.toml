@@ -1,0 +1,20 @@
+[package]
+name = "flownote"
+version = "0.1.0"
+description = "FlowNote - Markdown + HTML 混合笔记系统"
+authors = ["FlowNote Team"]
+license = ""
+repository = ""
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.2", features = [] }
+tauri-plugin-shell = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
