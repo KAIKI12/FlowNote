@@ -1,3 +1,5 @@
+@import './editor.css';
+
 :root {
   --bg-primary: #ffffff;
   --bg-secondary: #f8f9fa;
@@ -45,6 +47,90 @@ body {
 }
 
 /* 三栏布局 */
+.sidebar button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.sidebar-section {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-section h3 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.sidebar-section button {
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sidebar-section button:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.demo-view {
+  max-width: 900px;
+}
+
+.demo-view h2 {
+  font-size: 28px;
+  margin-bottom: 24px;
+}
+
+.demo-view section {
+  margin-bottom: 32px;
+}
+
+.demo-view h3 {
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+
+.demo-view pre {
+  background: var(--bg-secondary);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.demo-view ul {
+  list-style: none;
+  padding-left: 20px;
+}
+
+.demo-view li {
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.demo-view li::before {
+  content: "→";
+  position: absolute;
+  left: -20px;
+  color: var(--accent);
+}
+
 .app {
   display: flex;
   height: 100vh;

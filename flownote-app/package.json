@@ -20,14 +20,22 @@
     "@milkdown/plugin-listener": "^7.22.1",
     "@milkdown/plugin-math": "^7.5.9",
     "@milkdown/plugin-prism": "^7.22.1",
+    "@milkdown/plugin-slash": "^7.22.1",
     "@milkdown/preset-commonmark": "^7.22.1",
+    "@milkdown/preset-gfm": "^7.22.1",
     "@milkdown/prose": "^7.22.1",
     "@milkdown/react": "^7.22.1",
     "@milkdown/theme-nord": "^7.22.1",
+    "@milkdown/transformer": "^7.22.1",
+    "@milkdown/utils": "^7.22.1",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-shell": "^2.0.2",
+    "prosemirror-model": "^1.25.11",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.3",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.2.0",
