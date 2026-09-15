@@ -3,13 +3,143 @@
 .flownote-editor {
   width: 100%;
   height: 100%;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
+
+.editor-visual-surface { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.editor-visual-surface[hidden] { display: none; }
+.editor-visual-surface > [data-milkdown-root] { flex: 1; min-height: 0; overflow: auto; }
+.editor-mode-bar { flex: 0 0 auto; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--bg-primary); font: 13px/1.5 system-ui; }
+.editor-mode-bar [role='group'] { display: flex; align-items: center; gap: 6px; }
+.editor-mode-bar button,
+.editor-source-conflict button { min-height: 32px; padding: 4px 12px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-primary); color: var(--text-primary); cursor: pointer; }
+.editor-mode-bar button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: white; }
+.editor-mode-bar button:disabled { opacity: .5; cursor: not-allowed; }
+.editor-mode-bar [role='alert'] { color: #b42318; margin-top: 6px; }
+.editor-source-surface { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.editor-source-notice { flex: 0 0 auto; margin: 0; padding: 10px 16px; background: var(--bg-secondary); color: var(--text-secondary); font: 13px/1.6 system-ui; border-bottom: 1px solid var(--border); }
+.editor-source-surface > textarea { display: block; flex: 1; min-height: 160px; width: 100%; resize: none; overflow: auto; padding: 20px; border: 0; background: var(--bg-primary); color: var(--text-primary); font: 15px/1.75 Consolas, 'Cascadia Code', monospace; tab-size: 2; }
+.editor-source-surface > textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.editor-mode-bar :focus-visible,
+.editor-source-conflict :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.editor-source-conflict { flex: 0 0 auto; padding: 12px 16px; border-bottom: 1px solid #b45309; color: var(--text-primary); background: var(--bg-secondary); font: 13px/1.6 system-ui; }
+.editor-source-conflict textarea { width: 100%; max-height: 180px; background: var(--bg-primary); color: var(--text-primary); font: 13px/1.6 monospace; }
+.editor-source-conflict button { margin: 6px 8px 0 0; }
+.editor-toolbar { flex: 0 0 auto; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary); font: 13px/1.5 system-ui; }
+.editor-toolbar-main { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.editor-toolbar button,
+.editor-toolbar select { min-height: 32px; padding: 4px 8px; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 5px; cursor: pointer; }
+.editor-toolbar button:hover:not(:disabled) { background: var(--bg-hover); }
+.editor-toolbar button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: white; }
+.editor-toolbar button:disabled,
+.editor-toolbar select:disabled { opacity: 0.45; cursor: not-allowed; }
+.editor-toolbar :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.editor-toolbar button[aria-label='加粗'] { font-weight: 750; }
+.editor-toolbar button[aria-label='斜体'] { font-style: italic; }
+.editor-context-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; }
+.editor-context-controls span { color: var(--text-secondary); font-size: 12px; }
+.editor-link-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1 1 100%; }
+.editor-link-form input { min-width: 160px; flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-primary); color: var(--text-primary); }
+.editor-toolbar-error { color: #b42318; padding-top: 6px; }
 
 .milkdown {
   padding: 20px;
   min-height: 100%;
 }
+
+.flownote-editor .ProseMirror {
+  display: block;
+  overflow: visible;
+  min-height: 100%;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+  font-size: 16px;
+  caret-color: var(--text-primary);
+}
+
+.flownote-editor .ProseMirror > * + * { margin-block-start: 0.8em; }
+.flownote-editor .ProseMirror p { margin-block: 0.5em; }
+.flownote-editor .ProseMirror h1,
+.flownote-editor .ProseMirror h2,
+.flownote-editor .ProseMirror h3,
+.flownote-editor .ProseMirror h4,
+.flownote-editor .ProseMirror h5,
+.flownote-editor .ProseMirror h6 { font-weight: 650; line-height: 1.35; margin-block: 1.2em 0.5em; }
+.flownote-editor .ProseMirror h1 { font-size: 2em; }
+.flownote-editor .ProseMirror h2 { font-size: 1.55em; border-bottom: 1px solid var(--border); padding-bottom: 0.25em; }
+.flownote-editor .ProseMirror h3 { font-size: 1.3em; }
+.flownote-editor .ProseMirror h4 { font-size: 1.15em; }
+.flownote-editor .ProseMirror h5,
+.flownote-editor .ProseMirror h6 { font-size: 1em; }
+.flownote-editor .ProseMirror strong { font-weight: 700; }
+.flownote-editor .ProseMirror em { font-style: italic; }
+.flownote-editor .ProseMirror a { color: #3455b4; text-decoration: underline; text-underline-offset: 0.15em; }
+.flownote-editor .ProseMirror blockquote { border-left: 3px solid #8798cb; padding-inline-start: 1em; color: var(--text-secondary); }
+.flownote-editor .ProseMirror code { font-family: Consolas, 'Cascadia Code', monospace; font-size: 0.9em; background: var(--bg-tertiary); border-radius: 4px; padding: 0.12em 0.3em; }
+.flownote-editor .ProseMirror pre { position: relative; padding: 1em; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-secondary); overflow-x: auto; white-space: pre; tab-size: 2; }
+.flownote-editor .ProseMirror pre code { display: block; padding: 0; background: transparent; line-height: 1.65; }
+.flownote-editor .ProseMirror pre[data-language]::before { content: attr(data-language); display: block; margin-bottom: 0.6em; font: 11px/1.4 system-ui; color: var(--text-secondary); }
+.flownote-editor .ProseMirror .token.comment { color: #64748b; }
+.flownote-editor .ProseMirror .token.keyword,
+.flownote-editor .ProseMirror .token.boolean { color: #7c3aed; }
+.flownote-editor .ProseMirror .token.string,
+.flownote-editor .ProseMirror .token.attr-value { color: #047857; }
+.flownote-editor .ProseMirror .token.number,
+.flownote-editor .ProseMirror .token.function { color: #b45309; }
+.flownote-editor .ProseMirror .token.property,
+.flownote-editor .ProseMirror .token.tag { color: #be185d; }
+.flownote-editor .ProseMirror .token.operator,
+.flownote-editor .ProseMirror .token.punctuation { color: #475569; }
+.flownote-editor .ProseMirror table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-block: 1em; }
+.flownote-editor .ProseMirror th,
+.flownote-editor .ProseMirror td { border: 1px solid var(--border); padding: 0.5em 0.7em; min-width: 4em; vertical-align: top; position: relative; }
+.flownote-editor .ProseMirror th { background: var(--bg-tertiary); font-weight: 650; }
+.flownote-editor .ProseMirror .selectedCell::after { content: ''; position: absolute; inset: 0; background: rgb(102 126 234 / 15%); pointer-events: none; }
+.flownote-editor .ProseMirror hr { border: 0; border-top: 1px solid var(--border); margin-block: 1.5em; }
+.flownote-editor .ProseMirror img { max-width: 100%; height: auto; }
+.flownote-editor .ProseMirror :first-child { margin-block-start: 0; }
+
+[data-theme='dark'] .flownote-editor .ProseMirror a { color: #a5b4fc; }
+[data-theme='dark'] .flownote-editor .ProseMirror .token.comment { color: #94a3b8; }
+[data-theme='dark'] .flownote-editor .ProseMirror .token.keyword,
+[data-theme='dark'] .flownote-editor .ProseMirror .token.boolean { color: #c4b5fd; }
+[data-theme='dark'] .flownote-editor .ProseMirror .token.string,
+[data-theme='dark'] .flownote-editor .ProseMirror .token.attr-value { color: #6ee7b7; }
+[data-theme='dark'] .flownote-editor .ProseMirror .token.number,
+[data-theme='dark'] .flownote-editor .ProseMirror .token.function { color: #fcd34d; }
+[data-theme='dark'] .flownote-editor .ProseMirror .token.property,
+[data-theme='dark'] .flownote-editor .ProseMirror .token.tag { color: #f9a8d4; }
+[data-theme='dark'] .flownote-editor .ProseMirror .token.operator,
+[data-theme='dark'] .flownote-editor .ProseMirror .token.punctuation { color: #cbd5e1; }
+
+/* Restore marker space removed by the application's global padding reset. */
+.flownote-editor .ProseMirror ol,
+.flownote-editor .ProseMirror ul {
+  padding-inline-start: 1.75em;
+  margin-block: 0.5em;
+  list-style-position: outside;
+}
+
+.flownote-editor .ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.flownote-editor .ProseMirror ul {
+  list-style-type: disc;
+}
+
+.flownote-editor .ProseMirror li > ol,
+.flownote-editor .ProseMirror li > ul {
+  margin-block: 0.25em;
+}
+
+.flownote-editor .ProseMirror li[data-item-type='task'] { list-style: none; position: relative; }
+.flownote-editor .ProseMirror .task-checkbox { position: absolute; inset-inline-start: -1.5em; top: 0.4em; width: 1.05em; height: 1.05em; accent-color: var(--accent); cursor: pointer; }
+.flownote-editor .ProseMirror li[data-checked='true'] > .task-content > p:first-child { text-decoration: line-through; color: var(--text-secondary); }
 
 /* HTML Block 容器 */
 .html-block-wrapper {

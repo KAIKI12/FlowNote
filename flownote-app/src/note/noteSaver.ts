@@ -1,50 +1,27 @@
-import { NoteStructure } from './noteTypes';
+import type { NoteStructure } from './noteTypes';
+
+const DEFAULT_AUTOSAVE_DELAY_MS = 500;
 
 /**
  * 保存 Note 到磁盘
  */
 export async function saveNote(note: NoteStructure): Promise<void> {
-  console.log('保存 Note:', note.path);
-  // TODO: 使用 Tauri 文件系统 API
-  // 1. 保存 note.json
-  // 2. 保存 content.md
-  // 3. 保存 blocks/*.html
+  throw new Error(`Note 包保存尚未实现：${note.path}。普通 Markdown 请通过文件工具栏保存。`);
 }
 
 /**
- * Debounced 自动保存
+ * 保留旧调用签名；自动保存接入之前，调用者必须处理明确的未实现错误。
  */
 export class AutoSaver {
-  private timeoutId: number | null = null;
-  private delay: number;
+  constructor(_delay: number = DEFAULT_AUTOSAVE_DELAY_MS) {}
 
-  constructor(delay: number = 500) {
-    this.delay = delay;
+  schedule(_note: NoteStructure): void {
+    throw new Error('自动保存尚未实现，请手动保存当前笔记');
   }
 
-  schedule(note: NoteStructure): void {
-    if (this.timeoutId !== null) {
-      clearTimeout(this.timeoutId);
-    }
-
-    this.timeoutId = window.setTimeout(() => {
-      saveNote(note);
-      this.timeoutId = null;
-    }, this.delay);
+  flush(_note: NoteStructure): void {
+    throw new Error('自动保存尚未实现，请手动保存当前笔记');
   }
 
-  flush(note: NoteStructure): void {
-    if (this.timeoutId !== null) {
-      clearTimeout(this.timeoutId);
-      this.timeoutId = null;
-    }
-    saveNote(note);
-  }
-
-  cancel(): void {
-    if (this.timeoutId !== null) {
-      clearTimeout(this.timeoutId);
-      this.timeoutId = null;
-    }
-  }
+  cancel(): void { /* No automatic save is scheduled while the feature is unavailable. */ }
 }

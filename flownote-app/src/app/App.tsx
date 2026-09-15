@@ -1,219 +1,206 @@
-import { useState, useRef, useEffect } from "react";
-import { MilkdownProvider } from "@milkdown/react";
-import { FlowNoteEditor } from "../editor/FlowNoteEditor";
-import { FlowNoteEditorApi } from "../editor/editorTypes";
-import { useNoteStore } from "../note/noteStore";
-import { loadNote } from "../note/noteLoader";
-import { AutoSaver } from "../note/noteSaver";
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { MilkdownProvider } from '@milkdown/react';
+import { FlowNoteEditor } from '../editor/FlowNoteEditor';
+import type { FlowNoteEditorApi } from '../editor/editorTypes';
+import { useNoteStore } from '../note/noteStore';
+import type { NoteStructure } from '../note/noteTypes';
+import { downloadText } from '../utils/downloadText';
+import { useDocumentFiles } from '../files/useDocumentFiles';
+import { FileErrorView, FileStatus, FileToolbar, UnsavedDialog } from '../files/FileControls';
+import { MarkdownFileError } from '../files/fileTypes';
+import type { MarkdownFilePort } from '../files/fileTypes';
+import type { DocumentSession } from '../files/documentSession';
 
-function App() {
-  const [activeView, setActiveView] = useState<string>("editor");
-  const editorRef = useRef<FlowNoteEditorApi>(null);
-  const autoSaver = useRef(new AutoSaver(500));
+const QualificationPanel = import.meta.env.DEV
+  ? lazy(() => import('../editor/MarkdownQualification')) : null;
+type AppView = 'editor' | 'demo' | 'qualification';
 
-  const { currentNote, setCurrentNote, updateContent, addHtmlBlock } = useNoteStore();
+const INITIAL_MARKDOWN = [
+  '# 项目周记', '',
+  '在这里整理想法、记录进度。选中文字后，可以使用上方工具栏设置 **加粗**、*斜体* 或 ~~删除线~~。', '',
+  '## 今天的安排', '',
+  '1. 梳理本周目标',
+  '   - 确定重点任务',
+  '   - 收集参考资料',
+  '2. 完成第一轮验证',
+  '   1. 检查显示效果',
+  '   2. 记录下一步行动', '',
+  '## 待办清单', '',
+  '- [x] 建立笔记结构',
+  '- [ ] 整理会议记录',
+  '- [ ] 分享本周进展', '',
+  '> 先把重要的事写下来，再逐步完善细节。', '',
+  '## 数据记录', '',
+  '| 项目 | 状态 | 数量 |',
+  '| --- | --- | ---: |',
+  '| 文档 | 已完成 | 3 |',
+  '| 待办 | 进行中 | 2 |', '',
+  '## 代码片段', '',
+  '```javascript',
+  'const message = "你好，FlowNote";',
+  'console.log(message);',
+  '```', '',
+  '行内代码也可以这样记录：`npm run dev`。', '',
+  '## 参考资料', '',
+  '[Markdown 语法参考](https://commonmark.org/help/)', '',
+  '---', '',
+  '你可以直接修改这篇笔记。使用「导出 Markdown」将当前内容保存为文件。', '',
+].join('\n');
 
-  // 初始化：加载测试笔记
-  useEffect(() => {
-    loadNote("test.note").then((note) => {
-      // 设置初始 Markdown 内容（包含 HTML Block 引用）
-      note.contentMd = `# FlowNote 测试笔记
-
-欢迎使用 FlowNote！这是一个混合笔记系统。
-
-## Markdown 内容
-
-这是普通的 Markdown 文本。你可以：
-
-- 写作
-- **加粗**
-- *斜体*
-- 代码 \`inline code\`
-
-## HTML Block 演示
-
-下面是一个 HTML Block：
-
-\`\`\`flownote-html
-{"id":"html_001"}
-\`\`\`
-
-继续写 Markdown...
-
-## 功能测试
-
-点击左侧的 "➕ 插入 HTML Block" 按钮可以插入新的 HTML Block。
-`;
-
-      setCurrentNote(note);
-
-      // 添加测试 HTML Block
-      addHtmlBlock(
-        "html_001",
-        `<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 200px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      margin: 0;
-      font-family: system-ui;
-    }
-    .card {
-      background: white;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-      text-align: center;
-    }
-    h2 { color: #667eea; margin: 0 0 10px 0; }
-    p { margin: 0; color: #666; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h2>🎯 HTML Block Demo</h2>
-    <p>这是一个测试 HTML Block</p>
-  </div>
-</body>
-</html>`
-      );
-    });
-  }, [setCurrentNote, addHtmlBlock]);
-
-  const handleContentChange = (markdown: string) => {
-    updateContent(markdown);
-    if (currentNote) {
-      autoSaver.current.schedule({
-        ...currentNote,
-        contentMd: markdown,
-      });
-    }
-  };
-
-  const handleInsertHtmlBlock = () => {
-    if (!editorRef.current) return;
-
-    // 生成新的 HTML Block ID
-    const newId = `html_${String(Date.now()).slice(-3).padStart(3, "0")}`;
-
-    // 添加示例 HTML 内容
-    addHtmlBlock(
-      newId,
-      `<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body {
-      padding: 20px;
-      font-family: system-ui;
-      background: #f5f5f5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 150px;
-    }
-    .content {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    h1 { color: #667eea; margin: 0 0 10px 0; font-size: 20px; }
-    p { margin: 0; color: #666; font-size: 14px; }
-  </style>
-</head>
-<body>
-  <div class="content">
-    <h1>✨ 新的 HTML Block</h1>
-    <p>ID: ${newId}</p>
-    <p>创建时间: ${new Date().toLocaleTimeString()}</p>
-  </div>
-</body>
-</html>`
-    );
-
-    // 插入到编辑器
-    editorRef.current.insertHtmlBlock(newId);
-  };
-
-  return (
-    <div className="app">
-      <aside className="sidebar">
-        <h1>FlowNote</h1>
-        <nav>
-          <button
-            className={activeView === "editor" ? "active" : ""}
-            onClick={() => setActiveView("editor")}
-          >
-            📝 编辑器
-          </button>
-          <button
-            className={activeView === "demo" ? "active" : ""}
-            onClick={() => setActiveView("demo")}
-          >
-            🔍 演示
-          </button>
-        </nav>
-
-        <div className="sidebar-section">
-          <h3>操作</h3>
-          <button onClick={handleInsertHtmlBlock}>
-            ➕ 插入 HTML Block
-          </button>
-        </div>
-      </aside>
-
-      <main className="content">
-        {activeView === "editor" && (
-          <MilkdownProvider>
-            <FlowNoteEditor
-              ref={editorRef}
-              initialContent={currentNote?.contentMd || ""}
-              onContentChange={handleContentChange}
-            />
-          </MilkdownProvider>
-        )}
-
-        {activeView === "demo" && <DemoView />}
-      </main>
-    </div>
-  );
+function createDraft(): NoteStructure {
+  const now = new Date().toISOString();
+  return { path: 'untitled.md', contentMd: INITIAL_MARKDOWN, htmlBlocks: new Map(), assets: [],
+    metadata: { version: 1, title: '项目周记', type: 'markdown', createdAt: now, updatedAt: now } };
 }
 
-function DemoView() {
-  const currentNote = useNoteStore((state) => state.currentNote);
+function useAppNote(editorRef: RefObject<FlowNoteEditorApi>) {
+  const { currentNote, setCurrentNote, updateContent, isComposing } = useNoteStore();
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  useEffect(() => { if (!useNoteStore.getState().currentNote) setCurrentNote(createDraft()); }, [setCurrentNote]);
+  const perform = (operation: (api: FlowNoteEditorApi) => void): boolean => {
+    try {
+      if (!editorRef.current) throw new Error('编辑器尚未准备就绪');
+      operation(editorRef.current);
+      setError('');
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+      return false;
+    }
+  };
+  const synchronize = () => {
+    if (!useNoteStore.getState().isDirty) return true;
+    return perform(api => updateContent(api.getMarkdown()));
+  };
+  const exportNote = () => perform(api => {
+    const latest = useNoteStore.getState();
+    if (latest.isComposing) throw new Error('请先完成组合输入，再导出笔记');
+    if (!latest.currentNote || latest.currentNote.metadata.type !== 'markdown' || latest.currentNote.htmlBlocks.size) {
+      throw new Error('当前阶段只导出普通 Markdown，Mixed Note 导出尚未实现');
+    }
+    downloadText({ content: api.getMarkdown(), fileName: 'FlowNote.md', type: 'text/markdown;charset=utf-8' });
+    setNotice('已请求导出 FlowNote.md，请查看下载位置。');
+  });
+  return { currentNote, onContentChange: updateContent, synchronize, exportNote, isComposing, error, notice };
+}
 
-  return (
-    <div className="demo-view">
-      <h2>当前 Note 状态</h2>
+function Sidebar({ activeView, selectView }: { activeView: AppView; selectView: (view: AppView) => void }) {
+  return <aside className="writing-sidebar">
+    <h1>FlowNote</h1>
+    <p className="writing-sidebar-caption">专注写作，清晰记录</p>
+    <nav aria-label="应用视图">
+      <button className={activeView === 'editor' ? 'active' : ''} onClick={() => selectView('editor')}>Markdown 写作</button>
+      {import.meta.env.DEV && <>
+        <span className="writing-dev-label">开发工具</span>
+        <button className={activeView === 'qualification' ? 'active' : ''} onClick={() => selectView('qualification')}>Markdown Gate</button>
+        <button className={activeView === 'demo' ? 'active' : ''} onClick={() => selectView('demo')}>调试状态</button>
+      </>}
+    </nav>
+    <p className="writing-sidebar-help">Ctrl+B 加粗<br />Ctrl+I 斜体<br />Ctrl+Z 撤销<br />Ctrl+O 打开<br />Ctrl+S 保存 / 网页导出</p>
+  </aside>;
+}
 
-      <section>
-        <h3>Metadata</h3>
-        <pre>{JSON.stringify(currentNote?.metadata, null, 2)}</pre>
-      </section>
+type AppNote = ReturnType<typeof useAppNote>;
+type AppFiles = ReturnType<typeof useDocumentFiles>;
 
-      <section>
-        <h3>Content.md</h3>
-        <pre>{currentNote?.contentMd}</pre>
-      </section>
-
-      <section>
-        <h3>HTML Blocks</h3>
-        <ul>
-          {Array.from(currentNote?.htmlBlocks.entries() || []).map(([id, content]) => (
-            <li key={id}>
-              <strong>{id}</strong>: {content.length} 字符
-            </li>
-          ))}
-        </ul>
-      </section>
+function WritingHeader({ activeView, note, files }: { activeView: AppView; note: AppNote; files: AppFiles }) {
+  const dirty = useNoteStore(state => state.isDirty);
+  const controls = { ...files, hasDocument: !!note.currentNote, dirty, composing: note.isComposing, ready: files.editorReady };
+  return <header className="writing-header">
+    <div className="writing-file-heading"><h2>Markdown 写作</h2><FileStatus {...controls} /></div>
+    <div className="writing-header-actions"><FileToolbar {...controls} />
+      <button aria-label="导出 Markdown 笔记" disabled={activeView === 'demo' || note.isComposing || !note.currentNote || !files.editorReady}
+        onClick={note.exportNote}>导出 Markdown</button>
     </div>
-  );
+  </header>;
+}
+
+function DebugPanel({ activeView }: { activeView: AppView }) {
+  if (!import.meta.env.DEV || activeView !== 'demo') return null;
+  return <DebugView />;
+}
+
+function useFileEvents({ session, exportNote }: { session: DocumentSession; exportNote: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (!(event.ctrlKey || event.metaKey) || !['s', 'o'].includes(key)) return;
+      event.preventDefault();
+      if (event.isComposing) { session.notifyError(new MarkdownFileError('composing', '请先完成组合输入')); return; }
+      if (key === 's' && !session.port.canWrite) { exportNote(); return; }
+      void (key === 'o' ? session.open() : session.save(event.shiftKey)).catch(cause => session.notifyError(cause));
+    };
+    const protect = (event: BeforeUnloadEvent) => {
+      const latest = useNoteStore.getState();
+      if (!latest.isDirty && !latest.isComposing && !session.getSnapshot().busy) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('beforeunload', protect);
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('beforeunload', protect); };
+  }, [session, exportNote]);
+}
+
+function WritingWorkspace({ activeView, editorRef, note, files }: {
+  activeView: AppView; editorRef: RefObject<FlowNoteEditorApi>; note: AppNote; files: AppFiles;
+}) {
+  if (!note.currentNote) return <p className="file-empty-state">尚未打开笔记。使用「新建」开始写作，或「打开」选择 Markdown 文件。</p>;
+  const showQualification = import.meta.env.DEV && activeView === 'qualification';
+  return <MilkdownProvider key={files.state.documentKey}>
+    <div hidden={activeView === 'demo'} className={'writing-workspace ' + (showQualification ? 'qualification-workspace' : 'editor-workspace')}>
+      <FlowNoteEditor ref={editorRef} initialContent={note.currentNote.contentMd} onContentChange={note.onContentChange}
+        onReadyChange={files.readyChanged} readLockRef={files.readLockRef} />
+      {showQualification && QualificationPanel && <Suspense fallback={<p role="status">正在加载测试面板…</p>}>
+        <QualificationPanel editorRef={editorRef} />
+      </Suspense>}
+    </div>
+  </MilkdownProvider>;
+}
+
+function viewSwitchBlocked(files: AppFiles): boolean {
+  return files.state.busy === 'closing' || useNoteStore.getState().isComposing;
+}
+
+function App({ filePort }: { filePort?: MarkdownFilePort } = {}) {
+  const [activeView, setActiveView] = useState<AppView>('editor');
+  const editorRef = useRef<FlowNoteEditorApi | null>(null);
+  const note = useAppNote(editorRef);
+  const files = useDocumentFiles({ editorRef, port: filePort, showEditor: () => setActiveView('editor') });
+  useFileEvents({ session: files.session, exportNote: note.exportNote });
+  const selectView = (view: AppView) => {
+    if (viewSwitchBlocked(files)) return;
+    if (view === 'demo' && activeView !== 'demo' && !note.synchronize()) return;
+    if (view === 'qualification' && activeView !== 'qualification' && (files.state.file || useNoteStore.getState().isDirty || !note.currentNote)) {
+      void files.session.newDocument(() => setActiveView(view)).catch(cause => files.session.notifyError(cause));
+      return;
+    }
+    setActiveView(view);
+  };
+  return <div className="app writing-app">
+    <Sidebar activeView={activeView} selectView={selectView} />
+    <main className="writing-main">
+      <WritingHeader activeView={activeView} note={note} files={files} />
+      {note.error && <p role="alert" className="writing-error">{note.error}</p>}
+      {note.notice && <p role="status" className="writing-notice">{note.notice}</p>}
+      {!files.state.pending && <FileErrorView error={files.state.error} />}
+      {!files.state.pending && files.state.notice && <p role="status" className="writing-notice">{files.state.notice}</p>}
+      <WritingWorkspace activeView={activeView} editorRef={editorRef} note={note} files={files} />
+      <DebugPanel activeView={activeView} />
+    </main>
+    <UnsavedDialog session={files.session} state={files.state} composing={note.isComposing} exportNote={note.exportNote} />
+  </div>;
+}
+
+function DebugView() {
+  const currentNote = useNoteStore(state => state.currentNote);
+  return <div className="demo-view writing-debug">
+    <h2>当前笔记状态</h2>
+    <section><h3>Metadata</h3><pre>{JSON.stringify(currentNote?.metadata, null, 2)}</pre></section>
+    <section><h3>Markdown</h3><pre>{currentNote?.contentMd}</pre></section>
+  </div>;
 }
 
 export default App;

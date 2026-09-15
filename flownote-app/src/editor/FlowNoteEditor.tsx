@@ -1,137 +1,71 @@
-import { forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
-import { Editor, rootCtx, defaultValueCtx } from '@milkdown/core';
-import { commonmark } from '@milkdown/preset-commonmark';
-import { gfm } from '@milkdown/preset-gfm';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { MutableRefObject } from 'react';
 import { Milkdown, useEditor } from '@milkdown/react';
-import { listener, listenerCtx } from '@milkdown/plugin-listener';
-import { block } from '@milkdown/plugin-block';
 import { useNoteStore } from '../note/noteStore';
-import { FlowNoteEditorApi, EditorMode } from './editorTypes';
-import { htmlBlockPlugin } from './plugins/htmlBlock/htmlBlockPlugin';
+import type { FlowNoteEditorApi, EditorMode } from './editorTypes';
+import { EditorToolbar } from './EditorToolbar';
+import { EditorSession } from './editorSession';
+import type { AcquireEditorReadLock } from './editorSession';
+import { createEditorApi, createFlowEditor } from './editorRuntime';
+import { EditorModeBar, SourceConflict, SourceEditor } from './SourceEditor';
+import type { HtmlBlockHost } from './plugins/htmlBlock/htmlBlockContext';
+
+function createHtmlHost(): HtmlBlockHost {
+  const mixed = () => useNoteStore.getState().currentNote?.mixed;
+  return {
+    knownIds: () => { const note = mixed(); return note?.metadata.formatVersion === 1 ? new Set(note.blocks.map(block => block.id)) : undefined; },
+    read: id => mixed()?.blocks.find(block => block.id === id),
+    update: block => useNoteStore.getState().setHtmlBlock(block),
+    subscribe: listener => useNoteStore.subscribe(listener),
+  };
+}
 
 interface FlowNoteEditorProps {
   initialContent?: string;
   onContentChange?: (markdown: string) => void;
   mode?: EditorMode;
+  onReadyChange?: (ready: boolean) => void;
+  readLockRef?: MutableRefObject<AcquireEditorReadLock | null>;
 }
 
-/**
- * FlowNote 编辑器核心组件
- */
 export const FlowNoteEditor = forwardRef<FlowNoteEditorApi, FlowNoteEditorProps>(
-  ({ initialContent = '', onContentChange, mode = 'edit' }, ref) => {
-    const editorRef = useRef<Editor | null>(null);
+  ({ initialContent = '', onContentChange, mode = 'edit', onReadyChange, readLockRef }, ref) => {
     const setComposing = useNoteStore((state) => state.setComposing);
-
-    // 创建编辑器 API
-    useImperativeHandle(ref, () => ({
-      getMarkdown: () => {
-        if (!editorRef.current) return '';
-        // TODO: 从 Milkdown 获取 Markdown
-        return '';
-      },
-
-      setMarkdown: (markdown: string) => {
-        if (!editorRef.current) return;
-        // TODO: 设置 Milkdown 内容
-      },
-
-      insertHtmlBlock: (id: string, width = 'normal') => {
-        if (!editorRef.current) return;
-
-        editorRef.current.action((ctx) => {
-          const view = ctx.get(rootCtx);
-          if (!view || typeof view === 'string') return;
-
-          // 获取当前 schema 和 state
-          const { state, dispatch } = view as any;
-          const { schema, selection } = state;
-
-          // 查找 html_block node type
-          const htmlBlockType = schema.nodes.html_block;
-          if (!htmlBlockType) {
-            console.error('html_block node type 未找到');
-            return;
-          }
-
-          // 创建 HTML Block node
-          const node = htmlBlockType.create({
-            id,
-            width,
-          });
-
-          // 在当前位置插入
-          const tr = state.tr.replaceSelectionWith(node);
-          dispatch(tr);
-        });
-      },
-
-      insertImage: (path: string, alt = '') => {
-        if (!editorRef.current) return;
-        // TODO: 插入图片
-        console.log('插入图片:', path, alt);
-      },
-
-      focus: () => {
-        if (!editorRef.current) return;
-        editorRef.current.action((ctx) => {
-          const view = ctx.get(rootCtx);
-          if (view && typeof view !== 'string' && 'focus' in view) {
-            (view as any).focus();
-          }
-        });
-      },
-
-      setMode: (newMode: EditorMode) => {
-        console.log('切换模式:', newMode);
-        // TODO: 实现模式切换
-      },
+    const setDirty = useNoteStore((state) => state.setDirty);
+    const inputs = useRef({ onContentChange, setComposing, setDirty });
+    inputs.current = { onContentChange, setComposing, setDirty };
+    const [session] = useState(() => new EditorSession({ source: initialContent, mode,
+      publish: source => inputs.current.onContentChange?.(source),
+      dirty: () => inputs.current.setDirty(true),
+      composing: value => inputs.current.setComposing(value),
     }));
-
-    // 配置 Milkdown 编辑器
-    useEditor((root) => {
-      const editor = Editor.make()
-        .config((ctx) => {
-          ctx.set(rootCtx, root);
-          ctx.set(defaultValueCtx, initialContent);
-
-          // 监听内容变化
-          ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
-            onContentChange?.(markdown);
-          });
-        })
-        .config((ctx) => {
-          // IME 输入监听
-          const rootElement = ctx.get(rootCtx);
-          if (!rootElement || typeof rootElement === 'string') return;
-
-          rootElement.addEventListener('compositionstart', () => {
-            setComposing(true);
-          });
-
-          rootElement.addEventListener('compositionend', () => {
-            setComposing(false);
-          });
-        })
-        .use(commonmark)
-        .use(gfm)
-        .use(listener)
-        .use(block)
-        .use(htmlBlockPlugin);
-
-      editorRef.current = editor;
-      return editor;
-    }, [initialContent, onContentChange, setComposing]);
-
+    const state = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot);
+    useLayoutEffect(() => {
+      if (!readLockRef) return;
+      const acquire = () => session.acquireReadLock();
+      readLockRef.current = acquire;
+      return () => { if (readLockRef.current === acquire) readLockRef.current = null; };
+    }, [readLockRef, session]);
+    useEffect(() => onReadyChange?.(state.ready), [onReadyChange, state.ready]);
+    const previousMode = useRef(mode);
+    const { loading, get } = useEditor(root => createFlowEditor(root, session, createHtmlHost()), []);
+    useImperativeHandle(ref, () => createEditorApi(session, get), [get, session]);
+    useEffect(() => session.receiveExternal(initialContent), [initialContent, session]);
     useEffect(() => {
-      return () => {
-        editorRef.current = null;
-      };
-    }, []);
-
+      if (!state.ready || state.composing || previousMode.current === mode) return;
+      try { session.setMode(mode); }
+      catch (error) { session.reportNotice(error instanceof Error ? error.message : String(error)); }
+      previousMode.current = mode;
+    }, [mode, state.ready, state.composing, session]);
     return (
-      <div className="flownote-editor" data-mode={mode}>
-        <Milkdown />
+      <div className="flownote-editor" data-mode={state.mode} data-active-editor={state.active} aria-busy={loading || !state.ready}>
+        <EditorModeBar session={session} state={state} />
+        <SourceConflict session={session} state={state} />
+        {state.active === 'source' && <SourceEditor session={session} state={state} />}
+        <div className="editor-visual-surface" hidden={state.active !== 'visual'}>
+          {state.active === 'visual' && <EditorToolbar />}
+          <Milkdown />
+        </div>
       </div>
     );
   }

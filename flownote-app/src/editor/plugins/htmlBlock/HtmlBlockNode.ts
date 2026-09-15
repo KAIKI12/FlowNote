@@ -1,4 +1,5 @@
 import { $node } from '@milkdown/utils';
+import { parseHtmlReference, validBlockId } from '../../../note/htmlBlockData';
 
 /**
  * FlowNote HTML Block Node
@@ -6,6 +7,7 @@ import { $node } from '@milkdown/utils';
 export const htmlBlockNode = $node('html_block', () => ({
   group: 'block',
   atom: true,
+  isolating: true,
   attrs: {
     id: { default: '' },
     width: { default: 'normal' },
@@ -16,6 +18,7 @@ export const htmlBlockNode = $node('html_block', () => ({
       getAttrs: (dom) => {
         if (typeof dom === 'string') return false;
         const element = dom as HTMLElement;
+        if (!validBlockId(element.getAttribute('data-id'))) return false;
         return {
           id: element.getAttribute('data-id') || '',
           width: element.getAttribute('data-width') || 'normal',
@@ -33,43 +36,25 @@ export const htmlBlockNode = $node('html_block', () => ({
         'data-width': width,
         class: `html-block-container html-block-container--${width}`,
       },
-      [
-        'div',
-        { class: 'html-block-header' },
-        ['span', { class: 'html-block-label' }, 'HTML'],
-        ['span', { class: 'html-block-id' }, id],
-      ],
-      [
-        'div',
-        { class: 'html-block-content' },
-        ['div', { class: 'html-block-placeholder' }, `HTML Block: ${id}`],
-      ],
+      ['div', { class: 'html-block-header' }, ['span', { class: 'html-block-label' }, 'HTML']],
+      ['div', { class: 'html-block-content' }, 'HTML Block'],
     ];
   },
   parseMarkdown: {
-    match: (node) => node.type === 'code' && node.lang === 'flownote-html',
+    match: node => node.type === 'code' && node.lang === 'flownote-html' && !node.meta && !!parseHtmlReference(node.value),
     runner: (state, node, type) => {
-      const value = node.value as string;
-      try {
-        const data = JSON.parse(value);
-        state.addNode(type, {
-          id: data.id || '',
-          width: data.width || 'normal',
-        });
-      } catch (e) {
-        console.error('解析 HTML Block 失败:', e);
-      }
+      const id = parseHtmlReference(node.value);
+      if (!id) throw new Error('Invalid FlowNote Block Reference');
+      state.addNode(type, { id });
     },
   },
   toMarkdown: {
     match: (node) => node.type.name === 'html_block',
     runner: (state, node) => {
+      if (!validBlockId(node.attrs.id)) throw new Error('Invalid FlowNote Block Reference');
       state.addNode('code', undefined, undefined, {
         lang: 'flownote-html',
-        value: JSON.stringify({
-          id: node.attrs.id,
-          width: node.attrs.width,
-        }),
+        value: JSON.stringify({ id: node.attrs.id }),
       });
     },
   },

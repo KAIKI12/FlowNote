@@ -1,0 +1,453 @@
+{
+  "generatedAt": "2026-09-13T13:28:51.183Z",
+  "gateDecision": "pending",
+  "diskSaveVerified": false,
+  "baseCommit": "3a8247ac43138537676125ff3b09aaa284ca071d",
+  "worktree": "uncommitted",
+  "codeSha256": "ddc472788ac6912b7d27020fc4a60adcab2afde48727d8c96f173369c7c23568",
+  "environment": {
+    "os": "Windows 11 Pro",
+    "release": "10.0.22631",
+    "arch": "x64",
+    "node": "v24.14.1",
+    "milkdown": "7.22.1",
+    "prosemirrorModel": "1.25.11",
+    "prosemirrorState": "1.4.4",
+    "prosemirrorView": "1.42.3",
+    "jsdom": "26.1.0"
+  },
+  "nativeLayoutAndIME": "not tested",
+  "automatedDomAssertions": 101,
+  "assetCheck": {
+    "command": "npm run test:qualification-assets",
+    "passed": 4,
+    "scope": "PNG bytes over local HTTP, HEAD, 404 and path containment"
+  },
+  "suites": {
+    "stageOne": {
+      "scope": "stage-one: editing, DOM and computed styles",
+      "nativeLayoutAndIME": "not tested",
+      "results": [
+        {
+          "name": "基础显示：标题、强调、引用、表格、代码均有正确结构",
+          "status": "passed"
+        },
+        {
+          "name": "基础显示：正文使用文档布局并保留列表缩进",
+          "status": "passed"
+        },
+        {
+          "name": "代码高亮：关键字和字符串着色，源码不变",
+          "status": "passed"
+        },
+        {
+          "name": "撤销重做：普通输入可恢复且不丢原文",
+          "status": "passed"
+        },
+        {
+          "name": "任务列表：有可点击的复选框并保留 Markdown 状态",
+          "status": "passed"
+        },
+        {
+          "name": "列表操作：Tab 缩进及 Shift+Tab 还原层级",
+          "status": "passed"
+        },
+        {
+          "name": "列表操作：Enter 新建及 Backspace 保留内容",
+          "status": "passed"
+        },
+        {
+          "name": "代码操作：Tab / Shift+Tab 缩进源码",
+          "status": "passed"
+        },
+        {
+          "name": "表格操作：Tab 换格及末格新增行",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴操作：富文本嵌套列表保留层级",
+          "status": "passed"
+        },
+        {
+          "name": "撤销边界：装载后的首次输入独立撤销",
+          "status": "passed"
+        },
+        {
+          "name": "中文保护：composition 期间延迟外部更新",
+          "status": "passed"
+        },
+        {
+          "name": "中文保护：输入内容不重复且编辑器不重建",
+          "status": "passed"
+        },
+        {
+          "name": "键盘撤销：Ctrl+Z / Ctrl+Y",
+          "status": "passed"
+        },
+        {
+          "name": "工具栏：加粗、斜体和独立撤销",
+          "status": "passed"
+        },
+        {
+          "name": "工具栏：插入表格与增加行列",
+          "status": "passed"
+        },
+        {
+          "name": "工具栏：普通段落转为任务列表",
+          "status": "passed"
+        },
+        {
+          "name": "工具栏：拒绝危险链接并保留正文",
+          "status": "passed"
+        },
+        {
+          "name": "工具栏：组合输入期间禁用格式操作",
+          "status": "passed"
+        },
+        {
+          "name": "回归：装载之前的最近输入不会被合并撤销",
+          "status": "passed"
+        },
+        {
+          "name": "回归：中文组合输入结束后任务框仍可点击",
+          "status": "passed"
+        },
+        {
+          "name": "回归：不能单独删除必需表头并破坏列对齐",
+          "status": "passed"
+        },
+        {
+          "name": "回归：Tauri 协议下可插入相对链接",
+          "status": "passed"
+        },
+        {
+          "name": "默认首页：打开即为可编辑的普通 Markdown 笔记",
+          "status": "passed"
+        },
+        {
+          "name": "笔记导出：读取编辑器最新正文，不使用滞后状态",
+          "status": "passed"
+        },
+        {
+          "name": "关闭保护：首次修改后立即关闭也会提示",
+          "status": "passed"
+        },
+        {
+          "name": "导出范围：Mixed Note 即使没有 HTML 映射也拒绝简化导出",
+          "status": "passed"
+        }
+      ],
+      "domErrors": []
+    },
+    "protection": {
+      "scope": "protection: editing, DOM and computed styles",
+      "nativeLayoutAndIME": "not tested",
+      "results": [
+        {
+          "name": "源码保护：05-unsupported-syntax.md 初始载入、重载与实际编辑保真",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：08-roundtrip-stress.md 初始载入、重载与实际编辑保真",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：空文档仍可正常可视化输入",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：API 装载公式、WikiLink、HTML、Footnote 与代码扩展",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：源码修改即标脏，旧可视化回调不能覆盖",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：危险文档不能强制可视化，移除扩展后可主动切换",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：普通文档可切源码，代码与转义示例不会误触保护",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：CRLF、BOM 与局部编辑保留未改动的源码",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：粘贴扩展源码保留选区前后正文",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：逐字输入 WikiLink 在转义前切换源码",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：代码中的 WikiLink 和公式示例仍作为代码",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：源码 IME 与外部更新冲突保留两个版本",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：源码回传不重建、不移动光标，并支持撤销重做",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：HTML 原文不执行，源码只读与命令隔离",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：解析异常可见，仍可编辑和导出原文",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：先输入左括号再粘贴双链尾部不会残留转义",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：相同内容的后续外部更新不会被误认成旧回传",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：已有货币符号不会遮蔽新输入的公式",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：空 Frontmatter 与 YAML 结束标记也保留原文",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：重复选择源码和临时只读不会清空撤销栈",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：公式内空白、换行和数字后缀均保留",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：组合输入期间模式属性更新不会卸载正文",
+          "status": "passed"
+        },
+        {
+          "name": "源码输入：即时更新正文，延后语法提示且旧分析不覆盖新文档",
+          "status": "passed"
+        },
+        {
+          "name": "源码输入：一次中文组合输入可完整撤销",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：组合输入期间已撤回的外部更新不会延后复活",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：01-lists-basic.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：02-lists-deep.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：03-lists-mixed.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：04-list-block-content.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：05-unsupported-syntax.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：06-chinese-ime.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：07-paste-target.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：08-roundtrip-stress.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "产品保护：导出真实源码编辑结果，保留 BOM / CRLF 并提示未保存",
+          "status": "passed"
+        },
+        {
+          "name": "产品保护：组合输入开始后立即 Ctrl+S 也不能导出未完成内容",
+          "status": "passed"
+        },
+        {
+          "name": "产品保护：Gate 记录真实源码模式，不把隐藏 AST 当作当前文档",
+          "status": "passed"
+        },
+        {
+          "name": "文件保护：实际读取 UTF-8 文件保留 BOM 与 CRLF",
+          "status": "passed"
+        },
+        {
+          "name": "文件保护：非法 UTF-8 明确报错并保留原有正文",
+          "status": "passed"
+        }
+      ],
+      "domErrors": []
+    },
+    "qualification": {
+      "scope": "qualification: editing, DOM and computed styles",
+      "nativeLayoutAndIME": "not tested",
+      "results": [
+        {
+          "name": "L11 资源：提供有效的 PNG 测试图片",
+          "status": "passed"
+        },
+        {
+          "name": "L11 图片：既有 API 替换选区并保留列表归属和路径",
+          "status": "passed"
+        },
+        {
+          "name": "L11 图片：插入可独立撤销和重做",
+          "status": "passed"
+        },
+        {
+          "name": "L11 图片：工具栏可输入地址和替代文字",
+          "status": "passed"
+        },
+        {
+          "name": "P02 粘贴：纯 Markdown 混合嵌套保留结构与前后正文",
+          "status": "passed"
+        },
+        {
+          "name": "P03 粘贴：代码块属于原列表项且后续项不合并",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：带空格路径和特殊替代文字可以往返",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：非法或不可持久引用的地址不会修改正文",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：源码和只读模式不会修改隐藏文档",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：组合输入期间禁止插入并禁用按钮",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：不能把图片塞进代码块并改变内容",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：Tauri 环境中保留相对路径",
+          "status": "passed"
+        },
+        {
+          "name": "L01 基本列表：局部修改后内容、类型和顺序保持",
+          "status": "passed"
+        },
+        {
+          "name": "L02 五层无序：编辑最深子项后仍保留全部层级",
+          "status": "passed"
+        },
+        {
+          "name": "L03 五层有序：编辑最深子项后仍保留全部层级",
+          "status": "passed"
+        },
+        {
+          "name": "L04/L06 混合列表：有序→无序→有序缩进与退回",
+          "status": "passed"
+        },
+        {
+          "name": "L05/L06 混合列表：无序→有序→无序缩进与退回",
+          "status": "passed"
+        },
+        {
+          "name": "L07 空项：嵌套列表 Enter 和 Backspace 不改变其他项",
+          "status": "passed"
+        },
+        {
+          "name": "L07 分合：含子列表的项目拆分合并后结构恢复",
+          "status": "passed"
+        },
+        {
+          "name": "L08 行内格式：修改粗体与代码不会损坏列表及链接",
+          "status": "passed"
+        },
+        {
+          "name": "L09 多块列表：第二段、代码和子列表保持同一父项",
+          "status": "passed"
+        },
+        {
+          "name": "L10 引用列表：编辑后引用与混合列表保持嵌套",
+          "status": "passed"
+        },
+        {
+          "name": "L11 图片归属：含图片列表项缩进退回后仍属于原项",
+          "status": "passed"
+        },
+        {
+          "name": "L12 任务混合：勾选任务保留其普通和有序子项",
+          "status": "passed"
+        },
+        {
+          "name": "R02 局部编辑：混合列表只修改 LSU，其他语义不变",
+          "status": "passed"
+        },
+        {
+          "name": "P01 富文本：强调、代码与嵌套列表仍为 Markdown 节点",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴边界：代码块中的 Markdown 保持字面文本",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴边界：Ctrl+Shift+V 按纯文本粘贴",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：普通文本保留首尾空格、单空格和 Tab",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：普通文字继承当前加粗上下文",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：行内代码中的 Markdown 保持字面内容",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：带格式的行内 Markdown 保留边缘空格",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：替换整个代码跨度时公式仍是字面文本",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：Markdown 实体和转义按原语义解码并可重载",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：解码的文字及边缘空白继承当前格式",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：纯文本快捷键保留实体与转义原样",
+          "status": "passed"
+        }
+      ],
+      "domErrors": []
+    }
+  }
+}

@@ -1,0 +1,744 @@
+{
+  "schemaVersion": 1,
+  "milestone": "stage-four-markdown-files",
+  "generatedAt": "2026-09-14T13:07:10.488Z",
+  "gateDecision": "pending",
+  "baseCommit": "3a8247ac43138537676125ff3b09aaa284ca071d",
+  "workingTree": "uncommitted",
+  "verified": {
+    "productEditorToRustToDisk": true,
+    "nativePicker": false,
+    "nativeTauriIpc": false,
+    "nativeWindowClose": false,
+    "nativeLayout": false,
+    "realChineseIME": false,
+    "powerLossRecovery": false,
+    "fullSaclPreservation": false
+  },
+  "transport": "Test-only stdio adapter substitutes picker/IPC; uses the production Rust FileStore and real temporary disk files.",
+  "environment": {
+    "os": "Windows 11 Pro",
+    "release": "10.0.22631",
+    "arch": "x64",
+    "node": "v24.14.1",
+    "rust": "1.95.0",
+    "tauri": "2.11.5",
+    "dialog": "2.7.3",
+    "milkdown": "7.22.1",
+    "jsdom": "26.1.0"
+  },
+  "sourceHashes": {
+    "package-lock.json": "f9093f14065e6956291f1fec367212a256f627f37b437850f78aa2620d5ba684",
+    "package.json": "e5136622a42e3e925a6515477bac7ab222114b9904c1ab7df49ad71cecde5854",
+    "src-tauri/Cargo.lock": "0a7f3c7479ac24c61237af6e4ad3b6a58b4b958fc39e2d7d4862f1e1bb7575b6",
+    "src-tauri/Cargo.toml": "ab84b4aff7576386833092f8065c714fab2871f908dd12e62c9b4acb29504e73",
+    "src-tauri/capabilities/default.json": "9ef5a411364e78ae5b0236a6dec24b3f48a99d2570ed7aa9f0bfcba6f7e3231c",
+    "src-tauri/src/atomic_save.rs": "31c588fb95ec1cd7899dab272eb9af25c47f7438f7ec23801bfca124b551cc42",
+    "src-tauri/src/file_commands.rs": "54d89eb19fb31900dee12d6fd3095da84a8a1d3a1057e726cd6b5da00be11d82",
+    "src-tauri/src/file_data.rs": "b9f90b1026cc9b9f4f8a1c10c5e2f4dba317c4a9335255421d3928ec698831b1",
+    "src-tauri/src/file_error.rs": "752a918322838876effd6607a3214678c5a64ae0409773e68f83bab9be095a50",
+    "src-tauri/src/lib.rs": "3974cb0d7c87b4f8a74d2800c308375c75b498e4686f4f7a7a4c22a9f4a9dea8",
+    "src-tauri/src/main.rs": "58f3bb605767461c93654f8e29cadbeaa24bd7375b31fcab7de76bb48fd04c12",
+    "src-tauri/src/markdown_files.rs": "553745627c63d088eca2935dbb2a4a934ef352de5c90e388457181d6fbd16199",
+    "src-tauri/src/windows_file.rs": "d48edd5668640acc792523454f1a230d999db51ba91d8d3d3ed63f10fb0a05e9",
+    "src-tauri/src/windows_metadata.rs": "8191d8b7df8c5e5e1fc2421f554e464f8cc5107f1c2e3e0fca7fa4fa69934fe4",
+    "src-tauri/src/windows_save.rs": "14c0c3eb6ed670c3640f9244d28686c1fae0f87b5306d50a81872bd165fadd77",
+    "src-tauri/src/windows_save_tests.rs": "bf713f66c40cb3c61cb2c03ed37a06458c6add82d9440b4e07a2e1182be05ceb",
+    "src-tauri/src/windows_security.rs": "3690e84bca7ea744abaa046c0c8b4c94a35aa3d04de0c5bda22b7ecae2ccb0b3",
+    "src-tauri/tauri.conf.json": "2e9518c78d2b6cabb58a40d8232029373dca87f5926cf8a67749fb8de7388c10",
+    "src-tauri/tests/file_driver.rs": "c3728cc58a2997ff5db78bf17191dac49889e0f893bd22bcd755de9c5a4fe89b",
+    "src-tauri/tests/file_metadata.rs": "2cb73b1353234d5f0c1fd22954d9357bc150d2bdacf8c2fe2e9150c051accaf9",
+    "src-tauri/tests/markdown_files.rs": "e3d04a0f03c63554ff089a2e997fd1698601a5d895d37897537c055ea5b485ad",
+    "src-tauri/tests/save_races.rs": "d3d7b68d7410847939893669484204f89167fdd34425d3eabb9b09b196f7b5a2",
+    "src/app/App.tsx": "af9c7a5ca323018307f255641413feaaf6941c42b50667e15d0b3ebde94a6b06",
+    "src/components/Editor.tsx": "30f1b070b3737e2747ab928f6faa0d64dd97e704de1e55d6cda32d08fb4372a1",
+    "src/components/FileTree.tsx": "2040a60106eaea522ff01283dcccdaea9768a4d21eeeffd410cb5a8f6e1b40fe",
+    "src/components/Inspector.tsx": "e6c4191f401ee3bdda13a6cf64faca7b1f1a785d7a705bcb038351f203db85f9",
+    "src/editor/EditorToolbar.tsx": "a5792b31110c0b48718c8c7abaf7c6ad19794814a5eb5c64c871b6a49ef1b31d",
+    "src/editor/FlowNoteEditor.tsx": "0a55800e88822b184c48effc99a2c3b4e4fa67b3c3e4f106f729fd5c86bc991c",
+    "src/editor/MarkdownQualification.tsx": "3d3286145c3d5f0ad444a6573a7d763bdf330e537754d03cc14ff9fbf8ae2caf",
+    "src/editor/SourceEditor.tsx": "10bdfe0c7460c81d4f510be335d236b796004ca98070369b360dbd524bdf60fc",
+    "src/editor/editorActions.ts": "64335ae78f1694cef4b8f2a9fd58889b518927398f4379c3cd5095447ee2e434",
+    "src/editor/editorInteractions.ts": "5da45f04a16796a817b451bc1149e4cf84e60c6a80d8220c2d2bdee63899ec91",
+    "src/editor/editorRuntime.ts": "263647f39ea62bcc5510cbd36bd78b1bc11300edb7fd3b971804c995a1d88977",
+    "src/editor/editorSession.ts": "d8e33e6bbb02754543176af317afb3cd91e48689b42e26ff019c94b875f21a41",
+    "src/editor/editorTypes.ts": "eb1909a34e007f1091721ffb90f0382b597c73b7e12f618e5d2062e1f3b3a636",
+    "src/editor/inputContext.ts": "91dfe13db6afc6756cb3c3c47eba9867c986772b94f61d9e4989b4c0744a97ac",
+    "src/editor/markdownBridge.ts": "dd9bb86a8a89c3a5aef50f08b02b0e33ee2c6e21672eab4bde60f30f6030860f",
+    "src/editor/markdownClipboard.ts": "8155fcfc9bec9852627e8f2da5f26a323addf6552f4bfb18e427a03174a40c82",
+    "src/editor/markdownProtection.ts": "d00e34997160214c9b549801d12ba1eb112729d3bc5cddf000fc4cfde39a632a",
+    "src/editor/plugins/htmlBlock/HtmlBlockNode.ts": "af6c91b0ce91685000e453e48f6fb274c91236b65ad2ecec925e426fd2a081bd",
+    "src/editor/plugins/htmlBlock/HtmlBlockView.tsx": "d08e51576abcee8944bbc29ea19b0bb28f0c440fa873fe73ce6628e444756c36",
+    "src/editor/plugins/htmlBlock/htmlBlockPlugin.ts": "6ec7b7e357200384a848efbeca24a9d512ba546b05c325bb9883675a431d4794",
+    "src/editor/plugins/slash/SlashMenu.tsx": "59ed2c6098be7794552511838d5246d5298d2b00b9bf6576a0c6ac2e9b1ed93b",
+    "src/editor/protectedInput.ts": "06afb09a2c63b400831d6f9c642667629c1c1a4f58eeccbd456eed4eefcf063c",
+    "src/editor/sourceBuffer.ts": "c6a6a1707919a59acf9cb3c9e36199d29959a669e4b2bb4d30fcce97eb5214bb",
+    "src/editor/taskListPlugin.ts": "529dd457a164b254e0f80458982cc62fa73ad437f2edc8353045347e1d0c4c0b",
+    "src/files/FileControls.tsx": "c92836700a6ee40afee614e207ca0d65dfaccfcd65fa3193dbc6339349672dee",
+    "src/files/defaultFilePort.ts": "0ea3d3d2b5270f4362ea086a3334bb991982dbe9b1b16998b8366f7ce8715328",
+    "src/files/documentSession.ts": "03f7324daf724add659e077dfaa729b000647eb76a9785f0cc55484d3001a5d2",
+    "src/files/fileEncoding.ts": "ae527654d36cff8bf43e07976efd49ba1bef13aad6cdfdec12f3a6f122348e64",
+    "src/files/fileTypes.ts": "3293a30cd12c7b7d5e55c86505e826f9bd0b577ea1f695c30a1c8a383d639cb1",
+    "src/files/importFilePort.ts": "c0ea4ce29ba68ab8be84d086983930edb78798496c44df7b0f1d97bc90937832",
+    "src/files/nativeFilePort.ts": "b514ce51d1eb377332daecf5b980c744c7b4e7aba667a670a7077e5df59ec08e",
+    "src/files/useDocumentFiles.ts": "c75fad1f7e10d74bf850853b1ec932d78958ac6417dc371ad0504b29190aabf1",
+    "src/html/HtmlSandbox.tsx": "7fa8154d73e1a6a1fe5890f0f69d0c28d4433740ed4b89e925c6185a8e304737",
+    "src/main.tsx": "1feeee23d16cf6f9b300a895140405c2670b6931c319a7a46d9f011b33714ba0",
+    "src/note/noteLoader.ts": "d06fd96d007fc08ac690fb622d52ac207f9d981a3df1388cae09a6e1422a704c",
+    "src/note/noteSaver.ts": "9f4eeb3d746cdb50c2a5b063c6d6303aac9d8b1ab21189e45dba51f6bf940bbe",
+    "src/note/noteStore.ts": "b68b51d937e8637e972b65b0b81b84d1e4079423d008e7eb6e730be295d487f3",
+    "src/note/noteTypes.ts": "3baf3e411f806d36d3ab306d0688abdb33328761528a8cf7a453a442375cc8e9",
+    "src/utils/downloadText.ts": "644798093f9d9266c35b283b0db2069354faddabd1fbb7c2c4597dfc30152274",
+    "src/vite-env.d.ts": "5e81c40120bef3b61ce8c8ed68349f82521247869abf856eead334bf13c1f72f",
+    "tests/appEditing.spec.tsx": "21744da8fbacb500339289babcd11681e8d2cb6dbda56811b5de605a5afae1f9",
+    "tests/check-qualification-assets.mjs": "07f79bd699f91c4b5c0d33d5a7e539225bf3d1c57ca849e1c3f77686436e87cc",
+    "tests/clipboardRegressions.spec.ts": "8d1bd6b571b91fb36469f9135cec4f161f5ac78e3d8f8e652f3186ae13d7d03b",
+    "tests/documentSession.spec.ts": "94bbddfb6ed5be71878e59699b4334613ce72667199e135b4061f78a1e2d72d2",
+    "tests/editorHarness.tsx": "05ad340e71735da911bcb6873ed56a211c921924348bd9b320cfc2a5b11503ce",
+    "tests/editorInteractions.spec.ts": "38a0b190e584d90ea07acf65c1606dac7135d317625234263e2c10f1180679ba",
+    "tests/editorRegressions.spec.ts": "036b81c9a9b64ec72488c8cd69904bb6ee59a3d64637be7dfef84a8096b2e80c",
+    "tests/editorToolbar.spec.ts": "e40c44d85e6eef870aafe358e0045da7525c06ba370cea796ba6e2d91a446cd9",
+    "tests/file-disk.spec.tsx": "bc4e17f0f5107ad0b9864a1931537249af9f0f3b3695e15614833f0db8269568",
+    "tests/fileDriver.ts": "912bf10d4ea711a108a551eca0771ab706e94dd2de0c74d9abc0019f25e86566",
+    "tests/files.spec.tsx": "6f488d288bf96372a6b3fa43eeeea33e364f3c3831cda1e9f68376d7fd0b7d90",
+    "tests/imageQualification.spec.ts": "2770f4a64c183934c576e13fd390716720183e8c8af0ea0a4f844a0e8b59e368",
+    "tests/listQualification.spec.ts": "34f50d925adfad64e2fafc4dce31d12d8b4889464e8a76907325f7ea2900430c",
+    "tests/protection.spec.tsx": "f8ab79173424412edbc41f3e523880ba04aeb05236167c85f2ef0c5663e001c5",
+    "tests/protectionApp.spec.tsx": "2d30d72c28f9875266ebd7b463f3d8edf622b06f799e92b8c8ca07a03eb9e483",
+    "tests/protectionFixtures.spec.ts": "59e5b53f6148a1d63bd9c38dc0f39f43aa3abed56619379200d875f97c7c42f6",
+    "tests/protectionInputs.spec.ts": "d719eaa75f93c09cfb0db9dbc8af8923e405b5e334ae9b5ecc2995674f6cf3e9",
+    "tests/protectionRegressions.spec.ts": "35841f64689ebca4c1d895c5bc736ea2f6f2aa447864adacfb947edf8315d481",
+    "tests/qualification.spec.tsx": "0892f60cf43181e281119ab884138baa57426ff8738727725a6eaebc99742fde",
+    "tests/run-file-disk.mjs": "d35ee3c9924996c7e413526ec6da536bd739e8d3363a007731b9ee168db4f738",
+    "tests/run-stage-one.mjs": "952f741ae34a135ce59517f38f83d093a776f6ad701df127ef40fe989c751d8f",
+    "tests/stage-one.spec.tsx": "c5fdcf412fe34f9c2f8fe1ad43f4166f80b126598be176fe08279b98867c480d",
+    "vite.config.ts": "5418b2fbbfefe4a82ef65e6a7cf5e2bbbe9e62c1ea50c1b01bb3d6288587f4e2"
+  },
+  "suites": {
+    "stageOne": {
+      "scope": "stage-one: editing, DOM and computed styles",
+      "nativePickerLayoutAndIME": "not tested",
+      "results": [
+        {
+          "name": "基础显示：标题、强调、引用、表格、代码均有正确结构",
+          "status": "passed"
+        },
+        {
+          "name": "基础显示：正文使用文档布局并保留列表缩进",
+          "status": "passed"
+        },
+        {
+          "name": "代码高亮：关键字和字符串着色，源码不变",
+          "status": "passed"
+        },
+        {
+          "name": "撤销重做：普通输入可恢复且不丢原文",
+          "status": "passed"
+        },
+        {
+          "name": "任务列表：有可点击的复选框并保留 Markdown 状态",
+          "status": "passed"
+        },
+        {
+          "name": "列表操作：Tab 缩进及 Shift+Tab 还原层级",
+          "status": "passed"
+        },
+        {
+          "name": "列表操作：Enter 新建及 Backspace 保留内容",
+          "status": "passed"
+        },
+        {
+          "name": "代码操作：Tab / Shift+Tab 缩进源码",
+          "status": "passed"
+        },
+        {
+          "name": "表格操作：Tab 换格及末格新增行",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴操作：富文本嵌套列表保留层级",
+          "status": "passed"
+        },
+        {
+          "name": "撤销边界：装载后的首次输入独立撤销",
+          "status": "passed"
+        },
+        {
+          "name": "中文保护：composition 期间延迟外部更新",
+          "status": "passed"
+        },
+        {
+          "name": "中文保护：输入内容不重复且编辑器不重建",
+          "status": "passed"
+        },
+        {
+          "name": "键盘撤销：Ctrl+Z / Ctrl+Y",
+          "status": "passed"
+        },
+        {
+          "name": "工具栏：加粗、斜体和独立撤销",
+          "status": "passed"
+        },
+        {
+          "name": "工具栏：插入表格与增加行列",
+          "status": "passed"
+        },
+        {
+          "name": "工具栏：普通段落转为任务列表",
+          "status": "passed"
+        },
+        {
+          "name": "工具栏：拒绝危险链接并保留正文",
+          "status": "passed"
+        },
+        {
+          "name": "工具栏：组合输入期间禁用格式操作",
+          "status": "passed"
+        },
+        {
+          "name": "回归：装载之前的最近输入不会被合并撤销",
+          "status": "passed"
+        },
+        {
+          "name": "回归：中文组合输入结束后任务框仍可点击",
+          "status": "passed"
+        },
+        {
+          "name": "回归：不能单独删除必需表头并破坏列对齐",
+          "status": "passed"
+        },
+        {
+          "name": "回归：Tauri 协议下可插入相对链接",
+          "status": "passed"
+        },
+        {
+          "name": "默认首页：打开即为可编辑的普通 Markdown 笔记",
+          "status": "passed"
+        },
+        {
+          "name": "笔记导出：读取编辑器最新正文，不使用滞后状态",
+          "status": "passed"
+        },
+        {
+          "name": "关闭保护：首次修改后立即关闭也会提示",
+          "status": "passed"
+        },
+        {
+          "name": "导出范围：Mixed Note 即使没有 HTML 映射也拒绝简化导出",
+          "status": "passed"
+        }
+      ],
+      "domErrors": [],
+      "reportGeneratedAt": "2026-09-14T12:13:29.941Z"
+    },
+    "protection": {
+      "scope": "protection: editing, DOM and computed styles",
+      "nativePickerLayoutAndIME": "not tested",
+      "results": [
+        {
+          "name": "源码保护：05-unsupported-syntax.md 初始载入、重载与实际编辑保真",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：08-roundtrip-stress.md 初始载入、重载与实际编辑保真",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：空文档仍可正常可视化输入",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：API 装载公式、WikiLink、HTML、Footnote 与代码扩展",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：源码修改即标脏，旧可视化回调不能覆盖",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：危险文档不能强制可视化，移除扩展后可主动切换",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：普通文档可切源码，代码与转义示例不会误触保护",
+          "status": "passed"
+        },
+        {
+          "name": "源码保护：CRLF、BOM 与局部编辑保留未改动的源码",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：粘贴扩展源码保留选区前后正文",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：逐字输入 WikiLink 在转义前切换源码",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：代码中的 WikiLink 和公式示例仍作为代码",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：源码 IME 与外部更新冲突保留两个版本",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：源码回传不重建、不移动光标，并支持撤销重做",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：HTML 原文不执行，源码只读与命令隔离",
+          "status": "passed"
+        },
+        {
+          "name": "输入保护：解析异常可见，仍可编辑和导出原文",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：先输入左括号再粘贴双链尾部不会残留转义",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：相同内容的后续外部更新不会被误认成旧回传",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：已有货币符号不会遮蔽新输入的公式",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：空 Frontmatter 与 YAML 结束标记也保留原文",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：重复选择源码和临时只读不会清空撤销栈",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：公式内空白、换行和数字后缀均保留",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：组合输入期间模式属性更新不会卸载正文",
+          "status": "passed"
+        },
+        {
+          "name": "源码输入：即时更新正文，延后语法提示且旧分析不覆盖新文档",
+          "status": "passed"
+        },
+        {
+          "name": "源码输入：一次中文组合输入可完整撤销",
+          "status": "passed"
+        },
+        {
+          "name": "保护回归：组合输入期间已撤回的外部更新不会延后复活",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：01-lists-basic.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：02-lists-deep.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：03-lists-mixed.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：04-list-block-content.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：05-unsupported-syntax.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：06-chinese-ime.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：07-paste-target.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "资格样例：08-roundtrip-stress.md 载入与两次往返",
+          "status": "passed"
+        },
+        {
+          "name": "产品保护：导出真实源码编辑结果，保留 BOM / CRLF 并提示未保存",
+          "status": "passed"
+        },
+        {
+          "name": "产品保护：组合输入开始后立即 Ctrl+S 也不能导出未完成内容",
+          "status": "passed"
+        },
+        {
+          "name": "产品保护：Gate 记录真实源码模式，不把隐藏 AST 当作当前文档",
+          "status": "passed"
+        },
+        {
+          "name": "文件保护：实际读取 UTF-8 文件保留 BOM 与 CRLF",
+          "status": "passed"
+        },
+        {
+          "name": "文件保护：非法 UTF-8 明确报错并保留原有正文",
+          "status": "passed"
+        }
+      ],
+      "domErrors": [],
+      "reportGeneratedAt": "2026-09-14T12:39:53.947Z"
+    },
+    "qualification": {
+      "scope": "qualification: editing, DOM and computed styles",
+      "nativePickerLayoutAndIME": "not tested",
+      "results": [
+        {
+          "name": "L11 资源：提供有效的 PNG 测试图片",
+          "status": "passed"
+        },
+        {
+          "name": "L11 图片：既有 API 替换选区并保留列表归属和路径",
+          "status": "passed"
+        },
+        {
+          "name": "L11 图片：插入可独立撤销和重做",
+          "status": "passed"
+        },
+        {
+          "name": "L11 图片：工具栏可输入地址和替代文字",
+          "status": "passed"
+        },
+        {
+          "name": "P02 粘贴：纯 Markdown 混合嵌套保留结构与前后正文",
+          "status": "passed"
+        },
+        {
+          "name": "P03 粘贴：代码块属于原列表项且后续项不合并",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：带空格路径和特殊替代文字可以往返",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：非法或不可持久引用的地址不会修改正文",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：源码和只读模式不会修改隐藏文档",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：组合输入期间禁止插入并禁用按钮",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：不能把图片塞进代码块并改变内容",
+          "status": "passed"
+        },
+        {
+          "name": "图片边界：Tauri 环境中保留相对路径",
+          "status": "passed"
+        },
+        {
+          "name": "L01 基本列表：局部修改后内容、类型和顺序保持",
+          "status": "passed"
+        },
+        {
+          "name": "L02 五层无序：编辑最深子项后仍保留全部层级",
+          "status": "passed"
+        },
+        {
+          "name": "L03 五层有序：编辑最深子项后仍保留全部层级",
+          "status": "passed"
+        },
+        {
+          "name": "L04/L06 混合列表：有序→无序→有序缩进与退回",
+          "status": "passed"
+        },
+        {
+          "name": "L05/L06 混合列表：无序→有序→无序缩进与退回",
+          "status": "passed"
+        },
+        {
+          "name": "L07 空项：嵌套列表 Enter 和 Backspace 不改变其他项",
+          "status": "passed"
+        },
+        {
+          "name": "L07 分合：含子列表的项目拆分合并后结构恢复",
+          "status": "passed"
+        },
+        {
+          "name": "L08 行内格式：修改粗体与代码不会损坏列表及链接",
+          "status": "passed"
+        },
+        {
+          "name": "L09 多块列表：第二段、代码和子列表保持同一父项",
+          "status": "passed"
+        },
+        {
+          "name": "L10 引用列表：编辑后引用与混合列表保持嵌套",
+          "status": "passed"
+        },
+        {
+          "name": "L11 图片归属：含图片列表项缩进退回后仍属于原项",
+          "status": "passed"
+        },
+        {
+          "name": "L12 任务混合：勾选任务保留其普通和有序子项",
+          "status": "passed"
+        },
+        {
+          "name": "R02 局部编辑：混合列表只修改 LSU，其他语义不变",
+          "status": "passed"
+        },
+        {
+          "name": "P01 富文本：强调、代码与嵌套列表仍为 Markdown 节点",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴边界：代码块中的 Markdown 保持字面文本",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴边界：Ctrl+Shift+V 按纯文本粘贴",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：普通文本保留首尾空格、单空格和 Tab",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：普通文字继承当前加粗上下文",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：行内代码中的 Markdown 保持字面内容",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：带格式的行内 Markdown 保留边缘空格",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：替换整个代码跨度时公式仍是字面文本",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：Markdown 实体和转义按原语义解码并可重载",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：解码的文字及边缘空白继承当前格式",
+          "status": "passed"
+        },
+        {
+          "name": "粘贴回归：纯文本快捷键保留实体与转义原样",
+          "status": "passed"
+        }
+      ],
+      "domErrors": [],
+      "reportGeneratedAt": "2026-09-14T12:39:57.598Z"
+    },
+    "files": {
+      "scope": "files: editing, DOM and computed styles",
+      "nativePickerLayoutAndIME": "not tested",
+      "results": [
+        {
+          "name": "文件会话：无编辑保留原字节，编辑保存保留编码与换行",
+          "status": "passed"
+        },
+        {
+          "name": "文件会话：保存回执不能清除保存期间的新输入",
+          "status": "passed"
+        },
+        {
+          "name": "文件会话：连续保存按序写入最新内容",
+          "status": "passed"
+        },
+        {
+          "name": "文件会话：保存失败或冲突保留正文和 Dirty",
+          "status": "passed"
+        },
+        {
+          "name": "文件会话：新建的取消和放弃行为明确",
+          "status": "passed"
+        },
+        {
+          "name": "文件会话：保存并重载不能应用保存前的旧候选",
+          "status": "passed"
+        },
+        {
+          "name": "文件会话：组合输入期间不保存或切换正文",
+          "status": "passed"
+        },
+        {
+          "name": "文件会话：保存后的重载仍保持操作串行",
+          "status": "passed"
+        },
+        {
+          "name": "文件会话：卸载后的迟到重载不能替换正文",
+          "status": "passed"
+        },
+        {
+          "name": "文件入口：新建、打开、保存、另存为和关闭笔记",
+          "status": "passed"
+        },
+        {
+          "name": "文件入口：新建不会静默丢弃当前修改",
+          "status": "passed"
+        },
+        {
+          "name": "文件入口：不支持直接保存时明确保留导出",
+          "status": "passed"
+        },
+        {
+          "name": "网页导入：真实 FileReader 保留 BOM / CRLF，明确仅导入副本",
+          "status": "passed"
+        },
+        {
+          "name": "网页导入：取消选择结束等待并保留笔记",
+          "status": "passed"
+        },
+        {
+          "name": "网页导入：后缀、UTF-8、NUL、2 MiB 边界及写入能力校验",
+          "status": "passed"
+        },
+        {
+          "name": "遗留入口：未实现的 Note / 自动保存不能返回假成功",
+          "status": "passed"
+        }
+      ],
+      "domErrors": [],
+      "reportGeneratedAt": "2026-09-14T12:45:01.380Z"
+    },
+    "fileDisk": {
+      "scope": "App + actual editor + NativeFilePort + production Rust FileStore + temporary disk files",
+      "nativePickerLayoutAndIME": "not tested",
+      "results": [
+        {
+          "name": "真实文件：八份资格样例打开、无编辑保存、关闭、重开保持原字节",
+          "status": "passed"
+        },
+        {
+          "name": "真实文件：源码局部编辑保存并重开保留 BOM / CRLF",
+          "status": "passed"
+        },
+        {
+          "name": "真实文件：视觉输入后立即 Ctrl+S 保存最新内容且延迟通知不标脏",
+          "status": "passed"
+        },
+        {
+          "name": "真实文件：保存并重载使用保存后的版本",
+          "status": "passed"
+        },
+        {
+          "name": "真实文件：外部冲突保留本地修改，另存为后绑定新文件",
+          "status": "passed"
+        },
+        {
+          "name": "真实文件：重载刷新等待期间不能应用旧候选",
+          "status": "passed"
+        },
+        {
+          "name": "真实文件：保存回执等待期间继续输入保留 Dirty 并可再次保存",
+          "status": "passed"
+        },
+        {
+          "name": "真实文件：取消打开和另存为保持当前未保存内容",
+          "status": "passed"
+        },
+        {
+          "name": "真实文件：包含 HTML 映射时拒绝普通 Markdown 保存",
+          "status": "passed"
+        },
+        {
+          "name": "真实文件：Markdown Gate 测试与原绑定文件隔离并检查未保存内容",
+          "status": "passed"
+        },
+        {
+          "name": "真实文件：查看调试状态不会改写未编辑文件",
+          "status": "passed"
+        },
+        {
+          "name": "R02 真实文件：03 混合列表只修改 LSU 后保存并重开语义不变",
+          "status": "passed"
+        },
+        {
+          "name": "R02 真实文件：05 / 08 原件局部源码编辑保存并重开保留其他字节",
+          "status": "passed"
+        }
+      ],
+      "domErrors": [],
+      "reportGeneratedAt": "2026-09-14T12:48:57.787Z"
+    }
+  },
+  "assetCheck": {
+    "command": "npm run test:qualification-assets",
+    "passed": 4,
+    "scope": [
+      "PNG bytes",
+      "HEAD",
+      "missing resource",
+      "path containment"
+    ]
+  },
+  "rust": {
+    "command": "cargo test --offline --lib --test markdown_files --test save_races --test file_metadata --quiet",
+    "timeoutMs": 60000,
+    "passed": 23,
+    "failed": 0,
+    "suites": [
+      {
+        "name": "windows_save::tests",
+        "passed": 7
+      },
+      {
+        "name": "file_metadata",
+        "passed": 6
+      },
+      {
+        "name": "markdown_files",
+        "passed": 9
+      },
+      {
+        "name": "save_races",
+        "passed": 1
+      }
+    ]
+  },
+  "quality": {
+    "typescript": "passed",
+    "clippy": "passed with -D warnings",
+    "scopedTsFunctions": 183,
+    "maxNonemptyFunctionLines": 34,
+    "maxCyclomaticComplexity": 10,
+    "maxPositionalParameters": 3
+  },
+  "build": {
+    "command": "npm run tauri -- build --no-bundle",
+    "status": "completed",
+    "installerPackaged": false,
+    "executed": false,
+    "executable": "src-tauri/target/release/flownote.exe",
+    "bytes": 12186624,
+    "sha256": "7fe0b9536299dff109e2b9fe4cbaaeb223134ee71de280e792fa6ed2b35d8968",
+    "mainJavaScriptKB": 787.04,
+    "mainJavaScriptGzipKB": 250.01,
+    "chunkSizeWarning": true,
+    "excluded": [
+      "qualification UI",
+      "debug UI",
+      "test image and route",
+      "test stdio driver"
+    ]
+  },
+  "reviews": {
+    "backend": "completed; no reported blocking findings remain within documented scope",
+    "fileSession": "completed; stale reload and diagnostics dirty-state findings reproduced and fixed"
+  },
+  "automatedChecks": 157
+}

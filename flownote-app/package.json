@@ -4,6 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "test:stage-one": "node tests/run-stage-one.mjs",
+    "test:protection": "node tests/run-stage-one.mjs --protection",
+    "test:qualification": "node tests/run-stage-one.mjs --qualification",
+    "test:qualification-assets": "node tests/check-qualification-assets.mjs",
+    "test:files": "node tests/run-stage-one.mjs --files",
+    "test:files:disk": "node tests/run-file-disk.mjs",
+    "test:desktop": "node tests/run-desktop-tests.mjs",
+    "test:html": "node tests/run-stage-one.mjs --html",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
@@ -43,6 +51,8 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "esbuild": "0.25.12",
+    "jsdom": "26.1.0",
     "typescript": "^5.7.3",
     "vite": "^6.0.5"
   }

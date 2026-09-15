@@ -1,27 +1,10 @@
-import { NoteStructure, NoteMetadata } from './noteTypes';
+import type { NoteStructure } from './noteTypes';
 
 /**
  * 从磁盘加载 Note
  */
 export async function loadNote(notePath: string): Promise<NoteStructure> {
-  // TODO: 使用 Tauri 文件系统 API
-  // 目前返回模拟数据
-
-  const metadata: NoteMetadata = {
-    version: 1,
-    title: 'Test Note',
-    type: 'mixed',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  return {
-    path: notePath,
-    metadata,
-    contentMd: '# 欢迎使用 FlowNote\n\n这是一个测试笔记。',
-    htmlBlocks: new Map(),
-    assets: [],
-  };
+  throw new Error(`Note 包加载尚未实现：${notePath}。普通 Markdown 请通过文件工具栏打开。`);
 }
 
 /**

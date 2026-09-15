@@ -1,22 +1,25 @@
 import { useEffect, useRef } from 'react';
+import { configureSandbox } from './htmlPolicy';
+import type { HtmlBlockConfig } from '../note/mixedTypes';
 
 interface HtmlSandboxProps {
   content: string;
   className?: string;
+  config?: HtmlBlockConfig;
+  networkAllowed?: boolean;
 }
 
 /**
  * HTML 沙箱隔离渲染组件
  */
-export function HtmlSandbox({ content, className = '' }: HtmlSandboxProps) {
+export function HtmlSandbox({ content, className = '', config, networkAllowed = false }: HtmlSandboxProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!iframeRef.current) return;
 
-    // 使用 srcdoc 注入内容，避免跨域问题
-    iframeRef.current.srcdoc = content;
-  }, [content]);
+    configureSandbox(iframeRef.current, { html: content, config, networkAllowed });
+  }, [content, config, networkAllowed]);
 
   return (
     <iframe
