@@ -33,33 +33,72 @@ pub struct BrowserBundleResult {
     pub name: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarkdownExportRequest {
+    pub id: String,
+    pub revision: String,
+    pub folder_name: String,
+    pub markdown_name: String,
+    pub content: String,
+    pub blocks: Vec<BrowserBundleBlock>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkdownExportResult {
+    pub path: String,
+    pub name: String,
+    pub markdown_path: String,
+}
+
 fn bounded(name: &str, value: &str, limit: usize) -> FileResult<()> {
     if value.len() > limit {
-        return Err(FileError::new("tooLarge", format!("{name} 超过 Browser Bundle V1 大小上限")));
+        return Err(FileError::new("tooLarge", format!("{name} 超过导出大小上限")));
     }
     Ok(())
 }
 
-fn validate_request(request: &BrowserBundleRequest) -> FileResult<()> {
-    crate::note_path::component_name(&request.folder_name)?;
-    if request.folder_name.starts_with('.') {
-        return Err(FileError::new("invalidPath", "Browser Bundle 目录名称不能以点开头"));
+fn validate_folder_name(value: &str) -> FileResult<()> {
+    crate::note_path::component_name(value)?;
+    if value.starts_with('.') {
+        return Err(FileError::new("invalidPath", "导出目录名称不能以点开头"));
     }
-    bounded("Markdown", &request.content, MAX_MARKDOWN_BYTES)?;
-    bounded("Browser index.html", &request.index_html, MAX_HTML_BYTES)?;
-    bounded("标题", &request.title, 4096)?;
-    if request.blocks.len() > MAX_EXPORT_BLOCKS {
-        return Err(FileError::new("tooLarge", "Browser Bundle HTML Block 数量超过上限"));
+    Ok(())
+}
+
+fn validate_blocks(blocks: &[BrowserBundleBlock]) -> FileResult<()> {
+    if blocks.len() > MAX_EXPORT_BLOCKS {
+        return Err(FileError::new("tooLarge", "导出 HTML Block 数量超过上限"));
     }
     let mut ids = std::collections::BTreeSet::new();
-    for block in &request.blocks {
+    for block in blocks {
         crate::note_format::validate_id(&block.id)?;
         bounded("HTML Block", &block.html, MAX_BLOCK_HTML_BYTES)?;
         if !ids.insert(block.id.as_str()) {
-            return Err(FileError::new("invalidFormat", "Browser Bundle 包含重复 HTML Block ID"));
+            return Err(FileError::new("invalidFormat", "导出包含重复 HTML Block ID"));
         }
     }
     Ok(())
+}
+
+fn validate_browser_request(request: &BrowserBundleRequest) -> FileResult<()> {
+    validate_folder_name(&request.folder_name)?;
+    bounded("Markdown", &request.content, MAX_MARKDOWN_BYTES)?;
+    bounded("Browser index.html", &request.index_html, MAX_HTML_BYTES)?;
+    bounded("标题", &request.title, 4096)?;
+    validate_blocks(&request.blocks)
+}
+
+fn validate_markdown_request(request: &MarkdownExportRequest) -> FileResult<()> {
+    validate_folder_name(&request.folder_name)?;
+    crate::note_path::component_name(&request.markdown_name)?;
+    let lower = request.markdown_name.to_ascii_lowercase();
+    if !lower.ends_with(".md") && !lower.ends_with(".markdown") {
+        return Err(FileError::new("invalidPath", "Markdown 导出文件必须使用 .md 或 .markdown 后缀"));
+    }
+    bounded("Markdown", &request.content, MAX_MARKDOWN_BYTES)?;
+    validate_blocks(&request.blocks)
 }
 
 #[cfg(windows)]
@@ -76,13 +115,13 @@ fn destination(parent: &Path, folder_name: &str) -> FileResult<ExportDestination
     crate::note_path::validate_absolute(parent)?;
     let ancestors = crate::windows_note_io::lock_ancestors(parent)?;
     let parent_guard = crate::windows_note_io::Directory::open(parent, false)?;
-    let root = parent.canonicalize().map_err(|error| FileError::io("无法定位 Browser Bundle 导出父目录", error))?;
+    let root = parent.canonicalize().map_err(|error| FileError::io("无法定位导出父目录", error))?;
     let target = root.join(folder_name);
     let display_target = parent.join(folder_name);
     match std::fs::symlink_metadata(&target) {
-        Ok(_) => return Err(FileError::new("conflict", "Browser Bundle 目标目录已经存在")),
+        Ok(_) => return Err(FileError::new("conflict", "导出目标目录已经存在")),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
-        Err(error) => return Err(FileError::io("无法检查 Browser Bundle 目标目录", error)),
+        Err(error) => return Err(FileError::io("无法检查导出目标目录", error)),
     }
     Ok(ExportDestination { _ancestors: ancestors, _parent: parent_guard, root, target, display_target })
 }
@@ -90,11 +129,11 @@ fn destination(parent: &Path, folder_name: &str) -> FileResult<ExportDestination
 #[cfg(windows)]
 fn validate_relative(relative: &str) -> FileResult<()> {
     if relative.is_empty() || relative.contains(['\\', ':', '\0']) || Path::new(relative).is_absolute() {
-        return Err(FileError::new("invalidPath", "Browser Bundle 资源路径无效"));
+        return Err(FileError::new("invalidPath", "导出资源路径无效"));
     }
     let parts: Vec<_> = relative.split('/').collect();
     if parts.iter().any(|part| part.is_empty() || *part == "." || *part == "..") {
-        return Err(FileError::new("invalidPath", "Browser Bundle 资源路径不能包含相对跳转"));
+        return Err(FileError::new("invalidPath", "导出资源路径不能包含相对跳转"));
     }
     for part in parts { crate::note_path::component_name(part)?; }
     Ok(())
@@ -112,7 +151,7 @@ fn ensure_directory(root: &Path, relative: &str) -> FileResult<()> {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 let _ = crate::windows_note_io::Directory::create(&current, None)?;
             },
-            Err(error) => return Err(FileError::io("无法检查 Browser Bundle 目录", error)),
+            Err(error) => return Err(FileError::io("无法检查导出目录", error)),
         }
     }
     Ok(())
@@ -134,44 +173,61 @@ fn cleanup(path: &Path) {
 }
 
 #[cfg(windows)]
-pub(crate) fn export(
+struct MaterializedExport<'a> {
+    folder_name: &'a str,
+    revision: &'a str,
+    markdown_name: &'a str,
+    content: &'a str,
+    index_html: Option<&'a str>,
+    blocks: &'a [BrowserBundleBlock],
+}
+
+#[cfg(windows)]
+fn materialize(
     source_path: &Path,
     binding_revision: &str,
     parent: &Path,
-    request: BrowserBundleRequest,
-) -> FileResult<BrowserBundleResult> {
-    validate_request(&request)?;
-    if binding_revision != request.revision {
-        return Err(FileError::new("conflict", "Browser Bundle 请求基于过期 Note 版本"));
+    export: MaterializedExport<'_>,
+) -> FileResult<PathBuf> {
+    if binding_revision != export.revision {
+        return Err(FileError::new("conflict", "导出请求基于过期 Note 版本"));
     }
+
     let _source_parents = crate::windows_note_io::lock_ancestors(source_path)?;
     let source = crate::note_path::selected_path(source_path, false)?;
     let directory = crate::windows_note_io::Directory::open(&source, false)?;
     let source_root = source.canonicalize().map_err(|error| FileError::io("无法定位源 Note 目录", error))?;
-    let destination = destination(parent, &request.folder_name)?;
+    let destination = destination(parent, export.folder_name)?;
     if destination.target.starts_with(&source_root) {
-        return Err(FileError::new("invalidPath", "Browser Bundle 不能导出到源 .note 目录内部"));
+        return Err(FileError::new("invalidPath", "不能导出到源 .note 目录内部"));
     }
+
     let tree = crate::windows_note_tree::NoteTree::read_shared(&directory)?;
-    tree.unchanged(&request.revision)?;
+    tree.unchanged(export.revision)?;
     tree.ensure_copyable(&directory)?;
     let document = tree.document()?;
     if document.read_only {
-        return Err(FileError::new("readonly", "只读或未知版本 Note 不能导出 Browser Bundle"));
+        return Err(FileError::new("readonly", "只读或未知版本 Note 不能导出"));
     }
 
     let known: std::collections::BTreeSet<_> = document.mixed.blocks.iter().map(|block| block.id.as_str()).collect();
-    for block in &request.blocks {
+    for block in export.blocks {
         if !known.contains(block.id.as_str()) {
-            return Err(FileError::new("notFound", "Browser Bundle 引用了当前 Note 中不存在的 HTML Block"));
+            return Err(FileError::new("notFound", "导出引用了当前 Note 中不存在的 HTML Block"));
         }
     }
 
-    let candidate = destination.root.join(format!(".{}.flownote-export-{}.tmp", request.folder_name, uuid::Uuid::new_v4()));
+    let candidate = destination.root.join(format!(
+        ".{}.flownote-export-{}.tmp",
+        export.folder_name,
+        uuid::Uuid::new_v4()
+    ));
     let mut staged = crate::windows_note_io::Directory::create(&candidate, None)?;
     let materialized = (|| -> FileResult<()> {
-        write_file(&candidate, "index.html", request.index_html.as_bytes())?;
-        write_file(&candidate, "content.md", request.content.as_bytes())?;
+        write_file(&candidate, export.markdown_name, export.content.as_bytes())?;
+        if let Some(index_html) = export.index_html {
+            write_file(&candidate, "index.html", index_html.as_bytes())?;
+        }
 
         let files = tree.files();
         for (relative, bytes) in &files {
@@ -179,7 +235,7 @@ pub(crate) fn export(
                 write_file(&candidate, relative, bytes)?;
             }
         }
-        for block in &request.blocks {
+        for block in export.blocks {
             write_file(&candidate, &format!("blocks/{}/index.html", block.id), block.html.as_bytes())?;
             let prefix = format!("blocks/{}/assets/", block.id);
             for (relative, bytes) in &files {
@@ -188,7 +244,7 @@ pub(crate) fn export(
                 }
             }
         }
-        tree.unchanged(&request.revision)?;
+        tree.unchanged(export.revision)?;
         Ok(())
     })();
 
@@ -202,7 +258,50 @@ pub(crate) fn export(
         cleanup(&candidate);
         return Err(error);
     }
-    Ok(BrowserBundleResult { path: destination.display_target.to_string_lossy().into_owned(), name: request.folder_name })
+    Ok(destination.display_target)
+}
+
+#[cfg(windows)]
+pub(crate) fn export(
+    source_path: &Path,
+    binding_revision: &str,
+    parent: &Path,
+    request: BrowserBundleRequest,
+) -> FileResult<BrowserBundleResult> {
+    validate_browser_request(&request)?;
+    let path = materialize(source_path, binding_revision, parent, MaterializedExport {
+        folder_name: &request.folder_name,
+        revision: &request.revision,
+        markdown_name: "content.md",
+        content: &request.content,
+        index_html: Some(&request.index_html),
+        blocks: &request.blocks,
+    })?;
+    Ok(BrowserBundleResult { path: path.to_string_lossy().into_owned(), name: request.folder_name })
+}
+
+#[cfg(windows)]
+pub(crate) fn export_markdown(
+    source_path: &Path,
+    binding_revision: &str,
+    parent: &Path,
+    request: MarkdownExportRequest,
+) -> FileResult<MarkdownExportResult> {
+    validate_markdown_request(&request)?;
+    let path = materialize(source_path, binding_revision, parent, MaterializedExport {
+        folder_name: &request.folder_name,
+        revision: &request.revision,
+        markdown_name: &request.markdown_name,
+        content: &request.content,
+        index_html: None,
+        blocks: &request.blocks,
+    })?;
+    let markdown_path = path.join(&request.markdown_name);
+    Ok(MarkdownExportResult {
+        path: path.to_string_lossy().into_owned(),
+        name: request.folder_name,
+        markdown_path: markdown_path.to_string_lossy().into_owned(),
+    })
 }
 
 #[cfg(not(windows))]
@@ -213,4 +312,14 @@ pub(crate) fn export(
     _: BrowserBundleRequest,
 ) -> FileResult<BrowserBundleResult> {
     Err(FileError::new("unsupportedPlatform", "Browser Bundle 安全导出当前仅支持 Windows"))
+}
+
+#[cfg(not(windows))]
+pub(crate) fn export_markdown(
+    _: &Path,
+    _: &str,
+    _: &Path,
+    _: MarkdownExportRequest,
+) -> FileResult<MarkdownExportResult> {
+    Err(FileError::new("unsupportedPlatform", "Mixed Markdown 安全导出当前仅支持 Windows"))
 }

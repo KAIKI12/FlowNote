@@ -50,17 +50,20 @@ export function createFileDriver() {
   const noteOpens: (string | null)[] = [];
   const noteSaves: (string | null)[] = [];
   const bundleExports: (string | null)[] = [];
+  const markdownExports: (string | null)[] = [];
   const calls: string[] = [];
   const invoke: FileInvoke = (command, args = {}) => {
     calls.push(command);
     const choices = command === 'markdown_open' ? opens : command === 'markdown_save_as' ? saves
       : command === 'note_open' ? noteOpens : command === 'note_save_as' ? noteSaves
-        : command === 'note_export_browser_bundle' ? bundleExports : undefined;
+        : command === 'note_export_browser_bundle' ? bundleExports
+          : command === 'note_export_markdown' ? markdownExports : undefined;
     if (choices && !choices.length) throw new Error(`No test picker selection queued for ${command}`);
     return transport.send({ command, args, selection: choices?.shift() ?? null });
   };
   return { port: createNativeFilePort(invoke), notePort: createNativeNotePort(invoke), invoke, calls, close: transport.close,
     open: (path: string | null) => { opens.push(path); }, saveAs: (path: string | null) => { saves.push(path); },
     noteOpen: (path: string | null) => { noteOpens.push(path); }, noteSaveAs: (path: string | null) => { noteSaves.push(path); },
-    browserExport: (path: string | null) => { bundleExports.push(path); } };
+    browserExport: (path: string | null) => { bundleExports.push(path); },
+    markdownExport: (path: string | null) => { markdownExports.push(path); } };
 }

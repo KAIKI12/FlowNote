@@ -46,4 +46,18 @@ export default defineConfig({
         }
       : undefined,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/node_modules/react/') || id.includes('/node_modules/react-dom/')) return 'react-vendor';
+          if (id.includes('/node_modules/prosemirror-') || id.includes('/node_modules/@milkdown/prose/')) return 'prose-editor';
+          if (id.includes('/node_modules/@milkdown/preset-') || id.includes('/node_modules/@milkdown/plugin-')) return 'milkdown-plugins';
+          if (id.includes('/node_modules/@milkdown/')) return 'milkdown-core';
+          if (id.includes('/node_modules/@tauri-apps/')) return 'tauri-vendor';
+          return undefined;
+        },
+      },
+    },
+  },
 });

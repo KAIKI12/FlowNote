@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import type { FlowNoteEditorApi } from '../editor/editorTypes';
 import { renderBrowserBundle } from '../export/browserBundle';
+import { renderMarkdownExport } from '../export/markdownExport';
 import { fileError, MarkdownFileError } from '../files/fileTypes';
 import { mixedFingerprint, validateHtmlSource } from './htmlBlockData';
 import type { MixedNoteData, MixedNoteMetadata } from './mixedTypes';
@@ -61,10 +62,21 @@ function defaultName(title: string): string {
   return safe.toLowerCase().endsWith('.note') ? safe : `${safe}.note`;
 }
 
-function defaultExportFolder(title: string): string {
-  const safe = title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim()
+function safeExportName(title: string): string {
+  return title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim()
     .replace(/^[. ]+|[. ]+$/g, '') || 'FlowNote';
-  return `${safe}-export`;
+}
+
+function defaultExportFolder(title: string): string {
+  return `${safeExportName(title)}-export`;
+}
+
+function defaultMarkdownExportFolder(title: string): string {
+  return `${safeExportName(title)}-markdown-export`;
+}
+
+function defaultMarkdownExportName(title: string): string {
+  return `${safeExportName(title)}.md`;
 }
 
 export function useMixedNoteFiles(options: Options) {
@@ -408,6 +420,42 @@ export function useMixedNoteFiles(options: Options) {
     } catch (cause) { report(cause); return false; }
   };
 
+  const exportMarkdown = async (): Promise<boolean> => {
+    const store = useNoteStore.getState();
+    const note = store.currentNote;
+    const file = stateRef.current.file;
+    const api = latest.current.editorRef.current;
+    if (stateRef.current.busy) { report(new MarkdownFileError('busy', '请等待当前 Note 操作完成')); return false; }
+    if (store.isComposing) { report(new MarkdownFileError('composing', '请先完成组合输入，再导出 Markdown')); return false; }
+    if (stateRef.current.externalConflict) {
+      report(new MarkdownFileError('externalConflict', '磁盘内容已被外部修改；请先处理冲突再导出 Markdown'));
+      return false;
+    }
+    if (!file || file.readOnly || !note?.mixed || note.mixed.metadata.formatVersion !== 1 || !api) {
+      report(new MarkdownFileError('readonly', '当前 Mixed Note 不可导出 Markdown'));
+      return false;
+    }
+
+    let draft;
+    try { draft = renderMarkdownExport(api.getMarkdown(), cloneMixed(note.mixed)); }
+    catch (cause) { report(cause); return false; }
+
+    update({ busy: 'export', error: null, notice: '' });
+    try {
+      const result = await port.exportMarkdown({
+        id: file.id,
+        revision: file.revision,
+        folderName: defaultMarkdownExportFolder(note.metadata.title),
+        markdownName: defaultMarkdownExportName(note.metadata.title),
+        content: draft.content,
+        blocks: draft.blocks,
+      });
+      if (!result) { update({ busy: null }); return false; }
+      update({ busy: null, error: null, notice: `已导出 Markdown：${result.markdownPath}` });
+      return true;
+    } catch (cause) { report(cause); return false; }
+  };
+
   const readAsset = async (blockId: string, path: string) => {
     const file = stateRef.current.file;
     if (!file) throw new MarkdownFileError('closed', 'Mixed Note 尚未绑定磁盘文件，无法读取 Block 资源');
@@ -430,5 +478,5 @@ export function useMixedNoteFiles(options: Options) {
   };
 
   return { state, open, openWorkspace, create, commit, save, reload, reloadExternal, saveLocalAs, duplicateBlock,
-    repairMissing, restoreOrphan, listAssets, commitFullEditor, exportBrowserBundle, readAsset, readNoteImage, close };
+    repairMissing, restoreOrphan, listAssets, commitFullEditor, exportBrowserBundle, exportMarkdown, readAsset, readNoteImage, close };
 }

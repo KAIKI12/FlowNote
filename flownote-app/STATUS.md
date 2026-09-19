@@ -2,7 +2,7 @@
 
 **更新时间：2026-09-19**
 
-**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 UI 第一波原型、V1 Workspace Slice、Note Format v1 Format Freeze、Read/Focus/Fullscreen 硬化、Full HTML Editor 与 Browser Bundle export 均已完成。当前继续 `V1 产品收尾`，主线转向最终导出语义、bundle 体积、UI 一致性与发布体验。**
+**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 UI 第一波原型、V1 Workspace Slice、Note Format v1 Format Freeze、Read/Focus/Fullscreen 硬化、Full HTML Editor、Browser Bundle export 与 Mixed Markdown export 均已完成。当前继续 `V1 产品收尾`，主线转向系统主题联动、UI 一致性、错误/空状态与最终发布体验。**
 
 **范围原则：Slice 完成只表示当前切片定义的实现与验证范围完成，不删除最终需求。Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等尚未实现的能力继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留。**
 
@@ -54,7 +54,7 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 - **HTML Fullscreen**：当前 Visual 可进入独立展示层，FlowNote 工作区 chrome 隐藏，支持 Esc / Close 退出。
 - **Light / Dark 基础主题**：App Shell 已具备基础主题切换，但最终颜色、对比度和系统主题联动仍属于 UI 收尾。
 
-第一波原型当时未把静态演示能力伪装成完成项；其中真实 Workspace 文件树与基础搜索已在 Workspace Slice 中实现，Full HTML Editor 与 Browser Bundle export 也已在后续独立 Slice 完成。当前继续最终导出语义与发布收尾。
+第一波原型当时未把静态演示能力伪装成完成项；其中真实 Workspace 文件树与基础搜索已在 Workspace Slice 中实现，Full HTML Editor、Browser Bundle export 与 Mixed Markdown export 也已在后续独立 Slice 完成。当前继续 UI 与最终发布收尾。
 
 ## 2.6 V1 Workspace Slice — completed
 
@@ -97,7 +97,7 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 - **窄窗口**：对小宽度 / 小高度的 HTML Fullscreen 缩小顶部栏与画布边距，隐藏次要 Esc 文案，保留明确退出入口。
 - **回归**：新增 Focus 状态恢复、Read chrome、Fullscreen lifecycle、长文档滚动与窄窗口规则；本轮 Stage One **60 / 60**、HTML **12 / 12**、production build PASS。
 
-系统主题自动联动、最终视觉一致性和 bundle code-splitting 仍属于最终 UI / release 收尾，不并入本次 mode hardening 完成结论。
+本次 mode hardening 完成时，系统主题自动联动、最终视觉一致性与 bundle code-splitting 尚属于后续 UI / release 收尾；其中 bundle code-splitting 已在后续 2.11 Slice 完成。
 
 ## 2.9 Full HTML Editor — completed
 
@@ -128,32 +128,47 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 - **原子发布**：先在 sibling staging directory 完整生成，再 rename 到最终目录；失败不留下成功目标，也不修改源 `.note`。
 - **真实浏览器资格验证**：Chrome `file://` 下已验证根页面、Block iframe、managed CSS、classic JS 与图片资源均能正常工作且未放宽网络隔离。
 
-Browser Bundle 已解决 Mixed Note 的主要可移植分享路径。纯 Markdown export 仍需单独定义降级语义，不能把 HTML Block 静默丢弃后宣称导出成功。
+Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后续 Mixed Markdown export 共用同一 native materializer。
+
+## 2.11 Mixed Markdown Export & Bundle Splitting — completed
+
+2026-09-19 已完成 Mixed Markdown Export V1 与第一轮前端 bundle 拆分：
+
+- **明确降级语义**：Mixed Note 的 `flownote-html` Anchor 在导出 Markdown 中转换为普通相对链接 `[HTML Visual](./blocks/<id>/index.html)`，不再把 FlowNote 私有 Anchor 泄漏给普通 Markdown 消费者。
+- **Current + Managed Resources**：导出当前 HTML，而不是 Original；同时复制 Note-managed `assets/**` 与当前引用 Block 的私有 `blocks/<id>/assets/**`，不留下指向源 `.note` 的内部路径。
+- **普通 Markdown 行为不变**：普通 `.md` 仍使用原有直接 Markdown 下载路径；只有绑定的 Mixed Note 进入目录型 Markdown export。
+- **Dirty 可导出**：允许导出当前未保存 Markdown / Current HTML，但不会隐式保存、覆盖源 Note 或清除 Dirty。
+- **共享安全物化器**：Markdown export 与 Browser Bundle 共用 capability/revision 校验、NoteTree snapshot、路径检查、资源复制、staging + atomic rename 与失败清理，不维护第二套 ad-hoc copier。
+- **真实浏览器资格验证**：Chrome `file://` 已验证导出的外部 Block 能加载复制后的 CSS、classic JS 与图片，且 CSP / 默认断网边界不放宽。
+- **Bundle 拆分**：Vite 按 React、ProseMirror、Milkdown core/plugins 与 Tauri vendor 做稳定拆分；最大 chunk 从约 **861.20 kB** 降至 **256.18 kB**（gzip **79.53 kB**），原有 >500 kB 警告已消失。
+
+本 Slice 不改变 Note Format v1；Shared Localized Resource、CDN Localization、cross-note managed dependency copy 与更广动态资源解析仍保留为后续需求。
 
 ## 3. 最新验证基线
 
-2026-09-19 Browser Bundle 完成后的新鲜验证结果：
+2026-09-19 Mixed Markdown Export 与 bundle splitting 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
 | Workspace Frontend | **8 / 8** |
 | Workspace Native | **11 / 11** |
 | Format Freeze Gate | **PASS** |
-| HTML | **14 / 14** |
+| HTML | **15 / 15** |
 | Stage One | **63 / 63** |
 | Protection | **38 / 38** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |
-| 真实磁盘 | **17 / 17** |
+| 真实磁盘 | **18 / 18** |
 | Browser Bundle `file://` qualification | **PASS** |
+| Markdown Export `file://` qualification | **PASS** |
 | Desktop UI | **12 / 12** |
 | Desktop IPC / Rust desktop commands | **12 / 12** |
-| Rust 全套 | **91 passed / 1 ignored** |
+| Rust 全套 | **93 passed / 1 ignored** |
 | Rust Clippy | **PASS** |
 | Frontend build | **PASS** |
 | Tauri release build | **PASS** |
 
-本轮前端 production build **PASS**，主 JS bundle 约 **858.99 kB**（gzip 约 **270.70 kB**）；Vite 仍提示 >500 kB 的 code-splitting 警告，继续作为 V1 收尾项。Tauri release build 已重新产出 MSI 与 NSIS bundle。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。测试环境仍会输出既有 Prism Tcl language 与部分 React `act()` warning，但本轮相关断言均 PASS。
+本轮前端 production build **PASS**。经过稳定 vendor 拆分后，最大 JS chunk 为 **256.18 kB**（gzip **79.53 kB**），原先约 861 kB 的单主 bundle 与 Vite >500 kB warning 已消失；其余主要 chunk 均低于 204 kB。Tauri release build 已重新产出 MSI 与 NSIS bundle。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。测试环境仍会输出既有 Prism Tcl language 与部分 React `act()` warning，但本轮相关断言均 PASS。
 
 ## 4. 当前基线文档
 
@@ -172,8 +187,8 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径。纯 Markdow
 
 Format Freeze 已完成，接下来不再修改 Format v1 的既有磁盘语义，而是围绕 V1 可交付性收尾：
 
-1. **导出**：Browser Bundle 已完成；继续明确 Markdown export 的 V1 语义，尤其保证 Mixed Note 不会在导出时静默丢失 HTML 或 managed resources。
-2. **Workspace 后续增强（非当前阻塞）**：真实 Favorites、Trash/delete/recovery、filesystem watcher、multi-Workspace、SQLite/FTS 等按后续独立 Slice 处理。
-3. **最终收尾**：处理系统主题联动、bundle 体积、UI 一致性、错误提示、空状态及最终发布验证。
+1. **最终 UI 收尾**：系统主题联动、Light / Dark 细节、UI 一致性、错误提示、空状态与关键交互 polish。
+2. **最终发布验证**：安装/升级体验、release smoke test、版本与产物检查；当前 MSI / NSIS 已可稳定构建。
+3. **Workspace 后续增强（非当前阻塞）**：真实 Favorites、Trash/delete/recovery、filesystem watcher、multi-Workspace、SQLite/FTS 等按后续独立 Slice 处理。
 
 V1 收尾过程中不得通过删除 Requirements Matrix 中的未实现条目来缩小产品定义。超出 V1 当前收尾范围的 Shared Localized Resource、CDN Localization、cross-note dependency copy 等继续保持 Planned / Partial，后续按 Matrix 单独进入实现切片。

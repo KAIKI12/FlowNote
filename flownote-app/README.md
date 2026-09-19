@@ -1,6 +1,6 @@
 # FlowNote 技术验证 Demo
 
-FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening 与 Full HTML Editor；当前继续进入 **V1 产品收尾**，主线转向 Browser Bundle / Mixed Markdown export 与最终发布体验。
+FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening、Full HTML Editor、Browser Bundle 与 Mixed Markdown export；当前继续进入 **V1 最终产品收尾**，主线转向系统主题、UI 一致性、错误/空状态与发布体验。
 
 当前主能力包括：
 
@@ -15,30 +15,34 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 - Missing / Orphan 条件支持显式 repair，不自动删除资源或正文。
 - same-note HTML Block Deep Copy 已实现，复制 Block-private assets 并生成新 Block ID。
 - shared read-only probe / resource snapshot 与 disposal guard 已覆盖资源只读检查、关闭 / 切换及迟到异步回执边界。
+- Browser Bundle 可直接通过浏览器 `file://` 打开；Mixed Markdown export 将 HTML Anchor 转为外部 HTML 相对链接，并同时复制 Current HTML、Note-managed images 与 Block-private assets，不静默丢内容。
+- 前端已完成第一轮稳定 vendor code-splitting，最大生产 chunk 降至 256.18 kB，Vite >500 kB warning 已消失。
 
 公式与 Mermaid 当前保证源码保留，渲染增强仍属于后续候选。
 
 ## 当前验证基线
 
-2026-09-19 Full HTML Editor 完成后的当前验证结果：
+2026-09-19 Mixed Markdown Export 与 bundle splitting 完成后的当前验证结果：
 
 - Workspace Frontend：**8 / 8**
 - Workspace Native：**11 / 11**
 - Format Freeze Gate：**PASS**
-- HTML：**12 / 12**
-- Stage One：**62 / 62**
+- HTML：**15 / 15**
+- Stage One：**63 / 63**
 - Protection：**38 / 38**
 - Qualification：**36 / 36**
 - Files：**18 / 18**
-- 真实磁盘：**16 / 16**
+- 真实磁盘：**18 / 18**
+- Browser Bundle `file://` qualification：**PASS**
+- Markdown Export `file://` qualification：**PASS**
 - Desktop UI：**12 / 12**
 - Desktop IPC：**12 / 12**
-- Rust 全套：**87 passed / 1 ignored**
+- Rust 全套：**93 passed / 1 ignored**
 - Rust Clippy：**PASS**
 - Frontend build：**PASS**
 - Tauri release build：**PASS**
 
-当前主 JS bundle 约 **852.21 kB**（gzip **268.31 kB**）。Vite 仍提示 >500 kB，体积与 code splitting 继续作为 V1 收尾项。
+当前最大生产 JS chunk 为 **256.18 kB**（gzip **79.53 kB**）；React、ProseMirror、Milkdown 与 Tauri vendor 已拆分，原有 >500 kB warning 已消失。
 
 ## 文档入口与基线
 
@@ -108,6 +112,9 @@ npm run test:qualification
 npm run test:files
 npm run test:files:disk
 npm run test:desktop
+npm run test:format-freeze
+npm run test:browser-bundle
+npm run test:markdown-export
 ```
 
 Rust / 构建验证：
@@ -177,8 +184,8 @@ flownote-app/src-tauri/target/release/flownote.exe
 
 接下来统一围绕 V1 可交付性收尾，不再继续扩张已完成 Slice：
 
-1. **Markdown export**：Browser Bundle 已完成；继续明确 Mixed Note 的纯 Markdown / 降级导出语义，不能静默丢失 HTML 或 managed resources。
-2. **产品收尾**：系统主题联动、UI 一致性、错误提示、空状态、bundle 体积与最终发布验证。
+1. **最终 UI 收尾**：系统主题联动、Light / Dark 细节、UI 一致性、错误提示、空状态与关键交互 polish。
+2. **最终发布验证**：安装/升级体验、release smoke test、版本与产物检查；当前 MSI / NSIS 已可稳定构建。
 3. **Workspace 后续增强（非当前阻塞）**：Favorites、Trash / delete / recovery、filesystem watcher、multi-Workspace、SQLite / FTS 等按独立 Slice 继续。
 
 Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等需求继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留，后续单独实现，不因当前 Slice 完成而删除。

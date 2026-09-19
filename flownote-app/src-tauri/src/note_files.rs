@@ -346,6 +346,15 @@ impl NoteStore {
         crate::browser_bundle::export(&binding.path, &binding.revision, parent, request)
     }
 
+    pub fn export_markdown_selected(
+        &self,
+        parent: &Path,
+        request: crate::browser_bundle::MarkdownExportRequest,
+    ) -> FileResult<crate::browser_bundle::MarkdownExportResult> {
+        let binding = self.binding(&request.id)?;
+        crate::browser_bundle::export_markdown(&binding.path, &binding.revision, parent, request)
+    }
+
     pub fn save_as_selected(&mut self, path: &Path, request: NoteSaveAsRequest) -> FileResult<NoteSnapshot> {
         validate_save_as(&request)?;
         let _parents = crate::windows_note_io::lock_ancestors(path)?;
@@ -375,6 +384,8 @@ impl NoteStore {
     pub fn read_note_asset(&self, _: &str, _: &str) -> FileResult<BlockAsset> { unsupported() }
     pub fn export_browser_bundle_selected(&self, _: &Path, _: crate::browser_bundle::BrowserBundleRequest)
         -> FileResult<crate::browser_bundle::BrowserBundleResult> { unsupported() }
+    pub fn export_markdown_selected(&self, _: &Path, _: crate::browser_bundle::MarkdownExportRequest)
+        -> FileResult<crate::browser_bundle::MarkdownExportResult> { unsupported() }
     pub fn save(&mut self, _: NoteSaveRequest) -> FileResult<NoteSnapshot> { unsupported() }
     pub fn save_as_selected(&mut self, _: &Path, _: NoteSaveAsRequest) -> FileResult<NoteSnapshot> { unsupported() }
     pub fn close(&mut self, _: &str) -> FileResult<()> { unsupported() }

@@ -33,6 +33,10 @@ export interface BrowserBundleRequest {
   id: string; revision: string; folderName: string; title: string; content: string; indexHtml: string; blocks: BrowserBundleBlock[];
 }
 export interface BrowserBundleResult { path: string; name: string }
+export interface MarkdownExportRequest {
+  id: string; revision: string; folderName: string; markdownName: string; content: string; blocks: BrowserBundleBlock[];
+}
+export interface MarkdownExportResult { path: string; name: string; markdownPath: string }
 
 export interface NativeNotePort {
   readonly mode: 'desktop';
@@ -49,6 +53,7 @@ export interface NativeNotePort {
   readAsset(id: string, blockId: string, path: string): Promise<BlockAsset>;
   readNoteImage(id: string, path: string): Promise<BlockAsset>;
   exportBrowserBundle(request: BrowserBundleRequest): Promise<BrowserBundleResult | null>;
+  exportMarkdown(request: MarkdownExportRequest): Promise<MarkdownExportResult | null>;
   release(id: string): Promise<void>;
 }
 
@@ -126,6 +131,14 @@ function browserBundleResult(value: unknown): BrowserBundleResult {
   return { path: result.path as string, name: result.name as string };
 }
 
+function markdownExportResult(value: unknown): MarkdownExportResult {
+  const result = object(value, 'Markdown export');
+  if (typeof result.path !== 'string' || typeof result.name !== 'string' || typeof result.markdownPath !== 'string') {
+    protocol('Markdown export 响应字段不完整');
+  }
+  return { path: result.path as string, name: result.name as string, markdownPath: result.markdownPath as string };
+}
+
 function noteProbe(value: unknown): NoteProbe {
   const probe = object(value, 'Note probe');
   if (typeof probe.revision !== 'string' || typeof probe.changed !== 'boolean') protocol('Note probe 响应字段不完整');
@@ -201,6 +214,11 @@ export function createNativeNotePort(call: NoteInvoke = invoke): NativeNotePort 
       markdownBytes(value.content);
       const result = await request('note_export_browser_bundle', { request: value });
       return result === null ? null : browserBundleResult(result);
+    },
+    async exportMarkdown(value) {
+      markdownBytes(value.content);
+      const result = await request('note_export_markdown', { request: value });
+      return result === null ? null : markdownExportResult(result);
     },
     async release(id) { await request('note_release', { id }); },
   };

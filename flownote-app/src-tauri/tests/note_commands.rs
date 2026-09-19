@@ -77,6 +77,8 @@ fn every_note_command_denies_non_main_windows_before_dialog_or_disk_access() {
         ("note_read_image", json!({ "request": { "id": "note:unknown", "path": "assets/images/plot.png" } })),
         ("note_export_browser_bundle", json!({ "request": { "id": "note:unknown", "revision": "x",
             "folderName": "Export", "title": "Export", "content": "text", "indexHtml": "<html></html>", "blocks": [] } })),
+        ("note_export_markdown", json!({ "request": { "id": "note:unknown", "revision": "x",
+            "folderName": "Markdown Export", "markdownName": "Export.md", "content": "text", "blocks": [] } })),
         ("note_release", json!({ "id": "note:unknown" })),
     ];
     for (command, args) in calls {

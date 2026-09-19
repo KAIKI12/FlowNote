@@ -76,23 +76,55 @@ async function immediateClose() {
   });
 }
 
-async function rejectMixedExport() {
+async function mixedMarkdownExportUsesExternalLinksWithoutSaving() {
+  const { initial } = externalMixedFixture();
+  let normalSaves = 0;
+  let exported: Parameters<NativeNotePort['exportMarkdown']>[0] | undefined;
+  const notePort = {
+    mode: 'desktop', canWrite: true,
+    open: async () => initial,
+    save: async () => { normalSaves += 1; throw new Error('Markdown export must not save the Note'); },
+    saveAs: async () => null,
+    reload: async () => initial,
+    listAssets: async () => [],
+    readAsset: async () => { throw new Error('not used'); },
+    readNoteImage: async () => { throw new Error('not used'); },
+    exportMarkdown: async (request: Parameters<NativeNotePort['exportMarkdown']>[0]) => {
+      exported = request;
+      return { path: 'E:\\Exports\\External-markdown-export', name: 'External-markdown-export',
+        markdownPath: 'E:\\Exports\\External-markdown-export\\External.md' };
+    },
+    release: async () => undefined,
+  } as NativeNotePort;
+
   await withApp(async () => {
-    const note = useNoteStore.getState().currentNote!;
-    await act(async () => useNoteStore.getState().setCurrentNote({ ...note,
-      metadata: { ...note.metadata, type: 'mixed' }, htmlBlocks: new Map() }));
-    let downloaded = false;
-    const intercept = (event: Event) => {
-      if ((event.target as HTMLElement).tagName !== 'A') return;
-      event.preventDefault(); downloaded = true;
-    };
-    document.addEventListener('click', intercept, true);
-    try {
-      await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="导出 Markdown 笔记"]')!.click());
-      assert.equal(downloaded, false, 'Mixed Note used the plain Markdown export');
-      assert.match(document.querySelector('[role="alert"]')!.textContent!, /Mixed Note/);
-    } finally { document.removeEventListener('click', intercept, true); }
-  });
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="打开 Mixed Note"]')!.click());
+    await waitFor(() => !!document.querySelector('[aria-label="编辑 HTML Block"]'));
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="编辑 HTML Block"]')!.click());
+    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML 源码"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(source, '<div>Dirty Markdown Current</div>');
+      source.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+      .find(button => button.textContent === 'Save')!.click());
+    await waitFor(() => useNoteStore.getState().isDirty === true);
+
+    const button = document.querySelector<HTMLButtonElement>('[aria-label="导出 Markdown 笔记"]')!;
+    assert.equal(button.disabled, false);
+    await act(async () => button.click());
+    await waitFor(() => !!exported);
+
+    assert.equal(normalSaves, 0, 'Mixed Markdown export implicitly saved the Note');
+    assert.equal(useNoteStore.getState().isDirty, true, 'Mixed Markdown export cleared Dirty');
+    assert.equal(exported!.id, initial.id);
+    assert.equal(exported!.revision, initial.revision);
+    assert.doesNotMatch(exported!.content, /flownote-html/);
+    assert.match(exported!.content, /\[HTML Visual\]\(\.\/blocks\/.+\/index\.html\)/);
+    assert.equal(exported!.blocks.length, 1);
+    assert.match(exported!.blocks[0].html, /Dirty Markdown Current/);
+    assert.doesNotMatch(exported!.blocks[0].html, /ORIGINAL/i);
+  }, { notePort });
 }
 
 async function importHtmlConvertsMarkdownWithoutPreMutating() {
@@ -1078,7 +1110,7 @@ export const appChecks = [
   { name: '工作区模式：Read 只读，Focus 保持连续可编辑', run: workspaceModesKeepFocusEditableAndReadOnlyWhenRequested },
   { name: '笔记导出：读取编辑器最新正文，不使用滞后状态', run: exportNote },
   { name: '关闭保护：首次修改后立即关闭也会提示', run: immediateClose },
-  { name: '导出范围：Mixed Note 即使没有 HTML 映射也拒绝简化导出', run: rejectMixedExport },
+  { name: 'Markdown Export：Mixed Note 使用外部 HTML 链接且不隐式保存', run: mixedMarkdownExportUsesExternalLinksWithoutSaving },
   { name: 'HTML 导入：普通 Markdown 只在 .note 创建成功后切换为 Mixed Note', run: importHtmlConvertsMarkdownWithoutPreMutating },
   { name: 'HTML 导入：Markdown 管理图片复制到 .note 且代码示例不被改写', run: markdownManagedImagesMigrateDuringConversion },
   { name: 'Markdown 图片：普通 .md 通过文件 capability 显示本地图片', run: markdownLocalImageRendersThroughFileCapability },

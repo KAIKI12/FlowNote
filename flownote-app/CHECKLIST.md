@@ -108,7 +108,7 @@
 - [x] Rust Clippy：PASS
 - [x] Frontend build：PASS
 - [x] Tauri release build：PASS
-- [x] 2026-09-19 production build 主 JS 约 **852.21 kB**（gzip **268.31 kB**）；>500 kB code-splitting warning 继续列入 V1 收尾。
+- [x] 2026-09-19 production build 已完成 vendor code-splitting；最大 JS chunk **256.18 kB**（gzip **79.53 kB**），>500 kB warning 已消失。
 ## Format Freeze — completed
 
 - [x] 冻结 `formatVersion: 1` 当前持久化语义；Note Format v1.2 已升级为 Final。
@@ -126,8 +126,9 @@
 - [x] 搜索：已接入 filename / title / Markdown body / `.note/content.md` 的基础 native bounded scan；SQLite/FTS 索引属于后续增强。
 - [x] Full HTML Editor：Quick Edit 入口已接通；Full Editor draft 本地隔离，Current + Block 私有文本资源一次原子保存；Original 只读，binary 只读；失败保存与非法资源编辑均不污染 live Note / 磁盘。
 - [x] Browser Bundle export：Mixed Note 可导出为普通浏览器可直接打开的目录；保留当前 Markdown、managed images、HTML Block 顺序、Current HTML 与 Block 私有资源，默认断网且不修改源 `.note`。
-- [ ] Markdown export：明确 Mixed Note 导出策略，不能静默丢失 HTML 或 managed resources。
-- [ ] 收尾 UI / 系统主题联动 / 错误提示 / 空状态 / bundle 体积 / 最终发布验证。
+- [x] Markdown export：Mixed Note 的 HTML Anchor 转为外部 HTML 相对链接；Current HTML、Note-managed assets 与 Block-private assets 一并导出，Dirty 可导出且不隐式保存源 `.note`。
+- [x] Bundle code-splitting：按 React / ProseMirror / Milkdown / Tauri vendor 拆分，最大 chunk 降至 256.18 kB，Vite >500 kB warning 已消失。
+- [ ] 收尾 UI / 系统主题联动 / 错误提示 / 空状态 / 最终发布验证。
 
 ## 需求保留规则
 

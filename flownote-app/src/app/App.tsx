@@ -160,8 +160,9 @@ function WritingHeader({ activeView, note, files, mixed, editorRef }: {
         || !!mixed.state.externalConflict || note.currentNote?.metadata.type !== 'mixed' || !mixed.state.file
         || mixed.state.file.readOnly || !files.editorReady}
         onClick={() => void mixed.exportBrowserBundle()}>导出 Browser Bundle</button>
-      <button aria-label="导出 Markdown 笔记" disabled={activeView === 'demo' || note.isComposing || !note.currentNote || !files.editorReady}
-        onClick={note.exportNote}>导出 Markdown</button>
+      <button aria-label="导出 Markdown 笔记" disabled={activeView === 'demo' || note.isComposing || !note.currentNote || !files.editorReady
+        || note.currentNote.metadata.type === 'mixed' && (!!mixed.state.busy || !!mixed.state.externalConflict || !mixed.state.file || mixed.state.file.readOnly)}
+        onClick={() => note.currentNote?.metadata.type === 'mixed' ? void mixed.exportMarkdown() : note.exportNote()}>导出 Markdown</button>
       {htmlOpen && <form className="editor-link-form html-import-form" aria-label="HTML 导入" onSubmit={event => void importHtml(event)}>
         <textarea aria-label="HTML 导入源码" value={htmlSource} onChange={event => setHtmlSource(event.target.value)} autoFocus />
         <button type="submit" aria-label="确认导入 HTML" disabled={!!mixed.state.busy || note.isComposing}>

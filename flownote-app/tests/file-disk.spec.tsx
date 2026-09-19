@@ -532,6 +532,79 @@ async function browserBundleExportsDirtyMixedNoteWithoutMutatingSourceDisk() {
   }, 'browser-bootstrap.md');
 }
 
+async function mixedMarkdownExportMaterializesExternalLinksWithoutMutatingSourceDisk() {
+  await withDiskApp('# bootstrap\n', async h => {
+    const blockHtml = '<link rel="stylesheet" href="./assets/style.css"><section id="styled">Markdown Block Disk</section>'
+      + '<img id="asset-image" src="./assets/pixel.svg"><script src="./assets/app.js"></script>';
+    const notePath = await writeMixedPackage(h.directory, 'MarkdownExport.note', blockHtml);
+    const blockDir = path.join(notePath, 'blocks', BLOCK_A);
+    await fs.writeFile(path.join(blockDir, 'assets/style.css'), '#styled{color:rgb(1,2,3)}');
+    await fs.writeFile(path.join(blockDir, 'assets/app.js'),
+      'window.addEventListener("load",()=>{document.documentElement.dataset.script="ok";'
+      + 'document.documentElement.dataset.css=getComputedStyle(document.getElementById("styled")).color;'
+      + 'const i=document.getElementById("asset-image");document.documentElement.dataset.image=i&&i.complete&&i.naturalWidth>0?"ok":"fail";});');
+    await fs.writeFile(path.join(blockDir, 'assets/pixel.svg'),
+      '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="red"/></svg>');
+    await fs.mkdir(path.join(notePath, 'assets/images'), { recursive: true });
+    await fs.writeFile(path.join(notePath, 'assets/images/note.svg'),
+      '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2"/></svg>');
+    const diskContent = 'Before\n\n![note](assets/images/note.svg)\n\n' + blockAnchor(BLOCK_A) + '\nAfter\n';
+    await fs.writeFile(path.join(notePath, 'content.md'), diskContent);
+
+    const sourceBefore = {
+      content: await fs.readFile(path.join(notePath, 'content.md')),
+      noteJson: await fs.readFile(path.join(notePath, 'note.json')),
+      current: await fs.readFile(path.join(blockDir, 'index.html')),
+      original: await fs.readFile(path.join(blockDir, 'original.html')),
+    };
+
+    h.driver.noteOpen(notePath);
+    await click('打开 Mixed Note');
+    await waitFor(() => useNoteStore.getState().currentNote?.metadata.type === 'mixed');
+    await ready();
+
+    await click('编辑 HTML Block');
+    const quickSource = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML 源码"]')!;
+    const dirtyCurrent = blockHtml.replace('Markdown Block Disk', 'Markdown Block Dirty Export');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(quickSource, dirtyCurrent);
+      quickSource.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+      .find(button => button.textContent === 'Save')!.click());
+    await waitFor(() => useNoteStore.getState().isDirty === true);
+
+    const exportParent = path.join(h.directory, 'markdown-exports');
+    await fs.mkdir(exportParent);
+    h.driver.markdownExport(exportParent);
+    await click('导出 Markdown');
+    await waitFor(() => [...document.querySelectorAll('[role="status"]')]
+      .some(node => (node.textContent ?? '').includes('已导出 Markdown')));
+
+    const output = path.join(exportParent, 'Slice 3 Disk-markdown-export');
+    const markdown = await fs.readFile(path.join(output, 'Slice 3 Disk.md'), 'utf8');
+    assert.match(markdown, /Before/);
+    assert.match(markdown, new RegExp('\\[HTML Visual\\]\\(\\.\\/blocks\\/' + BLOCK_A + '\\/index\\.html\\)'));
+    assert.doesNotMatch(markdown, /flownote-html/);
+    assert.match(await fs.readFile(path.join(output, 'blocks', BLOCK_A, 'index.html'), 'utf8'), /Markdown Block Dirty Export/);
+    assert.equal(await fs.readFile(path.join(output, 'blocks', BLOCK_A, 'assets/style.css'), 'utf8'), '#styled{color:rgb(1,2,3)}');
+    assert.match(await fs.readFile(path.join(output, 'blocks', BLOCK_A, 'assets/app.js'), 'utf8'), /dataset\.script/);
+    assert.deepEqual(await fs.readFile(path.join(output, 'blocks', BLOCK_A, 'assets/pixel.svg')),
+      await fs.readFile(path.join(blockDir, 'assets/pixel.svg')));
+    assert.deepEqual(await fs.readFile(path.join(output, 'assets/images/note.svg')),
+      await fs.readFile(path.join(notePath, 'assets/images/note.svg')));
+    assert.equal(await fs.stat(path.join(output, 'blocks', BLOCK_A, 'original.html')).then(() => true, () => false), false);
+    assert.equal(await fs.stat(path.join(output, 'blocks', BLOCK_A, 'block.json')).then(() => true, () => false), false);
+    assert.equal(await fs.stat(path.join(output, 'index.html')).then(() => true, () => false), false);
+
+    assert.deepEqual(await fs.readFile(path.join(notePath, 'content.md')), sourceBefore.content);
+    assert.deepEqual(await fs.readFile(path.join(notePath, 'note.json')), sourceBefore.noteJson);
+    assert.deepEqual(await fs.readFile(path.join(blockDir, 'index.html')), sourceBefore.current);
+    assert.deepEqual(await fs.readFile(path.join(blockDir, 'original.html')), sourceBefore.original);
+    assert.equal(useNoteStore.getState().isDirty, true, 'Markdown export implicitly saved/cleaned the source Note');
+  }, 'markdown-export-bootstrap.md');
+}
+
 async function sliceThreeExternalConflictAndDeepCopySurviveDisk() {
   await withDiskApp('# bootstrap\n', async h => {
     const html = '<link rel="stylesheet" href="./assets/style.css"><section>Source Disk</section><img src="./assets/image.png">';
@@ -691,6 +764,7 @@ export async function run(filter: string) {
     { name: 'R02 真实文件：03 混合列表只修改 LSU 后保存并重开语义不变', run: mixedListEditSurvivesDisk },
     { name: 'Mixed Note 真实磁盘：Markdown 转 .note、编辑 Current、关闭重开保持 Original 与顺序', run: mixedNoteConversionSurvivesDisk },
     { name: 'Browser Bundle 真实磁盘：Dirty Markdown / Current 导出且源 Note 不变', run: browserBundleExportsDirtyMixedNoteWithoutMutatingSourceDisk },
+    { name: 'Markdown Export 真实磁盘：外部 HTML 链接 / Current / 资源导出且源 Note 不变', run: mixedMarkdownExportMaterializesExternalLinksWithoutMutatingSourceDisk },
     { name: 'Slice 3 真实磁盘：外部冲突另存本地后 Deep Copy 私有资源独立', run: sliceThreeExternalConflictAndDeepCopySurviveDisk },
     { name: 'Slice 3 真实磁盘：Missing / Orphan 显式修复后关闭重开有效', run: sliceThreeMissingAndOrphanRepairsSurviveDisk },
     { name: 'R02 真实文件：05 / 08 原件局部源码编辑保存并重开保留其他字节', run: originalProtectedFixtureEditsSurviveDisk },

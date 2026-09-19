@@ -1,4 +1,4 @@
-use flownote::browser_bundle::BrowserBundleRequest;
+use flownote::browser_bundle::{BrowserBundleRequest, MarkdownExportRequest};
 use flownote::file_commands::AssetRequest as MarkdownAssetRequest;
 use flownote::file_error::{FileError, FileResult};
 use flownote::markdown_files::{FileStore, SaveRequest};
@@ -79,6 +79,12 @@ fn dispatch_note(store: &mut NoteStore, input: &Input) -> FileResult<Value> {
             let request: BrowserBundleRequest = serde_json::from_value(input.args["request"].clone())
                 .map_err(|error| FileError::io("Invalid Browser Bundle request", error))?;
             store.export_browser_bundle_selected(parent, request).map(|result| json!(result))
+        }
+        "note_export_markdown" => {
+            let Some(parent) = &input.selection else { return Ok(Value::Null); };
+            let request: MarkdownExportRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Markdown export request", error))?;
+            store.export_markdown_selected(parent, request).map(|result| json!(result))
         }
         "note_release" => store.close(id(&input.args)?).map(|_| Value::Null),
         _ => Err(FileError::new("protocol", "Unknown Note test command")),

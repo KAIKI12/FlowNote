@@ -6,6 +6,7 @@ import { createNativeNotePort } from '../src/note/nativeNotePort';
 import { resolveHtmlResources } from '../src/html/htmlResources';
 import { NodeSelection } from '@milkdown/prose/state';
 import { renderBrowserBundle } from '../src/export/browserBundle';
+import { renderMarkdownExport } from '../src/export/markdownExport';
 
 const ID = '0199a111-0000-7000-8000-000000000001';
 const SECOND_ID = '0199a111-0000-7000-8000-000000000002';
@@ -220,6 +221,22 @@ async function browserBundleProtectedSourceFallsBackWithoutLosingMarkdown() {
   } finally { await h.unmount(); }
 }
 
+async function markdownExportUsesExternalLinksAndCurrentBlocks() {
+  const mixed = noteData();
+  mixed.blocks[0].html = '<div>CURRENT MARKDOWN EXPORT</div>';
+  mixed.blocks[0].originalHtml = '<div>ORIGINAL MUST STAY PRIVATE</div>';
+  const source = 'Before\r\n\r\n' + ANCHOR.replace(/\n/g, '\r\n') + '\r\n\r\nAfter\r\n';
+  const draft = renderMarkdownExport(source, mixed);
+  assert.match(draft.content, /Before\r\n\r\n\[HTML Visual\]\(\.\/blocks\//);
+  assert.match(draft.content, /index\.html\)\r\n\r\nAfter/);
+  assert.doesNotMatch(draft.content, /flownote-html/);
+  assert.equal(draft.blocks.length, 1);
+  assert.equal(draft.blocks[0].id, ID);
+  assert.match(draft.blocks[0].html, /CURRENT MARKDOWN EXPORT/);
+  assert.doesNotMatch(draft.blocks[0].html, /ORIGINAL MUST STAY PRIVATE/);
+  assert.match(draft.blocks[0].html, /connect-src 'none'/);
+}
+
 async function nativeNotePortUsesRegisteredCommands() {
   const calls: Array<{ command: string; args?: Record<string, unknown> }> = [];
   const snapshot = { id: 'note:capability', path: 'E:\\Notes\\Test.note', name: 'Test.note', content: SOURCE,
@@ -235,6 +252,7 @@ async function nativeNotePortUsesRegisteredCommands() {
     ];
     if (command === 'note_read_asset') return { path: 'assets/style.css', mime: 'text/css', bytes: [98, 111, 100, 121] };
     if (command === 'note_export_browser_bundle') return { path: 'E:\\Exports\\HTML Test-export', name: 'HTML Test-export' };
+    if (command === 'note_export_markdown') return { path: 'E:\\Exports\\HTML Test-markdown-export', name: 'HTML Test-markdown-export', markdownPath: 'E:\\Exports\\HTML Test-markdown-export\\HTML Test.md' };
     return null;
   });
   const opened = await port.open();
@@ -254,15 +272,25 @@ async function nativeNotePortUsesRegisteredCommands() {
     content: SOURCE, indexHtml: '<!doctype html><p>Export</p>', blocks: [{ id: ID, html: '<!doctype html><p>Block</p>' }],
   });
   assert.deepEqual(exported, { path: 'E:\\Exports\\HTML Test-export', name: 'HTML Test-export' });
+  const markdownExported = await port.exportMarkdown({
+    id: snapshot.id, revision: snapshot.revision, folderName: 'HTML Test-markdown-export', markdownName: 'HTML Test.md',
+    content: 'Markdown A\n\n[HTML Visual](./blocks/' + ID + '/index.html)\n', blocks: [{ id: ID, html: '<!doctype html><p>Block</p>' }],
+  });
+  assert.deepEqual(markdownExported, { path: 'E:\\Exports\\HTML Test-markdown-export', name: 'HTML Test-markdown-export',
+    markdownPath: 'E:\\Exports\\HTML Test-markdown-export\\HTML Test.md' });
   await port.release(snapshot.id);
   assert.deepEqual(calls.map(value => value.command),
-    ['note_open', 'note_save', 'note_reload', 'note_list_assets', 'note_read_asset', 'note_export_browser_bundle', 'note_release']);
+    ['note_open', 'note_save', 'note_reload', 'note_list_assets', 'note_read_asset', 'note_export_browser_bundle', 'note_export_markdown', 'note_release']);
   assert.deepEqual(calls[1].args, { request: { id: snapshot.id, revision: snapshot.revision, content: SOURCE, mixed: snapshot.mixed,
     blockAssetEdits: [{ blockId: ID, path: 'assets/app.js', content: 'window.v=2;' }] } });
   assert.deepEqual(calls[3].args, { request: { id: snapshot.id, blockId: ID } });
   assert.deepEqual(calls[4].args, { request: { id: snapshot.id, blockId: ID, path: 'assets/style.css' } });
   assert.deepEqual(calls[5].args, { request: { id: snapshot.id, revision: snapshot.revision,
     folderName: 'HTML Test-export', title: 'HTML Test', content: SOURCE, indexHtml: '<!doctype html><p>Export</p>',
+    blocks: [{ id: ID, html: '<!doctype html><p>Block</p>' }] } });
+  assert.deepEqual(calls[6].args, { request: { id: snapshot.id, revision: snapshot.revision,
+    folderName: 'HTML Test-markdown-export', markdownName: 'HTML Test.md',
+    content: 'Markdown A\n\n[HTML Visual](./blocks/' + ID + '/index.html)\n',
     blocks: [{ id: ID, html: '<!doctype html><p>Block</p>' }] } });
 }
 
@@ -315,6 +343,7 @@ export async function run(filter: string) {
     { name: 'HTML 全屏：展示当前 Visual 并支持 Esc 退出', run: fullscreenPresentationOpensAndEscCloses },
     { name: 'Browser Bundle：语义正文与 Current HTML 按文档顺序导出', run: browserBundleRendererUsesSemanticVisualDocumentAndCurrentBlocks },
     { name: 'Browser Bundle：受保护 Markdown 使用源码保真 fallback', run: browserBundleProtectedSourceFallsBackWithoutLosingMarkdown },
+    { name: 'Markdown Export：HTML Anchor 变为外部链接并导出 Current HTML', run: markdownExportUsesExternalLinksAndCurrentBlocks },
     { name: 'Note 端口：前端使用已注册的原生 .note 命令并保留 Mixed 数据', run: nativeNotePortUsesRegisteredCommands },
     { name: 'Note 端口：拒绝字段不完整的原生快照', run: invalidNativeNoteSnapshotIsRejected },
   ];

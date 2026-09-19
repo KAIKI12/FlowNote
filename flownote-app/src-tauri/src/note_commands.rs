@@ -1,4 +1,4 @@
-use crate::browser_bundle::{BrowserBundleRequest, BrowserBundleResult};
+use crate::browser_bundle::{BrowserBundleRequest, BrowserBundleResult, MarkdownExportRequest, MarkdownExportResult};
 use crate::file_error::{FileError, FileResult};
 use crate::note_files::{validate_save_as, BlockAsset, BlockAssetInfo, NoteProbe, NoteSaveAsRequest, NoteSaveRequest, NoteSnapshot, NoteStore};
 use crate::workspace::WorkspaceOpenRequest;
@@ -148,6 +148,22 @@ pub async fn note_export_browser_bundle<R: Runtime>(
         let parent = selected.into_path().map_err(|error| FileError::io("请选择本地 Browser Bundle 导出目录", error))?;
         with_store(&app, |notes| notes.export_browser_bundle_selected(&parent, request)).map(Some)
     }).await.map_err(|error| FileError::io("Browser Bundle 导出被中断", error))?
+}
+
+#[tauri::command]
+pub async fn note_export_markdown<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    request: MarkdownExportRequest,
+) -> FileResult<Option<MarkdownExportResult>> {
+    require_main(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let selected = app.dialog().file().set_parent(&window)
+            .set_title("选择 Markdown 导出父目录").blocking_pick_folder();
+        let Some(selected) = selected else { return Ok(None); };
+        let parent = selected.into_path().map_err(|error| FileError::io("请选择本地 Markdown 导出目录", error))?;
+        with_store(&app, |notes| notes.export_markdown_selected(&parent, request)).map(Some)
+    }).await.map_err(|error| FileError::io("Markdown 导出被中断", error))?
 }
 
 #[tauri::command]

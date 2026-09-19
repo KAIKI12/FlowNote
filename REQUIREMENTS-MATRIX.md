@@ -163,11 +163,11 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 
 | ID | Final Requirement | Reservation | Current Status | Target |
 |---|---|---|---|---|
-| EXP-01 | Mixed Note Markdown export never silently loses HTML | Explicit export policy | Partial | V2 |
-| EXP-02 | “External HTML links” export copies HTML + managed resources into export destination | Resource materializer | Planned | V2 |
-| EXP-03 | HTML Browser Bundle works without FlowNote and preserves body/images/Block order/isolation | Export materializer | Planned | V2 |
-| EXP-04 | Browser Bundle does not falsely promise single-file or fully-offline unresolved remote deps | Product contract | Planned | V2 |
-| EXP-05 | Export uses same resource ownership/resolver semantics, not a separate ad-hoc model | Resource architecture | Planned | V2 |
+| EXP-01 | Mixed Note Markdown export never silently loses HTML | Explicit export policy | Completed | V1 |
+| EXP-02 | “External HTML links” export copies HTML + managed resources into export destination | Resource materializer | Completed | V1 |
+| EXP-03 | HTML Browser Bundle works without FlowNote and preserves body/images/Block order/isolation | Export materializer | Completed | V1 |
+| EXP-04 | Browser Bundle does not falsely promise single-file or fully-offline unresolved remote deps | Product contract | Completed | V1 |
+| EXP-05 | Export uses same resource ownership/resolver semantics, not a separate ad-hoc model | Resource architecture | Completed | V1 |
 
 ## L. AI and future visual workflows
 

@@ -54,7 +54,7 @@ function blockPolicy(block: HtmlBlockData): string {
   ].join('; ');
 }
 
-function blockDocument(block: HtmlBlockData): string {
+export function renderExportBlockDocument(block: HtmlBlockData): string {
   return '<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="'
     + blockPolicy(block) + '"><meta name="referrer" content="no-referrer">' + block.html;
 }
@@ -127,7 +127,7 @@ export async function renderBrowserBundle(
     placeholder.replaceWith(section);
 
     const resolved = await resolveHtmlResources(block.html, path => readAsset(block.id, path));
-    blocks.push({ id, html: blockDocument({ ...block, html: resolved }) });
+    blocks.push({ id, html: renderExportBlockDocument({ ...block, html: resolved }) });
   }
 
   return { indexHtml: rootDocument(title, document.body.innerHTML), blocks };
