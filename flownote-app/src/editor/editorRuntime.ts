@@ -140,7 +140,7 @@ export function createEditorApi(session: EditorSession, get: () => Editor | unde
         for (const image of images) transaction.setNodeMarkup(image.pos, undefined, image.attrs);
         markdown = ctx.get(serializerCtx)(transaction.doc);
       });
-      return markdown;
+      return session.wrapVisualMarkdown(markdown);
     },
     previewDuplicateHtmlBlock: (sourceId, targetId) => {
       session.requireVisualEdit();
@@ -162,7 +162,7 @@ export function createEditorApi(session: EditorSession, get: () => Editor | unde
         const transaction = view.state.tr.insert(source.pos + source.size, type.create({ id: targetId, width: source.width }));
         markdown = ctx.get(serializerCtx)(transaction.doc);
       });
-      return markdown;
+      return session.wrapVisualMarkdown(markdown);
     },
     insertHtmlBlock: (id, width = 'normal') => {
       session.requireVisualEdit();

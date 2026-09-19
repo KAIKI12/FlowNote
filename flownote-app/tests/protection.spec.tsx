@@ -62,7 +62,7 @@ function boundaryChecks(h: Harness): ProtectionCheck[] {
       await h.mount('# 普通正文\n');
       const samples = ['$x^2 + y^2 = z^2$\n', '$$\nE = mc^2\n$$\n', '\\(x + y\\)\n',
         '[[Useful Skew]]\n', '<span style="color:red">红色</span>\n',
-        '文字[^1]\n\n[^1]: 注释\n', '```unknown-language\nx\n```\n',
+        '文字[^1]\n\n[^1]: 注释\n',
         '```mermaid\ngraph LR; A-->B\n```\n', '```js title="sample"\nlet n = 1\n```\n',
         ':::warning\n注意\n:::\n'];
       for (const input of samples) {
@@ -100,6 +100,32 @@ function boundaryChecks(h: Harness): ProtectionCheck[] {
       assert.match(sourceArea().value, /const value/);
       await act(async () => h.api.current!.setMode('edit'));
       assert.equal(h.view().editable, true);
+    } },
+    { name: '源码保护：Frontmatter 作为元数据包络保真且正文仍可可视化编辑', run: async () => {
+      const prefix = '\uFEFF---\r\ntitle: FlowNote\r\ntags: [pd, notes]\r\n---\r\n\r\n';
+      const input = prefix + '# 可视化正文\n\n普通段落。\n';
+      await h.mount(input);
+      assert.equal(h.view().editable, true, document.querySelector('.editor-source-notice')?.textContent ?? 'Frontmatter unexpectedly protected');
+      assert.equal(document.querySelector('.ProseMirror h1')?.textContent, '可视化正文');
+      assert.ok(h.api.current!.getMarkdown().startsWith(prefix), 'Frontmatter bytes/separator were not preserved');
+      await act(async () => h.view().dispatch(h.view().state.tr.insertText('新', 1)));
+      await settle();
+      assert.ok(h.api.current!.getMarkdown().startsWith(prefix), 'Visual edit changed Frontmatter bytes');
+      assert.match(h.api.current!.getMarkdown(), /# 新可视化正文/);
+    } },
+    { name: '源码保护：任意 fenced code language 作为普通代码块安全往返', run: async () => {
+      const input = '# HDL\n\n```systemverilog\nmodule top; endmodule\n```\n';
+      await h.mount(input);
+      assert.equal(h.view().editable, true, document.querySelector('.editor-source-notice')?.textContent ?? 'Custom code language unexpectedly protected');
+      assert.match(h.api.current!.getMarkdown(), /```systemverilog\nmodule top; endmodule/);
+    } },
+    { name: '源码保护：文首普通分隔线不误判 Frontmatter，未闭合元数据仍保护', run: async () => {
+      await h.mount('---\n\n# 普通正文\n');
+      assert.equal(h.view().editable, true);
+      assert.ok(document.querySelector('.ProseMirror hr'));
+      await act(async () => h.api.current!.setMarkdown('---\ntitle: missing close\n\n# Body\n'));
+      assert.equal(h.view().editable, false);
+      assert.match(document.querySelector('.editor-source-notice')?.textContent ?? '', /Frontmatter 元数据未闭合/);
     } },
     { name: '源码保护：CRLF、BOM 与局部编辑保留未改动的源码', run: async () => {
       const input = '\uFEFF---\r\ntitle: 原标题\r\n---\r\n\r\n[[保留]]\r\n';

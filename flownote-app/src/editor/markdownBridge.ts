@@ -6,11 +6,14 @@ import type { Node } from '@milkdown/prose/model';
 import { protectionReasons, sameMarkdownMeaning } from './markdownProtection';
 import type { MarkdownTree } from './markdownProtection';
 import { htmlBlockContext } from './plugins/htmlBlock/htmlBlockContext';
+import { hasFrontmatterOpener, splitFrontmatter } from './frontmatterEnvelope';
 
 export interface MarkdownBridge {
   identity: unknown;
   inspect: (source: string) => string[];
   read: () => string;
+  readVisual: () => string;
+  wrapVisual: (markdown: string) => string;
   replace: (source: string, resetHistory: boolean) => void;
   editable: (enabled: boolean) => void;
   focus: () => void;
@@ -27,14 +30,23 @@ function parseDocument(ctx: Ctx, source: string): Node {
   return document;
 }
 
+function bodySource(source: string): { prefix: string; body: string } | { error: string } {
+  const frontmatter = splitFrontmatter(source);
+  if (frontmatter) return frontmatter;
+  if (hasFrontmatterOpener(source)) return { error: 'Frontmatter 元数据未闭合' };
+  return { prefix: '', body: source };
+}
+
 function inspectMarkdown(ctx: Ctx, source: string): string[] {
   try {
-    const before = parseTree(ctx, source);
-    const reasons = protectionReasons(source, before, ctx.get(htmlBlockContext.key)?.host.knownIds());
+    const extracted = bodySource(source);
+    if ('error' in extracted) return [extracted.error];
+    const before = parseTree(ctx, extracted.body);
+    const reasons = protectionReasons(extracted.body, before, ctx.get(htmlBlockContext.key)?.host.knownIds());
     if (reasons.length) return reasons;
     // Milkdown's empty-line serializer depends on the live last paragraph's identity.
     if (before.children?.length === 0) return [];
-    const document = parseDocument(ctx, source);
+    const document = parseDocument(ctx, extracted.body);
     const after = parseTree(ctx, ctx.get(serializerCtx)(document));
     return sameMarkdownMeaning(before, after) ? [] : ['可视化往返会改变 Markdown 结构'];
   } catch (error) {
@@ -51,20 +63,29 @@ function resetDocument(ctx: Ctx, document: Node): void {
   view.updateState(state);
 }
 
-function replaceDocument({ ctx, source, resetHistory }: { ctx: Ctx; source: string; resetHistory: boolean }): void {
+function replaceDocument({ ctx, source, resetHistory }: { ctx: Ctx; source: string; resetHistory: boolean }): string {
+  const extracted = bodySource(source);
+  if ('error' in extracted) throw new Error(extracted.error);
   const view = ctx.get(editorViewCtx);
-  const document = parseDocument(ctx, source);
-  if (resetHistory) return resetDocument(ctx, document);
-  view.dispatch(closeHistory(view.state.tr).replaceWith(0, view.state.doc.content.size, document.content));
-  view.dispatch(closeHistory(view.state.tr));
+  const document = parseDocument(ctx, extracted.body);
+  if (resetHistory) resetDocument(ctx, document);
+  else {
+    view.dispatch(closeHistory(view.state.tr).replaceWith(0, view.state.doc.content.size, document.content));
+    view.dispatch(closeHistory(view.state.tr));
+  }
+  return extracted.prefix;
 }
 
 export function createMarkdownBridge(ctx: Ctx): MarkdownBridge {
+  let frontmatterPrefix = '';
+  const readVisual = () => ctx.get(serializerCtx)(ctx.get(editorViewCtx).state.doc);
   return {
     identity: ctx,
     inspect: source => inspectMarkdown(ctx, source),
-    read: () => ctx.get(serializerCtx)(ctx.get(editorViewCtx).state.doc),
-    replace: (source, resetHistory) => replaceDocument({ ctx, source, resetHistory }),
+    read: () => frontmatterPrefix + readVisual(),
+    readVisual,
+    wrapVisual: markdown => frontmatterPrefix + markdown,
+    replace: (source, resetHistory) => { frontmatterPrefix = replaceDocument({ ctx, source, resetHistory }); },
     editable: enabled => ctx.get(editorViewCtx).setProps({ editable: () => enabled }),
     focus: () => ctx.get(editorViewCtx).focus(),
   };

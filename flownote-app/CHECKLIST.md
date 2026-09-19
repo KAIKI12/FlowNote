@@ -129,6 +129,7 @@
 - [x] Markdown export：Mixed Note 的 HTML Anchor 转为外部 HTML 相对链接；Current HTML、Note-managed assets 与 Block-private assets 一并导出，Dirty 可导出且不隐式保存源 `.note`。
 - [x] Bundle code-splitting：按 React / ProseMirror / Milkdown / Tauri vendor 拆分，最大 chunk 降至 256.18 kB，Vite >500 kB warning 已消失。
 - [x] V1 UI Polish：Auto / Light / Dark 系统主题联动与偏好持久化、参考稿 token 对齐、Ctrl/Cmd+K 搜索、Quiet empty/error states、移除 Tags / Trash 假入口；连续 Markdown 编辑面保持无 Block 框。
+- [x] Source Protection Narrowing：Frontmatter 原字节包络 + 可视化正文、任意 fenced code language 普通往返、HTML 候选保留 Frontmatter；源码输入 focus accent 横线已移除。
 - [x] Release build / exe smoke：production build、MSI、NSIS 均 PASS；release exe 启动后保持运行，无启动即崩。
 - [ ] 最终安装级发布验证：真实 MSI / NSIS 安装、卸载、升级路径与发布版本整理。
 

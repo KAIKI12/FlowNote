@@ -61,6 +61,8 @@ async function externalHydrationDoesNotEchoAsLocalEdit() {
     identity,
     inspect: () => [],
     read: () => current,
+    readVisual: () => current,
+    wrapVisual: markdown => markdown,
     replace: source => { current = source.replace(/\n?$/, '\n\n'); },
     editable: () => undefined,
     focus: () => undefined,

@@ -218,8 +218,9 @@ export class EditorSession {
   }
 
   acceptVisual(identity: unknown, markdown: string): void {
-    if (this.bridge?.identity !== identity || this.installing || this.state.active !== 'visual') return;
-    if (markdown !== this.getMarkdown()) return;
+    const bridge = this.bridge;
+    if (!bridge || bridge.identity !== identity || this.installing || this.state.active !== 'visual') return;
+    if (markdown !== bridge.readVisual()) return;
     this.publish();
   }
 
@@ -262,6 +263,11 @@ export class EditorSession {
     if (this.state.active !== 'visual' || this.state.mode !== 'edit' || this.state.composing) {
       throw new Error('当前处于源码保护、只读或组合输入状态，不能执行可视化编辑命令');
     }
+  }
+
+  wrapVisualMarkdown(markdown: string): string {
+    this.requireVisualEdit();
+    return this.requireBridge().wrapVisual(markdown);
   }
 
   openSourceInput(source: string, caret: number): void {

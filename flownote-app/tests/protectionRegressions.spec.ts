@@ -50,8 +50,9 @@ async function priorCurrency(h: Harness) {
 async function emptyFrontmatter(h: Harness) {
   for (const source of ['---\n---\n\n# Body\n', '+++\n+++\n\n# Body\n', '---\n...\n\n# Body\n']) {
     await h.mount(source);
+    assert.equal(h.view().editable, true);
+    assert.equal(document.querySelector('.ProseMirror h1')?.textContent, 'Body');
     assert.equal(h.api.current!.getMarkdown(), source);
-    assert.equal(sourceArea().value, source);
   }
 }
 

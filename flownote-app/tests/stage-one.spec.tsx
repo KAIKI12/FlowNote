@@ -30,11 +30,15 @@ function foundationChecks(h: ReturnType<typeof createHarness>): Check[] {
       assert.ok(parseFloat(getComputedStyle(document.querySelector('ol')!).paddingInlineStart) > 0);
       assert.ok(parseFloat(getComputedStyle(document.querySelector('blockquote')!).borderLeftWidth) > 0);
     } },
-    { name: '无感编辑：Markdown 正文不能继承整个工作区的 focus 边框', run: async () => {
+    { name: '无感编辑：Markdown 正文和源码输入都不显示整块 focus 边框', run: async () => {
       await h.mount(SAMPLE);
-      const css = readFileSync(path.join(process.cwd(), 'src/styles/global.css'), 'utf8');
-      assert.equal(/\.writing-app\s+:focus-visible\s*\{/.test(css), false,
+      const globalCss = readFileSync(path.join(process.cwd(), 'src/styles/global.css'), 'utf8');
+      const editorCss = readFileSync(path.join(process.cwd(), 'src/styles/editor.css'), 'utf8');
+      assert.equal(/\.writing-app\s+:focus-visible\s*\{/.test(globalCss), false,
         'Do not apply one global focus ring to every descendant of the writing workspace');
+      assert.match(editorCss,
+        /\.editor-source-surface\s*>\s*textarea:focus,[\s\S]*?textarea:focus-visible\s*\{[^}]*outline:\s*none[^}]*box-shadow:\s*none/s,
+        'Source editor focus should be communicated by the caret, not a bright canvas line');
     } },
     { name: '长文档布局：滚动限制在中央编辑区而不是撑高整个 App', run: async () => {
       const globalCss = readFileSync(path.join(process.cwd(), 'src/styles/global.css'), 'utf8');

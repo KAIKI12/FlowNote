@@ -55,6 +55,23 @@ async function previewInsertionDoesNotMutateEditor() {
   } finally { await h.unmount(); }
 }
 
+async function previewInsertionPreservesFrontmatterEnvelope() {
+  const h = createHarness();
+  const prefix = '\uFEFF---\r\ntitle: Mixed Frontmatter\r\n---\r\n\r\n';
+  const body = 'Markdown A\n\nMarkdown B\n';
+  note(prefix + body);
+  try {
+    await h.mount(prefix + body);
+    await h.select('Markdown B');
+    const candidate = h.api.current!.previewHtmlBlock(ID);
+    assert.ok(candidate.startsWith(prefix), 'HTML candidate dropped or normalized Frontmatter');
+    assert.match(candidate, /```flownote-html/);
+    assert.ok(candidate.indexOf('Markdown A') < candidate.indexOf('```flownote-html'));
+    assert.ok(candidate.indexOf('```flownote-html') < candidate.indexOf('Markdown B'));
+    assert.ok(h.api.current!.getMarkdown().startsWith(prefix), 'Candidate generation mutated Frontmatter');
+  } finally { await h.unmount(); }
+}
+
 async function previewInsertionPreservesSelectedHtmlBlock() {
   const h = createHarness();
   note();
@@ -333,6 +350,7 @@ export async function run(filter: string) {
   const checks = [
     { name: 'HTML 格式：Anchor 只包含 id，并保留 Markdown 前后顺序', run: onlyIdInAnchor },
     { name: 'HTML 导入：候选 Anchor 按当前选区生成且不修改实时编辑器', run: previewInsertionDoesNotMutateEditor },
+    { name: 'HTML 导入：Frontmatter 包络在候选 Anchor 中保持原字节', run: previewInsertionPreservesFrontmatterEnvelope },
     { name: 'HTML 导入：新增 Block 不会替换已选中的现有 HTML Block', run: previewInsertionPreservesSelectedHtmlBlock },
     { name: 'HTML Deep Copy：候选副本紧随源 Block 且不修改实时编辑器', run: previewDeepCopyInsertsAfterSourceWithoutMutatingEditor },
     { name: 'HTML 资源：Block 私有 CSS / JS / 图片相对路径转换为 sandbox 内部资源', run: localResourcesResolveInsideSandbox },

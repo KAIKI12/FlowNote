@@ -10,7 +10,7 @@
 
 FlowNote 当前已经从“Markdown 编辑器验证”进入可持续收尾阶段，现有主路径包括：
 
-- 普通 Markdown：可视化 / 源码双模式、复杂列表、任务列表、表格、代码、图片、粘贴、撤销重做、中文 IME 保护以及不支持语法的源码保真路径。
+- 普通 Markdown：可视化 / 源码双模式、复杂列表、任务列表、表格、代码、图片、粘贴、撤销重做、中文 IME 保护；Frontmatter 作为原字节元数据包络保留且正文可继续可视化编辑，任意 fenced code language 可按普通代码块安全往返；真正无法安全往返的扩展语法继续走源码保真路径。
 - 普通 `.md` 文件：新建、打开、保存、另存为、重载、关闭 / 重开、外部版本检测与失败恢复；无编辑保存保持原字节与时间语义。
 - Mixed Note：显式 `.md → .note` 转换、`content.md` + `note.json` + Block 目录持久化、多个 HTML Block、关闭重开与整体移动。
 - HTML Block：NodeView 已注册并在 Markdown 原位置渲染隔离 iframe；Current / Original 分离，Block 配置与私有资源独立持久化，默认 sandbox + CSP 阻止联网。
@@ -158,18 +158,30 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 
 本 Slice 不新增存储语义，也没有把后续 Favorites / Trash / watcher / multi-Workspace / SQLite-FTS / tags / backlinks 等需求缩出产品定义。
 
+## 2.13 Source Protection Narrowing — completed
+
+2026-09-19 根据真实使用中的保护提示与编辑焦点体验继续收窄源码保护边界：
+
+- **Frontmatter 不再强制源码模式**：YAML/TOML Frontmatter 从 Milkdown visual AST 中剥离为不可见 metadata envelope，BOM、换行、分隔符与 Frontmatter 原字节保持不变；可视化编辑只作用于正文，保存时重新拼接元数据包络。
+- **自定义代码块语言不再误判危险语法**：任意 fenced code language（如 `systemverilog`、工具自定义 language tag）按普通 code block 往返；Prism 不认识的语言只是不高亮，不再因此禁止可视化编辑。带额外 code-fence meta 的代码块仍保留源码保护。
+- **HTML 候选路径保留 Frontmatter**：插入 / Deep Copy HTML Block 时生成的候选 Markdown 会重新附加原 Frontmatter，避免转换或插入 Visual 时丢失元数据。
+- **源码输入 focus 亮线移除**：源码 textarea 的 focus / focus-visible 不再绘制整块 accent outline；与可视化编辑一致，只通过 caret / selection 表达编辑焦点。
+- **仍保留的保护**：WikiLink、Footnote、raw HTML、Mermaid、LaTeX、扩展 directive / attributes、code fence meta 及无效 HTML Anchor 等仍在不能证明安全往返时进入源码保护。
+
+此变更不修改 Note Format v1，也不改变 Frontmatter 内容本身；FlowNote 只负责原字节保留与正文编辑，不尝试解释或重写元数据字段。
+
 ## 3. 最新验证基线
 
-2026-09-19 V1 UI Polish 完成后的新鲜验证结果：
+2026-09-19 Source Protection Narrowing 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
 | Workspace Frontend | **8 / 8** |
 | Workspace Native | **11 / 11** |
 | Format Freeze Gate | **PASS** |
-| HTML | **15 / 15** |
+| HTML | **16 / 16** |
 | Stage One | **64 / 64** |
-| Protection | **38 / 38** |
+| Protection | **41 / 41** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |
 | 真实磁盘 | **18 / 18** |
