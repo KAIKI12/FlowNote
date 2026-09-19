@@ -1,5 +1,7 @@
+use flownote::file_commands::AssetRequest as MarkdownAssetRequest;
 use flownote::file_error::{FileError, FileResult};
 use flownote::markdown_files::{FileStore, SaveRequest};
+use flownote::note_commands::{AssetRequest as NoteAssetRequest, RepairRequest as NoteRepairRequest};
 use flownote::note_files::{NoteSaveAsRequest, NoteSaveRequest, NoteStore};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -46,6 +48,21 @@ fn dispatch_note(store: &mut NoteStore, input: &Input) -> FileResult<Value> {
             store.save(request).map(|note| json!(note))
         }
         "note_reload" => store.reload(id(&input.args)?).map(|note| json!(note)),
+        "note_probe" => store.probe(id(&input.args)?).map(|probe| json!(probe)),
+        "note_repair_remove_reference" | "note_repair_restore_orphan" => {
+            let request: NoteRepairRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Note repair request", error))?;
+            if input.command == "note_repair_remove_reference" {
+                store.repair_remove_reference(&request.id, &request.revision, &request.block_id).map(|note| json!(note))
+            } else {
+                store.repair_restore_orphan(&request.id, &request.revision, &request.block_id).map(|note| json!(note))
+            }
+        }
+        "note_read_asset" => {
+            let request: NoteAssetRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Note asset request", error))?;
+            store.read_asset(&request.id, &request.block_id, &request.path).map(|asset| json!(asset))
+        }
         "note_release" => store.close(id(&input.args)?).map(|_| Value::Null),
         _ => Err(FileError::new("protocol", "Unknown Note test command")),
     }
@@ -61,6 +78,11 @@ fn dispatch(store: &mut FileStore, notes: &mut NoteStore, input: &Input) -> File
             store.save(request).map(|file| json!(file))
         }
         "markdown_reload" => store.reload(id(&input.args)?).map(|file| json!(file)),
+        "markdown_read_asset" => {
+            let request: MarkdownAssetRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Markdown asset request", error))?;
+            store.read_asset(&request.id, &request.path).map(|asset| json!(asset))
+        }
         "markdown_release" => store.close(id(&input.args)?).map(|_| Value::Null),
         _ => Err(FileError::new("protocol", "Unknown test command")),
     }

@@ -54,6 +54,7 @@ function installBridge(driver: ReturnType<typeof createFileDriver>, boundary: Wi
       boundary.destroyed += 1;
       return;
     }
+    if (command === 'workspace_restore') return null;
     if (!command.startsWith('markdown_')) throw new Error(`Unexpected desktop command: ${command}`);
     const result = await driver.invoke(command, args);
     if (command === 'markdown_save') await boundary.afterSave?.();

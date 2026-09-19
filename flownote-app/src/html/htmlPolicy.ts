@@ -5,9 +5,9 @@ export interface HtmlPreviewOptions { html: string; config?: HtmlBlockConfig; ne
 
 export function previewPolicy(options: HtmlPreviewOptions): string {
   const network = options.networkAllowed ? ' http: https:' : '';
-  const script = options.config?.scriptPolicy === 'off' ? "'none'" : "'unsafe-inline'" + network;
+  const script = options.config?.scriptPolicy === 'off' ? "'none'" : "'unsafe-inline' data:" + network;
   const connect = options.networkAllowed ? 'http: https: ws: wss:' : "'none'";
-  return ["default-src 'none'", `script-src ${script}`, `style-src 'unsafe-inline'${network}`,
+  return ["default-src 'none'", `script-src ${script}`, `style-src 'unsafe-inline' data:${network}`,
     `img-src data: blob:${network}`, `font-src data:${network}`, `media-src data: blob:${network}`,
     `connect-src ${connect}`, "frame-src 'none'", "object-src 'none'", "base-uri 'none'", "form-action 'none'"].join('; ');
 }

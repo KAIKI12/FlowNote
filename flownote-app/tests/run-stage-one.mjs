@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const TEST_TIMEOUT_MS = 60_000;
 const option = process.argv[2];
 const suite = option === '--html' ? 'html' : option === '--desktop' ? 'desktop' : option === '--file-disk' ? 'file-disk' : option === '--files' ? 'files'
-  : option === '--qualification' ? 'qualification' : option === '--protection' ? 'protection' : 'stage-one';
+  : option === '--workspace' ? 'workspace' : option === '--qualification' ? 'qualification' : option === '--protection' ? 'protection' : 'stage-one';
 const appRoot = fileURLToPath(new URL('../', import.meta.url));
 const artifacts = await fs.mkdtemp(path.join(os.tmpdir(), `flownote-${suite}-`));
 const timer = setTimeout(() => { console.error('Tests exceeded 60 seconds'); process.exit(1); }, TEST_TIMEOUT_MS);

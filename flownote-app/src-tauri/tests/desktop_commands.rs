@@ -2,6 +2,8 @@
 
 use flownote::file_commands::ManagedFiles;
 use flownote::markdown_files::{FileSnapshot, MAX_MARKDOWN_BYTES};
+use flownote::note_commands::ManagedNotes;
+use flownote::workspace::ManagedWorkspace;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::PathBuf;
@@ -9,6 +11,8 @@ use tauri::ipc::{CallbackFn, InvokeBody};
 use tauri::test::{get_ipc_response, mock_builder, MockRuntime, INVOKE_KEY};
 use tauri::{App, Manager, WebviewWindow, WebviewWindowBuilder};
 use uuid::Uuid;
+
+mod note_support;
 
 const SUCCESS_CALLBACK: u32 = 0;
 const ERROR_CALLBACK: u32 = 1;
@@ -67,6 +71,20 @@ fn production_dispatch_saves_reloads_and_releases_the_selected_file() {
 }
 
 #[test]
+fn production_dispatch_reads_only_bound_markdown_assets() {
+    let desktop = Desktop::new("main");
+    let directory = desktop.path.parent().unwrap().join("中文.assets");
+    fs::create_dir(&directory).unwrap();
+    fs::write(directory.join("plot.png"), [137, 80, 78, 71]).unwrap();
+    let asset = desktop.call("markdown_read_asset", json!({ "request": {
+        "id": desktop.file.id, "path": "中文.assets/plot.png" } })).unwrap();
+    assert_eq!(asset["mime"], "image/png");
+    assert_eq!(asset["bytes"], json!([137, 80, 78, 71]));
+    assert_eq!(desktop.call("markdown_read_asset", json!({ "request": {
+        "id": desktop.file.id, "path": "../outside.png" } })).unwrap_err()["code"], "invalidPath");
+}
+
+#[test]
 fn malformed_save_payloads_never_write_the_file() {
     let desktop = Desktop::new("main");
     let mut extra = desktop.save_request("BAD");
@@ -98,6 +116,7 @@ fn secondary_windows_cannot_invoke_any_file_command() {
         ("markdown_save", desktop.save_request("BAD")),
         ("markdown_save_as", json!({ "request": { "name": "copy.md", "content": "BAD" } })),
         ("markdown_reload", json!({ "id": desktop.file.id })),
+        ("markdown_read_asset", json!({ "request": { "id": desktop.file.id, "path": "中文.assets/plot.png" } })),
         ("markdown_release", json!({ "id": desktop.file.id })),
     ];
     for (command, args) in calls {
@@ -148,4 +167,63 @@ fn close_event_subscription_is_allowed_by_the_production_capability() {
     let id = desktop.call("plugin:event|listen", args).unwrap();
     assert!(id.is_number());
     assert!(desktop.call("plugin:event|unlisten", json!({ "event": "tauri://close-requested", "eventId": id })).is_ok());
+}
+
+
+#[test]
+fn workspace_commands_bind_scan_search_and_open_through_existing_stores() {
+    let desktop = Desktop::new("main");
+    let root = desktop.path.parent().unwrap().to_path_buf();
+    {
+        let state = desktop._app.state::<ManagedWorkspace>();
+        state.0.lock().unwrap().bind(&root).unwrap();
+    }
+
+    let note_path = root.join("visual.note");
+    {
+        let state = desktop._app.state::<ManagedNotes>();
+        state.0.lock().unwrap().save_as_selected(&note_path, note_support::draft()).unwrap();
+    }
+
+    let scan = desktop.call("workspace_scan", json!({})).unwrap();
+    assert!(scan["entries"].as_array().unwrap().iter().any(|entry| entry["relativePath"] == "中文.md"));
+    assert!(scan["entries"].as_array().unwrap().iter().any(|entry| entry["relativePath"] == "visual.note"));
+
+    let search = desktop.call("workspace_search", json!({ "request": { "query": "ORIGINAL" } })).unwrap();
+    assert_eq!(search[0]["relativePath"], "中文.md");
+
+    let markdown = desktop.call("markdown_open_workspace", json!({ "request": { "relativePath": "中文.md" } })).unwrap();
+    assert_eq!(markdown["content"], "ORIGINAL\n");
+    let markdown_id = markdown["id"].as_str().unwrap().to_string();
+    assert_eq!(desktop.call("markdown_reload", json!({ "id": markdown_id })).unwrap()["content"], "ORIGINAL\n");
+
+    let note = desktop.call("note_open_workspace", json!({ "request": { "relativePath": "visual.note" } })).unwrap();
+    assert!(note["content"].as_str().unwrap().contains("flownote-html"));
+    let note_id = note["id"].as_str().unwrap().to_string();
+    assert!(desktop.call("note_reload", json!({ "id": note_id })).is_ok());
+
+    let created = desktop.call("workspace_create_markdown", json!({ "request": { "folder": "" } })).unwrap();
+    assert!(created["relativePath"].as_str().unwrap().ends_with(".md"));
+    let renamed = desktop.call("workspace_rename", json!({ "request": {
+        "relativePath": created["relativePath"], "newName": "Renamed.md"
+    } })).unwrap();
+    assert_eq!(renamed["relativePath"], "Renamed.md");
+    assert!(root.join("Renamed.md").is_file());
+}
+
+#[test]
+fn secondary_window_cannot_use_workspace_commands() {
+    let desktop = Desktop::new("secondary");
+    let commands = [
+        ("workspace_scan", json!({})),
+        ("workspace_search", json!({ "request": { "query": "x" } })),
+        ("workspace_create_markdown", json!({ "request": { "folder": "" } })),
+        ("workspace_rename", json!({ "request": { "relativePath": "x.md", "newName": "y.md" } })),
+        ("markdown_open_workspace", json!({ "request": { "relativePath": "中文.md" } })),
+        ("note_open_workspace", json!({ "request": { "relativePath": "x.note" } })),
+    ];
+    for (command, args) in commands {
+        let error = desktop.call(command, args).unwrap_err();
+        assert_eq!(error["code"], "permission", "{command}");
+    }
 }

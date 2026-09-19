@@ -1,7 +1,7 @@
 use crate::file_error::{FileError, FileResult};
 use crate::note_format::{self, NoteDocument};
 use crate::note_path::{component_name, validate_entry, MAX_PATH_DEPTH};
-use crate::windows_note_io::{read_file, Directory, NoteMetadata};
+use crate::windows_note_io::{read_file, read_file_shared, Directory, NoteMetadata};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -36,7 +36,7 @@ fn names(root: &Directory, relative: &str) -> FileResult<Vec<String>> {
     Ok(names)
 }
 
-fn read_entry(root: &Directory, relative: &str, budget: usize) -> FileResult<TreeEntry> {
+fn read_entry(root: &Directory, relative: &str, budget: usize, shared: bool) -> FileResult<TreeEntry> {
     let path = root.path.join(relative);
     let metadata = fs::symlink_metadata(&path).map_err(|error| FileError::io("读取 Note 文件状态失败", error))?;
     validate_entry(&path, metadata.is_dir())?;
@@ -44,7 +44,7 @@ fn read_entry(root: &Directory, relative: &str, budget: usize) -> FileResult<Tre
         let directory = Directory::open(&path, false)?;
         return Ok(TreeEntry { metadata: NoteMetadata::read(&directory.file)?, file: directory.file, bytes: None });
     }
-    let (file, bytes, metadata) = read_file(&path, budget)?;
+    let (file, bytes, metadata) = if shared { read_file_shared(&path, budget)? } else { read_file(&path, budget)? };
     Ok(TreeEntry { file, bytes: Some(bytes), metadata })
 }
 
@@ -69,7 +69,11 @@ fn digest_piece(digest: &mut Sha256, bytes: &[u8]) {
 }
 
 impl NoteTree {
-    pub fn read(root: &Directory) -> FileResult<Self> {
+    pub fn read(root: &Directory) -> FileResult<Self> { Self::read_with_mode(root, false) }
+
+    pub fn read_shared(root: &Directory) -> FileResult<Self> { Self::read_with_mode(root, true) }
+
+    fn read_with_mode(root: &Directory, shared: bool) -> FileResult<Self> {
         let root_metadata = NoteMetadata::read(&root.file)?;
         let mut tree = Self { root_metadata, entries: BTreeMap::new(), revision: String::new() };
         let mut pending = vec![String::new()];
@@ -82,7 +86,7 @@ impl NoteTree {
                 if relative.split('/').count() > MAX_PATH_DEPTH || tree.entries.len() >= MAX_PACKAGE_ENTRIES {
                     return Err(FileError::new("tooLarge", "Note 目录层级或项目数量超过上限"));
                 }
-                let entry = read_entry(root, &relative, MAX_PACKAGE_BYTES - bytes)?;
+                let entry = read_entry(root, &relative, MAX_PACKAGE_BYTES - bytes, shared)?;
                 match &entry.bytes {
                     Some(data) => { bytes += data.len(); files += 1; },
                     None => pending.push(relative.clone()),

@@ -1,5 +1,7 @@
 import { act } from 'react';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { undo, redo } from '@milkdown/prose/history';
 import { createHarness, settle } from './editorHarness';
 import { interactionChecks } from './editorInteractions.spec';
@@ -7,6 +9,7 @@ import { toolbarChecks } from './editorToolbar.spec';
 import { appChecks } from './appEditing.spec';
 import { regressionChecks } from './editorRegressions.spec';
 import type { TestContext } from './editorRegressions.spec';
+import { workspaceAppChecks, workspaceChecks } from './workspace.spec';
 
 const SAMPLE = '# 标题\n\n正文 **粗体**、*斜体*、~~删除~~ 和 [链接](https://example.com)。\n\n> 引用内容\n\n3. 第一项\n   1. 子项\n4. 第二项\n\n| 名称 | 数值 |\n| --- | ---: |\n| 时钟 | 100 |\n\n```javascript\nconst answer = 42;\nconsole.log("你好");\n```\n';
 type Check = { name: string; run: () => Promise<void> };
@@ -26,6 +29,12 @@ function foundationChecks(h: ReturnType<typeof createHarness>): Check[] {
       assert.equal(getComputedStyle(h.view().dom).whiteSpace, 'pre-wrap');
       assert.ok(parseFloat(getComputedStyle(document.querySelector('ol')!).paddingInlineStart) > 0);
       assert.ok(parseFloat(getComputedStyle(document.querySelector('blockquote')!).borderLeftWidth) > 0);
+    } },
+    { name: '无感编辑：Markdown 正文不能继承整个工作区的 focus 边框', run: async () => {
+      await h.mount(SAMPLE);
+      const css = readFileSync(path.join(process.cwd(), 'src/styles/global.css'), 'utf8');
+      assert.equal(/\.writing-app\s+:focus-visible\s*\{/.test(css), false,
+        'Do not apply one global focus ring to every descendant of the writing workspace');
     } },
     { name: '代码高亮：关键字和字符串着色，源码不变', run: async () => {
       await h.mount(SAMPLE);
@@ -60,13 +69,13 @@ function foundationChecks(h: ReturnType<typeof createHarness>): Check[] {
 export async function run(filter: string, context: TestContext) {
   const h = createHarness();
   const results = [];
-  for (const check of [...foundationChecks(h), ...interactionChecks(h), ...toolbarChecks(h), ...regressionChecks(h, context)]) {
+  for (const check of [...foundationChecks(h), ...interactionChecks(h), ...toolbarChecks(h), ...regressionChecks(h, context), ...workspaceChecks]) {
     if (filter && !check.name.includes(filter)) continue;
     try { await check.run(); results.push({ name: check.name, status: 'passed' }); }
     catch (error) { results.push({ name: check.name, status: 'failed', error: error instanceof Error ? error.message : String(error) }); }
   }
   await h.unmount();
-  for (const check of appChecks) {
+  for (const check of [...appChecks, ...workspaceAppChecks]) {
     if (filter && !check.name.includes(filter)) continue;
     try { await check.run(); results.push({ name: check.name, status: 'passed' }); }
     catch (error) { results.push({ name: check.name, status: 'failed', error: error instanceof Error ? error.message : String(error) }); }

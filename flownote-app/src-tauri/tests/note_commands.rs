@@ -52,7 +52,7 @@ fn mixed() -> Value {
 fn new_note_commands_are_registered_and_capabilities_are_not_paths() {
     let desktop = Desktop::new("main");
     assert!(desktop.call("note_release", json!({ "id": "note:closed" })).unwrap().is_null());
-    for command in ["note_reload", "note_save"] {
+    for command in ["note_reload", "note_probe", "note_save"] {
         let args = if command == "note_save" {
             json!({ "request": { "id": "E:/unselected.note", "revision": "forged",
                 "content": "BAD", "mixed": mixed() } })
@@ -69,6 +69,11 @@ fn every_note_command_denies_non_main_windows_before_dialog_or_disk_access() {
         ("note_save", json!({ "request": { "id": "note:unknown", "revision": "x", "content": "BAD", "mixed": mixed() } })),
         ("note_save_as", json!({ "request": { "name": "new.note", "content": "BAD", "mixed": mixed() } })),
         ("note_reload", json!({ "id": "note:unknown" })),
+        ("note_probe", json!({ "id": "note:unknown" })),
+        ("note_repair_remove_reference", json!({ "request": { "id": "note:unknown", "revision": "x", "blockId": note_support::SECOND } })),
+        ("note_repair_restore_orphan", json!({ "request": { "id": "note:unknown", "revision": "x", "blockId": note_support::SECOND } })),
+        ("note_read_asset", json!({ "request": { "id": "note:unknown", "blockId": note_support::FIRST, "path": "assets/style.css" } })),
+        ("note_read_image", json!({ "request": { "id": "note:unknown", "path": "assets/images/plot.png" } })),
         ("note_release", json!({ "id": "note:unknown" })),
     ];
     for (command, args) in calls {
@@ -92,6 +97,76 @@ fn production_dispatch_saves_reloads_and_releases_a_mixed_note() {
     assert!(desktop.call("note_release", identity.clone()).unwrap().is_null());
     assert_eq!(desktop.call("note_reload", identity).unwrap_err()["code"], "closed");
     assert_eq!(std::fs::read_to_string(path.join("blocks").join(note_support::FIRST).join("index.html")).unwrap(), "<h2>IPC edited</h2>");
+}
+
+#[test]
+fn production_dispatch_probes_external_note_changes_without_accepting_them() {
+    let desktop = Desktop::new("main");
+    let (path, note) = desktop.selected();
+    let clean = desktop.call("note_probe", json!({ "id": note.id })).unwrap();
+    assert_eq!(clean["changed"], false);
+    assert_eq!(clean["revision"], note.revision);
+    std::fs::write(path.join("content.md"), format!("External\n\n{}", note_support::anchor(note_support::FIRST))).unwrap();
+    let changed = desktop.call("note_probe", json!({ "id": note.id })).unwrap();
+    assert_eq!(changed["changed"], true);
+    assert_ne!(changed["revision"], note.revision);
+    let save = desktop.call("note_save", json!({ "request": { "id": note.id, "revision": note.revision,
+        "content": note.content, "mixed": note.mixed } })).unwrap_err();
+    assert_eq!(save["code"], "conflict");
+}
+
+#[test]
+fn production_dispatch_repairs_missing_reference_and_restores_orphan() {
+    let desktop = Desktop::new("main");
+    let (path, note) = desktop.selected();
+    std::fs::write(path.join("content.md"), format!("{}{}", note_support::anchor(note_support::FIRST), note_support::anchor(note_support::SECOND))).unwrap();
+    let missing = desktop.call("note_reload", json!({ "id": note.id })).unwrap();
+    let repaired = desktop.call("note_repair_remove_reference", json!({ "request": {
+        "id": note.id, "revision": missing["revision"], "blockId": note_support::SECOND } })).unwrap();
+    assert!(!repaired["content"].as_str().unwrap().contains(note_support::SECOND));
+
+    let orphan = path.join("blocks").join(note_support::SECOND);
+    std::fs::create_dir(&orphan).unwrap();
+    for name in ["block.json", "index.html", "original.html"] {
+        std::fs::copy(path.join("blocks").join(note_support::FIRST).join(name), orphan.join(name)).unwrap();
+    }
+    let with_orphan = desktop.call("note_reload", json!({ "id": note.id })).unwrap();
+    let restored = desktop.call("note_repair_restore_orphan", json!({ "request": {
+        "id": note.id, "revision": with_orphan["revision"], "blockId": note_support::SECOND } })).unwrap();
+    assert!(restored["content"].as_str().unwrap().contains(note_support::SECOND));
+    assert_eq!(restored["mixed"]["blocks"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn production_dispatch_reads_scoped_block_assets() {
+    let desktop = Desktop::new("main");
+    let (path, note) = desktop.selected();
+    let assets = path.join("blocks").join(note_support::FIRST).join("assets");
+    std::fs::create_dir(&assets).unwrap();
+    std::fs::write(assets.join("style.css"), "body{color:red}").unwrap();
+    desktop.call("note_reload", json!({ "id": note.id })).unwrap();
+    let asset = desktop.call("note_read_asset", json!({ "request": { "id": note.id,
+        "blockId": note_support::FIRST, "path": "assets/style.css" } })).unwrap();
+    assert_eq!(asset["path"], "assets/style.css");
+    assert_eq!(asset["mime"], "text/css");
+    assert_eq!(asset["bytes"], json!(b"body{color:red}"));
+    let escaped = desktop.call("note_read_asset", json!({ "request": { "id": note.id,
+        "blockId": note_support::FIRST, "path": "../index.html" } })).unwrap_err();
+    assert_eq!(escaped["code"], "invalidPath");
+}
+
+#[test]
+fn production_dispatch_reads_scoped_note_images() {
+    let desktop = Desktop::new("main");
+    let (path, note) = desktop.selected();
+    let images = path.join("assets/images");
+    std::fs::create_dir_all(&images).unwrap();
+    std::fs::write(images.join("plot.png"), [137, 80, 78, 71]).unwrap();
+    desktop.call("note_reload", json!({ "id": note.id })).unwrap();
+    let asset = desktop.call("note_read_image", json!({ "request": { "id": note.id,
+        "path": "assets/images/plot.png" } })).unwrap();
+    assert_eq!(asset["mime"], "image/png");
+    assert_eq!(asset["bytes"], json!([137, 80, 78, 71]));
 }
 
 #[test]

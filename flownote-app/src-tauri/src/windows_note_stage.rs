@@ -1,4 +1,5 @@
 use crate::file_error::{FileError, FileResult};
+use crate::note_files::BlockCopyRequest;
 use crate::note_format::{merge_compatible, validate_mixed, MixedNoteData};
 use crate::windows_note_io::{create_file, Directory, NoteMetadata};
 use crate::windows_note_tree::{NoteTree, MAX_PACKAGE_BYTES, MAX_PACKAGE_FILES};
@@ -55,13 +56,69 @@ fn put_json(files: &mut BTreeMap<String, Vec<u8>>, path: String, value: &Value) 
     Ok(())
 }
 
+fn add_asset(files: &mut BTreeMap<String, Vec<u8>>, directories: &mut BTreeSet<String>, path: String, bytes: Vec<u8>) -> FileResult<()> {
+    let parts: Vec<_> = path.split('/').collect();
+    if parts.len() < 3 || parts[0] != "assets" || parts[1] != "images"
+        || parts.iter().any(|part| part.is_empty() || *part == "." || *part == "..") {
+        return Err(FileError::new("invalidPath", "迁移图片只能写入 assets/images/"));
+    }
+    for end in 1..parts.len() { directories.insert(parts[..end].join("/")); }
+    if files.insert(path, bytes).is_some() { return Err(format_error("迁移图片路径重复")); }
+    Ok(())
+}
+
+fn copy_private_assets(source: &NoteTree, files: &mut BTreeMap<String, Vec<u8>>, directories: &mut BTreeSet<String>,
+    mixed: &MixedNoteData, copies: &[BlockCopyRequest]) -> FileResult<()> {
+    let previous = source.document()?;
+    let mut targets = BTreeSet::new();
+    for copy in copies {
+        crate::note_format::validate_id(&copy.source_id)?;
+        crate::note_format::validate_id(&copy.target_id)?;
+        if copy.source_id == copy.target_id || !targets.insert(copy.target_id.clone()) {
+            return Err(format_error("Deep Copy 必须使用新的唯一 Block ID"));
+        }
+        if !previous.mixed.blocks.iter().any(|block| block.id == copy.source_id) {
+            return Err(format_error("Deep Copy 源 Block 不是当前 Note 中已引用的 Block"));
+        }
+        let source_block = mixed.blocks.iter().find(|block| block.id == copy.source_id)
+            .ok_or_else(|| format_error("Deep Copy 候选缺少源 Block"))?;
+        let target_block = mixed.blocks.iter().find(|block| block.id == copy.target_id)
+            .ok_or_else(|| format_error("Deep Copy 候选缺少目标 Block"))?;
+        if source_block.html != target_block.html || source_block.original_html != target_block.original_html
+            || source_block.config != target_block.config {
+            return Err(format_error("Deep Copy 目标必须复制源 Block 的 Current / Original / config"));
+        }
+        let target_prefix = format!("blocks/{}", copy.target_id);
+        if source.entries.keys().any(|path| path == &target_prefix || path.starts_with(&format!("{target_prefix}/"))) {
+            return Err(format_error("Deep Copy 目标 Block ID 已存在于源 Note"));
+        }
+        let source_assets = format!("blocks/{}/assets", copy.source_id);
+        let entries: Vec<_> = source.entries.iter().filter_map(|(path, entry)| {
+            if path != &source_assets && !path.starts_with(&format!("{source_assets}/")) { return None; }
+            let suffix = &path[source_assets.len()..];
+            Some((format!("blocks/{}/assets{suffix}", copy.target_id), entry.bytes.clone()))
+        }).collect();
+        for (path, bytes) in entries {
+            match bytes {
+                Some(bytes) => { files.insert(path, bytes); }
+                None => { directories.insert(path); }
+            }
+        }
+    }
+    Ok(())
+}
+
 impl Draft {
-    pub fn prepare(content: String, mut mixed: MixedNoteData, source: Option<&NoteTree>) -> FileResult<Self> {
+    pub fn prepare(content: String, mut mixed: MixedNoteData, assets: Vec<(String, Vec<u8>)>, block_copies: Vec<BlockCopyRequest>,
+        source: Option<&NoteTree>, repair_source: bool) -> FileResult<Self> {
         let mut files = BTreeMap::new();
         let mut directories = BTreeSet::from(["blocks".to_string()]);
         if let Some(source) = source {
+            if !assets.is_empty() { return Err(format_error("已有 Note 保存不能注入迁移图片")); }
             let previous = source.document()?;
-            if previous.read_only { return Err(FileError::new("readOnly", previous.notice.unwrap_or_else(|| "Note 当前为只读".into()))); }
+            if previous.read_only && !repair_source {
+                return Err(FileError::new("readOnly", previous.notice.unwrap_or_else(|| "Note 当前为只读".into())));
+            }
             merge_compatible(&previous.mixed.metadata, &mut mixed.metadata);
             for block in &mut mixed.blocks { existing_block(source, block)?; }
             for (path, entry) in &source.entries {
@@ -70,7 +127,11 @@ impl Draft {
                     None => { directories.insert(path.clone()); },
                 }
             }
+            copy_private_assets(source, &mut files, &mut directories, &mixed, &block_copies)?;
+        } else if !block_copies.is_empty() {
+            return Err(format_error("Deep Copy 需要已绑定的源 Note"));
         }
+        for (path, bytes) in assets { add_asset(&mut files, &mut directories, path, bytes)?; }
         validate_mixed(&content, &mixed)?;
         for block in &mixed.blocks {
             let prefix = format!("blocks/{}", block.id);

@@ -14,6 +14,25 @@ fn request(file: &flownote::markdown_files::FileSnapshot, content: &str) -> Save
 }
 
 #[test]
+fn reads_only_assets_from_the_bound_markdown_sibling_directory() {
+    let parent = folder();
+    let markdown = parent.join("Timing.md");
+    fs::write(&markdown, "![plot](Timing.assets/plot.png)\n").unwrap();
+    let assets = parent.join("Timing.assets");
+    fs::create_dir(&assets).unwrap();
+    fs::write(assets.join("plot.png"), [137, 80, 78, 71]).unwrap();
+    fs::write(parent.join("outside.png"), [1, 2, 3]).unwrap();
+    let mut store = FileStore::default();
+    let file = store.open_selected(&markdown).unwrap();
+    let asset = store.read_asset(&file.id, "Timing.assets/plot.png").unwrap();
+    assert_eq!(asset.mime, "image/png");
+    assert_eq!(asset.bytes, [137, 80, 78, 71]);
+    assert_eq!(store.read_asset(&file.id, "../outside.png").unwrap_err().code, "invalidPath");
+    assert_eq!(store.read_asset(&file.id, "Other.assets/plot.png").unwrap_err().code, "invalidPath");
+    assert_eq!(store.read_asset("forged", "Timing.assets/plot.png").unwrap_err().code, "closed");
+}
+
+#[test]
 fn reads_real_utf8_without_losing_bom_or_crlf() {
     let path = folder().join("中文 笔记.md");
     let content = "\u{feff}---\r\ntitle: 笔记\r\n---\r\n\r\n[[双链]] $x_1$\r\n";

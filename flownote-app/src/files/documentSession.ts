@@ -15,6 +15,8 @@ interface DocumentEnvironment {
   apply(file: MarkdownFile | null): void;
   close(): void;
   saved(update: { file: MarkdownFile; content: string; clean: boolean }): void;
+  saveAlternate?(asNew: boolean): Promise<boolean>;
+  closeAlternate?(): Promise<void>;
   closeWindow(): Promise<void>;
 }
 interface PendingDocument {
@@ -86,6 +88,24 @@ export class DocumentSession {
   }
 
   async open(): Promise<void> { await this.load('open'); }
+  async openWorkspace(relativePath: string, after?: () => void): Promise<void> {
+    if (!this.available()) return;
+    if (!this.port.openWorkspace) { this.report(new MarkdownFileError('unsupported', '当前文件入口不支持 Workspace 打开')); return; }
+    const generation = this.generation;
+    this.update({ busy: 'open', error: null, notice: '' });
+    let file: MarkdownFile | null = null;
+    try {
+      file = await this.port.openWorkspace(relativePath);
+      if (!this.currentGeneration(generation)) { await this.release(file); return; }
+      this.update({ busy: null });
+      await this.offer({ kind: 'open', file, after });
+    } catch (cause) {
+      if (file && file.id !== this.state.file?.id) await this.release(file);
+      if (this.currentGeneration(generation)) this.report(cause);
+    } finally {
+      if (this.currentGeneration(generation)) this.update({ busy: null });
+    }
+  }
   async reload(): Promise<void> { await this.load('reload'); }
 
   private async load(kind: 'open' | 'reload'): Promise<void> {
@@ -104,6 +124,14 @@ export class DocumentSession {
 
   async newDocument(after?: () => void): Promise<void> {
     if (this.available()) await this.offer({ kind: 'new', after });
+  }
+
+  async detachCurrent(): Promise<void> {
+    if (!this.available()) throw this.state.error ?? new MarkdownFileError('busy', '请先完成当前文件操作');
+    const file = this.state.file;
+    if (!file) return;
+    this.update({ file: null, error: null, notice: '' });
+    await this.release(file);
   }
 
   async closeDocument(): Promise<void> {
@@ -131,16 +159,20 @@ export class DocumentSession {
     if (action.kind === 'window') { await this.finishWindowClose(); return; }
     this.update({ busy: 'switch' });
     const previous = this.state.file;
+    let applied = false;
     try {
       const file = action.file ?? null;
-      if (action.kind === 'close') this.environment.close();
+      const alternate = this.environment.read().kind !== 'markdown' && this.environment.closeAlternate;
+      if (alternate) await alternate();
+      if (action.kind === 'close') { if (!alternate) this.environment.close(); }
       else this.environment.apply(file);
       this.update({ file, pending: null, error: null, documentKey: this.state.documentKey + 1,
         notice: file && this.port.mode === 'import' ? '已导入文件副本，请导出以保存修改。' : '' });
-      action.after?.();
       if (previous?.id !== file?.id) await this.release(previous);
+      applied = true;
     } catch (cause) { this.report(cause); }
     finally { this.update({ busy: null }); }
+    if (applied) action.after?.();
   }
 
   private async finishWindowClose(): Promise<void> {
@@ -207,6 +239,16 @@ export class DocumentSession {
   save(asNew = false): Promise<boolean> {
     if (this.state.busy === 'save' && !asNew) { this.queuedSave = true; return this.saving ?? Promise.resolve(false); }
     if (this.state.busy) return Promise.resolve(this.report(new MarkdownFileError('busy', '请等待当前文件操作完成')));
+    if (this.environment.read().kind !== 'markdown') {
+      if (!this.environment.saveAlternate) return Promise.resolve(this.report(new MarkdownFileError('unsupported', 'Mixed Note 保存尚未接入')));
+      this.update({ busy: 'save', error: null, notice: '' });
+      const task = this.environment.saveAlternate(asNew).catch(cause => this.report(cause)).finally(() => {
+        this.saving = undefined;
+        this.update({ busy: null });
+      });
+      this.saving = task;
+      return task;
+    }
     try {
       const capture = this.capture();
       this.update({ busy: 'save', error: null, notice: '' });

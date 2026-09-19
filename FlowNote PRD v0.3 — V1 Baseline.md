@@ -61,6 +61,35 @@ FlowNote 不将：
 
 ---
 
+## 2.2 最终需求与阶段实现分离
+
+FlowNote 采用分阶段实现，但产品需求不得随着 Slice 缩水。
+
+约束：
+
+```text
+PRD / Requirements Matrix = 最终需求
+Note Format              = 最终持久化契约
+Architecture             = 最终系统边界
+Slice Plan               = 当前实现覆盖率
+```
+
+Slice 可以把某项能力标为 `Planned / Partial / Implemented`，但不能仅因为当前版本暂未实现就删除最终需求。
+
+最终需求与当前状态统一记录在：
+
+```text
+REQUIREMENTS-MATRIX.md
+```
+
+资源运行时的完整边界统一记录在：
+
+```text
+docs/superpowers/specs/2026-09-15-resource-architecture-design.md
+```
+
+---
+
 # 3. Markdown 是主格式
 
 纯 Markdown 笔记保存为：
@@ -578,9 +607,23 @@ FlowNote V1 可以扫描：
 
 V1 不承诺自动 CDN 本地化。
 
+但 CDN Localization 是保留的后续正式需求，不因 V1 未实现而取消。最终模型采用：
+
+```text
+Remote Source URL
+↓
+block.json localized mapping
+↓
+assets/shared/<resource-id>/
+↓
+Resource Resolver
+```
+
+默认不要求直接改写 `index.html` 中的 Remote Source URL。Runtime 优先使用合法的 localized mapping；没有本地化副本时才根据当前 preview-session 的 Network Permission 决定联网或阻止。
+
 默认离线必须由 runtime 真正阻止外部网络访问，而不是仅依赖源码扫描。
 
-自动依赖下载进入后续版本。
+自动依赖下载、本地化管理和离线重用进入后续版本，但必须沿用这一资源模型。
 
 ---
 
@@ -711,13 +754,25 @@ Copy → Paste
 
 # 24. HTML Block 本地资源所有权
 
+FlowNote 采用分层资源所有权。
+
+## Block-private resources
+
 FlowNote 管理的 HTML 私有资源必须位于：
 
 ```text
 blocks/<id>/assets/
 ```
 
-FlowNote 不主动生成 HTML Block 间交叉依赖。
+适用于：
+
+- Block 自己的 CSS / JS
+- 图片 / SVG
+- JSON / data file
+- Font
+- WASM / Worker / Module 等 Block 私有文件
+
+FlowNote 不主动生成 HTML Block 间交叉私有依赖。
 
 例如不得主动产生：
 
@@ -727,11 +782,30 @@ FlowNote 不主动生成 HTML Block 间交叉依赖。
 
 也不主动使用 Note Markdown 图片目录作为 HTML 私有资源目录。
 
+## Note-shared localized resources
+
+多个 HTML Block 共用的第三方/CDN 本地化依赖可以由 Note 管理：
+
+```text
+assets/shared/<resource-id>/
+```
+
+这类资源必须：
+
+- 通过 `block.json` 显式声明依赖映射
+- 由 Resource Resolver 读取
+- 对普通 Block 编辑保持 immutable managed semantics
+- 不形成跨 Note 隐式路径依赖
+
+因此 FlowNote 不需要为每个 Block 重复保存同一份 ECharts / Font / Framework 依赖，同时仍保持普通 HTML Block 的 Value Semantics。
+
 Deep Copy 的保证是：
 
-> Block 管理范围内的本地文件独立。
+> Block 管理范围内的可变本地文件独立；Note-shared immutable managed resource 可以在同一 Note 内安全共享。
 
-不保证：
+跨 Note Copy 必须把需要的 shared dependency 一起复制/去重到目标 Note。
+
+不保证未本地化的：
 
 - 外部 API
 - Remote Image
@@ -739,6 +813,8 @@ Deep Copy 的保证是：
 - 第三方服务器内容
 
 具有独立副本。
+
+持久化 Source、Resource Resolver 与 Runtime URL 的完整规则见 Resource Architecture 与 Note Format。
 
 ---
 

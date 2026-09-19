@@ -65,8 +65,8 @@ function trapFocus(event: KeyboardEvent<HTMLDivElement>): void {
   if (target && document.activeElement === boundary) { event.preventDefault(); target.focus(); }
 }
 
-export function UnsavedDialog({ session, state, composing, exportNote }: {
-  session: DocumentSession; state: DocumentState; composing: boolean; exportNote: () => void;
+export function UnsavedDialog({ session, state, composing, exportNote, canSave }: {
+  session: DocumentSession; state: DocumentState; composing: boolean; exportNote: () => void; canSave?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const visible = !!state.pending && !composing;
@@ -86,7 +86,7 @@ export function UnsavedDialog({ session, state, composing, exportNote }: {
       <FileErrorView error={state.error} />
       <div className="file-dialog-actions">
         <button disabled={!!state.busy} onClick={() => run(session, () => session.resolvePending('cancel'))}>取消</button>
-        {session.port.canWrite ? <button disabled={!!state.busy} onClick={() => run(session, () => session.resolvePending('save'))}>保存并继续</button>
+        {(canSave ?? session.port.canWrite) ? <button disabled={!!state.busy} onClick={() => run(session, () => session.resolvePending('save'))}>保存并继续</button>
           : <button disabled={!!state.busy} onClick={exportNote}>导出副本</button>}
         <button disabled={!!state.busy} onClick={() => run(session, () => session.resolvePending('discard'))}>放弃更改并继续</button>
       </div>

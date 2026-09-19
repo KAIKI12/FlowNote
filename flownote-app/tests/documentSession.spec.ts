@@ -12,11 +12,13 @@ function fixture() {
   let disk = file();
   let next = disk;
   const writes: string[] = [];
+  const released: string[] = [];
   const port: MarkdownFilePort = { mode: 'desktop', canWrite: true,
     open: async () => ({ ...next }),
+    openWorkspace: async relativePath => ({ ...next, id: 'workspace-' + relativePath, path: 'C:/notes/' + relativePath, name: relativePath.split('/').at(-1)! }),
     save: async request => { writes.push(request.content); disk = { ...disk, content: request.content, revision: disk.revision + 'x' }; return { ...disk }; },
     saveAs: async request => { disk = { ...file(request.content, 'copy'), path: 'C:/notes/copy.md', name: 'copy.md' }; return { ...disk }; },
-    reload: async id => ({ ...disk, id }), release: async () => {},
+    reload: async id => ({ ...disk, id }), release: async id => { released.push(id); },
   };
   const session = new DocumentSession(port, {
     read: () => ({ ...current }),
@@ -25,7 +27,7 @@ function fixture() {
     saved: update => { current = { ...current, content: update.content, dirty: !update.clean }; },
     closeWindow: async () => {},
   });
-  return { session, port, writes, current: () => current,
+  return { session, port, writes, released, current: () => current,
     edit: (content: string) => { current = { ...current, content, dirty: true }; },
     view: (content: string) => { current = { ...current, content }; },
     composing: (value: boolean) => { current = { ...current, composing: value }; },
@@ -168,6 +170,38 @@ async function disposedRefreshCannotApply() {
   assert.equal(h.current().content, 'local edit\n', 'An unmounted session replaced the document');
 }
 
+async function detachKeepsDocumentButReleasesBinding() {
+  const h = fixture();
+  await h.session.open();
+  const before = h.current().content;
+  assert.ok(h.session.getSnapshot().file);
+  await h.session.detachCurrent();
+  assert.equal(h.session.getSnapshot().file, null);
+  assert.equal(h.current().content, before, 'Detaching Markdown binding replaced the current document');
+  assert.deepEqual(h.released, ['file-a']);
+}
+
+
+async function workspaceOpenUsesExistingDirtyAndImeSwitchGuard() {
+  const h = fixture();
+  await h.session.open();
+  h.edit('unsaved workspace edit\n');
+  await h.session.openWorkspace('folder/next.md');
+  const pending = h.session.getSnapshot().pending;
+  assert.ok(pending, 'Workspace switch bypassed the unsaved-change gate');
+  assert.equal(h.current().content, 'unsaved workspace edit\n');
+  assert.equal(pending?.file?.name, 'next.md');
+  await h.session.resolvePending('discard');
+  assert.equal(h.current().content, 'original\n');
+  assert.equal(h.session.getSnapshot().file?.name, 'next.md');
+
+  h.edit('IME text\n');
+  h.composing(true);
+  await h.session.openWorkspace('other.md');
+  assert.equal(h.current().content, 'IME text\n');
+  assert.equal(h.session.getSnapshot().file?.name, 'next.md');
+}
+
 export const documentSessionChecks = [
   { name: '文件会话：无编辑保留原字节，编辑保存保留编码与换行', run: preserveOriginal },
   { name: '文件会话：保存回执不能清除保存期间的新输入', run: saveDuringInput },
@@ -178,4 +212,6 @@ export const documentSessionChecks = [
   { name: '文件会话：组合输入期间不保存或切换正文', run: compositionGuard },
   { name: '文件会话：保存后的重载仍保持操作串行', run: postSaveRefreshStaysSerialized },
   { name: '文件会话：卸载后的迟到重载不能替换正文', run: disposedRefreshCannotApply },
+  { name: 'Workspace 切换：沿用 Dirty / IME 文件会话保护', run: workspaceOpenUsesExistingDirtyAndImeSwitchGuard },
+  { name: '文件会话：切换到 Mixed Note 时仅释放 Markdown 绑定，不替换当前文档', run: detachKeepsDocumentButReleasesBinding },
 ];

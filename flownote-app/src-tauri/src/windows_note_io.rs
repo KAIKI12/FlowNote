@@ -143,8 +143,8 @@ pub(crate) fn lock_ancestors(path: &Path) -> FileResult<Vec<Directory>> {
     ancestors.into_iter().map(|parent| Directory::open(parent, false)).collect()
 }
 
-pub(crate) fn read_file(path: &Path, budget: usize) -> FileResult<(File, Vec<u8>, NoteMetadata)> {
-    let mut file = OpenOptions::new().read(true).share_mode(FILE_SHARE_READ)
+fn read_file_with_share(path: &Path, budget: usize, share: u32) -> FileResult<(File, Vec<u8>, NoteMetadata)> {
+    let mut file = OpenOptions::new().read(true).share_mode(share)
         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT).open(path)
         .map_err(|error| FileError::io("无法锁定 Note 文件", error))?;
     let before = NoteMetadata::read(&file)?;
@@ -157,6 +157,14 @@ pub(crate) fn read_file(path: &Path, budget: usize) -> FileResult<(File, Vec<u8>
         return Err(FileError::new("conflict", "Note 文件在读取期间发生变化"));
     }
     Ok((file, bytes, before))
+}
+
+pub(crate) fn read_file(path: &Path, budget: usize) -> FileResult<(File, Vec<u8>, NoteMetadata)> {
+    read_file_with_share(path, budget, FILE_SHARE_READ)
+}
+
+pub(crate) fn read_file_shared(path: &Path, budget: usize) -> FileResult<(File, Vec<u8>, NoteMetadata)> {
+    read_file_with_share(path, budget, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
 }
 
 pub(crate) fn create_file(path: &Path, bytes: &[u8], metadata: Option<&NoteMetadata>) -> FileResult<()> {

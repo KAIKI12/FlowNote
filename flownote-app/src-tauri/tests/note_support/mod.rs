@@ -31,10 +31,10 @@ pub fn draft() -> NoteSaveAsRequest {
 
 pub fn edit(file: &NoteSnapshot) -> NoteSaveRequest {
     NoteSaveRequest { id: file.id.clone(), revision: file.revision.clone(),
-        content: file.content.clone(), mixed: file.mixed.clone() }
+        content: file.content.clone(), mixed: file.mixed.clone(), block_copies: Vec::new() }
 }
 
 pub fn copy(file: &NoteSnapshot) -> NoteSaveAsRequest {
     NoteSaveAsRequest { name: "copy.note".into(), content: file.content.clone(),
-        mixed: file.mixed.clone(), source_id: Some(file.id.clone()) }
+        mixed: file.mixed.clone(), source_id: Some(file.id.clone()), assets: Vec::new() }
 }

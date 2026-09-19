@@ -10,14 +10,17 @@ export interface MarkdownFile {
 
 export interface SaveFileRequest { id: string; revision: string; content: string }
 export interface SaveAsRequest { name: string; content: string }
+export interface MarkdownFileAsset { path: string; mime: string; bytes: number[] }
 
 export interface MarkdownFilePort {
   readonly mode: 'desktop' | 'import';
   readonly canWrite: boolean;
   open(): Promise<MarkdownFile | null>;
+  openWorkspace?(relativePath: string): Promise<MarkdownFile>;
   save(request: SaveFileRequest): Promise<MarkdownFile>;
   saveAs(request: SaveAsRequest): Promise<MarkdownFile | null>;
   reload(id: string): Promise<MarkdownFile>;
+  readAsset?(id: string, path: string): Promise<MarkdownFileAsset>;
   release(id: string): Promise<void>;
 }
 

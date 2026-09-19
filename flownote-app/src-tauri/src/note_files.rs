@@ -1,5 +1,5 @@
 use crate::file_error::{FileError, FileResult};
-use crate::note_format::{validate_mixed, NoteDocument};
+use crate::note_format::{validate_mixed, NoteDiagnostic, NoteDocument};
 use crate::note_path::{selected_path, validate_name};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -7,6 +7,21 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 pub use crate::note_format::{HtmlBlockData, MixedNoteData};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockAsset {
+    pub path: String,
+    pub mime: String,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteProbe {
+    pub revision: String,
+    pub changed: bool,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,7 +34,16 @@ pub struct NoteSnapshot {
     pub read_only: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notice: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<NoteDiagnostic>,
     pub mixed: MixedNoteData,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlockCopyRequest {
+    pub source_id: String,
+    pub target_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,6 +53,15 @@ pub struct NoteSaveRequest {
     pub revision: String,
     pub content: String,
     pub mixed: MixedNoteData,
+    #[serde(default, rename = "blockCopies")]
+    pub block_copies: Vec<BlockCopyRequest>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NoteAssetData {
+    pub path: String,
+    pub bytes: Vec<u8>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,6 +71,8 @@ pub struct NoteSaveAsRequest {
     pub content: String,
     pub mixed: MixedNoteData,
     pub source_id: Option<String>,
+    #[serde(default)]
+    pub assets: Vec<NoteAssetData>,
 }
 
 #[derive(Clone)]
@@ -46,17 +81,73 @@ struct Binding { path: PathBuf, revision: String }
 #[derive(Default)]
 pub struct NoteStore { bindings: HashMap<String, Binding> }
 
+fn asset_mime(path: &str) -> &'static str {
+    match Path::new(path).extension().and_then(|value| value.to_str()).map(|value| value.to_ascii_lowercase()) {
+        Some(ext) if ext == "css" => "text/css",
+        Some(ext) if ext == "js" || ext == "mjs" => "text/javascript",
+        Some(ext) if ext == "json" => "application/json",
+        Some(ext) if ext == "png" => "image/png",
+        Some(ext) if ext == "jpg" || ext == "jpeg" => "image/jpeg",
+        Some(ext) if ext == "gif" => "image/gif",
+        Some(ext) if ext == "webp" => "image/webp",
+        Some(ext) if ext == "svg" => "image/svg+xml",
+        Some(ext) if ext == "woff" => "font/woff",
+        Some(ext) if ext == "woff2" => "font/woff2",
+        _ => "application/octet-stream",
+    }
+}
+
+fn validate_asset_path(path: &str) -> FileResult<()> {
+    if path.is_empty() || path.contains('\\') || Path::new(path).is_absolute() {
+        return Err(FileError::new("invalidPath", "Block 资源必须使用 assets/ 下的相对路径"));
+    }
+    let parts: Vec<_> = path.split('/').collect();
+    if parts.first() != Some(&"assets") || parts.len() < 2
+        || parts.iter().any(|part| part.is_empty() || *part == "." || *part == "..") {
+        return Err(FileError::new("invalidPath", "Block 资源只能位于 assets/ 目录内"));
+    }
+    Ok(())
+}
+
+fn validate_note_image_path(path: &str) -> FileResult<()> {
+    if path.is_empty() || path.contains('\\') || Path::new(path).is_absolute() {
+        return Err(FileError::new("invalidPath", "Note 图片必须使用 assets/images/ 下的相对路径"));
+    }
+    let parts: Vec<_> = path.split('/').collect();
+    if parts.len() < 3 || parts[0] != "assets" || parts[1] != "images"
+        || parts.iter().any(|part| part.is_empty() || *part == "." || *part == "..") {
+        return Err(FileError::new("invalidPath", "Note 图片只能位于 assets/images/"));
+    }
+    Ok(())
+}
+
 fn snapshot(id: &str, path: &Path, data: (NoteDocument, String, Option<String>)) -> FileResult<NoteSnapshot> {
     let (document, revision, notice) = data;
     let name = path.file_name().and_then(|value| value.to_str()).ok_or_else(|| FileError::new("invalidPath", "Note 缺少有效名称"))?;
     Ok(NoteSnapshot { id: id.into(), path: path.to_string_lossy().into_owned(), name: name.into(),
         content: document.content, mixed: document.mixed, revision, read_only: document.read_only,
-        notice: notice.or(document.notice) })
+        diagnostics: document.diagnostics, notice: notice.or(document.notice) })
+}
+
+fn validate_note_asset(asset: &NoteAssetData) -> FileResult<()> {
+    if asset.path.is_empty() || asset.path.contains('\\') || Path::new(&asset.path).is_absolute() {
+        return Err(FileError::new("invalidPath", "Note 迁移资源必须使用 assets/images/ 下的相对路径"));
+    }
+    let parts: Vec<_> = asset.path.split('/').collect();
+    if parts.len() < 3 || parts[0] != "assets" || parts[1] != "images"
+        || parts.iter().any(|part| part.is_empty() || *part == "." || *part == "..") {
+        return Err(FileError::new("invalidPath", "Note 迁移资源只能位于 assets/images/"));
+    }
+    Ok(())
 }
 
 pub fn validate_save_as(request: &NoteSaveAsRequest) -> FileResult<()> {
     validate_name(&request.name)?;
     validate_mixed(&request.content, &request.mixed)?;
+    if request.source_id.is_some() && !request.assets.is_empty() {
+        return Err(FileError::new("invalidFormat", "已有 Mixed Note 另存时不能注入迁移资源"));
+    }
+    for asset in &request.assets { validate_note_asset(asset)?; }
     Ok(())
 }
 
@@ -99,11 +190,88 @@ impl NoteStore {
         Ok(self.remember(file))
     }
 
+    pub fn probe(&self, id: &str) -> FileResult<NoteProbe> {
+        let binding = self.binding(id)?;
+        let _parents = crate::windows_note_io::lock_ancestors(&binding.path)?;
+        let path = selected_path(&binding.path, false)?;
+        let directory = crate::windows_note_io::Directory::open(&path, false)?;
+        let tree = crate::windows_note_tree::NoteTree::read_shared(&directory)?;
+        Ok(NoteProbe { changed: tree.revision != binding.revision, revision: tree.revision })
+    }
+
+    pub fn read_asset(&self, id: &str, block_id: &str, relative: &str) -> FileResult<BlockAsset> {
+        crate::note_format::validate_id(block_id)?;
+        validate_asset_path(relative)?;
+        let binding = self.binding(id)?;
+        let _parents = crate::windows_note_io::lock_ancestors(&binding.path)?;
+        let path = selected_path(&binding.path, false)?;
+        let directory = crate::windows_note_io::Directory::open(&path, false)?;
+        let tree = crate::windows_note_tree::NoteTree::read_shared(&directory)?;
+        tree.unchanged(&binding.revision)?;
+        let document = tree.document()?;
+        if !document.mixed.blocks.iter().any(|block| block.id == block_id) {
+            return Err(FileError::new("notFound", "HTML Block 不存在或未被正文引用"));
+        }
+        let asset_path = format!("blocks/{block_id}/{relative}");
+        let files = tree.files();
+        let bytes = files.get(&asset_path).ok_or_else(|| FileError::new("notFound", "Block 资源不存在"))?;
+        Ok(BlockAsset { path: relative.into(), mime: asset_mime(relative).into(), bytes: bytes.to_vec() })
+    }
+
+    pub fn read_note_asset(&self, id: &str, relative: &str) -> FileResult<BlockAsset> {
+        validate_note_image_path(relative)?;
+        let binding = self.binding(id)?;
+        let _parents = crate::windows_note_io::lock_ancestors(&binding.path)?;
+        let path = selected_path(&binding.path, false)?;
+        let directory = crate::windows_note_io::Directory::open(&path, false)?;
+        let tree = crate::windows_note_tree::NoteTree::read_shared(&directory)?;
+        tree.unchanged(&binding.revision)?;
+        let files = tree.files();
+        let bytes = files.get(relative).ok_or_else(|| FileError::new("notFound", "Note 图片不存在"))?;
+        Ok(BlockAsset { path: relative.into(), mime: asset_mime(relative).into(), bytes: bytes.to_vec() })
+    }
+
+    fn repair_snapshot(&mut self, id: &str, expected: &str, block_id: &str, kind: &str, restore: bool) -> FileResult<NoteSnapshot> {
+        crate::note_format::validate_id(block_id)?;
+        let binding = self.binding(id)?;
+        if binding.revision != expected { return Err(FileError::new("conflict", "修复请求基于过期 Note 版本")); }
+        let _parents = crate::windows_note_io::lock_ancestors(&binding.path)?;
+        let path = selected_path(&binding.path, false)?;
+        let directory = crate::windows_note_io::Directory::open(&path, false)?;
+        let tree = crate::windows_note_tree::NoteTree::read(&directory)?;
+        tree.unchanged(expected)?;
+        let document = tree.document()?;
+        if !document.diagnostics.iter().any(|item| item.kind == kind && item.block_id.as_deref() == Some(block_id)) {
+            return Err(FileError::new("invalidFormat", "当前 Note 不包含请求修复的诊断项"));
+        }
+        let content = if restore { crate::note_repair::append_anchor(&document.content, block_id)? }
+            else { crate::note_repair::remove_anchor(&document.content, block_id)? };
+        let files = tree.files();
+        let mixed = crate::note_repair::mixed_for_content(&files, &content)?;
+        drop(files);
+        drop(tree);
+        drop(directory);
+        let receipt = crate::windows_note_save::save(crate::windows_note_save::NoteWrite {
+            target: &binding.path, source: Some(&binding.path), expected: Some(expected), content, mixed,
+            assets: Vec::new(), block_copies: Vec::new(), repair_source: true,
+        })?;
+        let file = snapshot(id, &binding.path, (receipt.document, receipt.revision, receipt.notice))?;
+        Ok(self.remember(file))
+    }
+
+    pub fn repair_remove_reference(&mut self, id: &str, expected: &str, block_id: &str) -> FileResult<NoteSnapshot> {
+        self.repair_snapshot(id, expected, block_id, "missingBlock", false)
+    }
+
+    pub fn repair_restore_orphan(&mut self, id: &str, expected: &str, block_id: &str) -> FileResult<NoteSnapshot> {
+        self.repair_snapshot(id, expected, block_id, "orphanBlock", true)
+    }
+
     pub fn save(&mut self, request: NoteSaveRequest) -> FileResult<NoteSnapshot> {
         let binding = self.binding(&request.id)?;
         let receipt = crate::windows_note_save::save(crate::windows_note_save::NoteWrite {
             target: &binding.path, source: Some(&binding.path), expected: Some(&request.revision),
-            content: request.content, mixed: request.mixed,
+            content: request.content, mixed: request.mixed, assets: Vec::new(), block_copies: request.block_copies, repair_source: false,
         })?;
         let file = snapshot(&request.id, &binding.path, (receipt.document, receipt.revision, receipt.notice))?;
         Ok(self.remember(file))
@@ -114,9 +282,11 @@ impl NoteStore {
         let _parents = crate::windows_note_io::lock_ancestors(path)?;
         let path = selected_path(path, true)?;
         let source = request.source_id.as_deref().map(|id| self.binding(id)).transpose()?;
+        let assets = request.assets.into_iter().map(|asset| (asset.path, asset.bytes)).collect();
         let receipt = crate::windows_note_save::save(crate::windows_note_save::NoteWrite {
             target: &path, source: source.as_ref().map(|source| source.path.as_path()),
-            expected: source.as_ref().map(|source| source.revision.as_str()), content: request.content, mixed: request.mixed,
+            expected: source.as_ref().map(|source| source.revision.as_str()), content: request.content, mixed: request.mixed, assets,
+            block_copies: Vec::new(), repair_source: false,
         })?;
         let id = format!("note:{}", Uuid::new_v4());
         let file = snapshot(&id, &path, (receipt.document, receipt.revision, receipt.notice))?;
@@ -128,8 +298,14 @@ impl NoteStore {
 impl NoteStore {
     pub fn open_selected(&mut self, _: &Path) -> FileResult<NoteSnapshot> { unsupported() }
     pub fn reload(&mut self, _: &str) -> FileResult<NoteSnapshot> { unsupported() }
+    pub fn probe(&self, _: &str) -> FileResult<NoteProbe> { unsupported() }
+    pub fn repair_remove_reference(&mut self, _: &str, _: &str, _: &str) -> FileResult<NoteSnapshot> { unsupported() }
+    pub fn repair_restore_orphan(&mut self, _: &str, _: &str, _: &str) -> FileResult<NoteSnapshot> { unsupported() }
+    pub fn read_asset(&self, _: &str, _: &str, _: &str) -> FileResult<BlockAsset> { unsupported() }
+    pub fn read_note_asset(&self, _: &str, _: &str) -> FileResult<BlockAsset> { unsupported() }
     pub fn save(&mut self, _: NoteSaveRequest) -> FileResult<NoteSnapshot> { unsupported() }
     pub fn save_as_selected(&mut self, _: &Path, _: NoteSaveAsRequest) -> FileResult<NoteSnapshot> { unsupported() }
+    pub fn close(&mut self, _: &str) -> FileResult<()> { unsupported() }
 }
 
 #[cfg(not(windows))]

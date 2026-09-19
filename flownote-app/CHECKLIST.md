@@ -1,147 +1,136 @@
 # FlowNote 开发验收清单
 
-**当前里程碑：第四阶段普通 Markdown 文件操作 completed（功能、自动验收与 Windows 构建）**
-
-**当前 Gate 状态：PASS WITH PATCHES（178 项自动检查通过，用户确认实机与 Markdown Gate 通过）**
+**当前阶段：Slice 1 / 2 / 3、V1 Workspace 与 Note Format v1 Format Freeze 均 completed；当前进入 `V1 产品收尾`。**
 
 **状态值：pending / in_progress / completed**
 
-以 [STATUS.md](./STATUS.md)为当前状态入口，以[资格规则](../flownote-markdown-qualification/markdown-editor-qualification.md)为用例和判定依据。
+以 [STATUS.md](./STATUS.md) 为当前状态入口，以 [Requirements Matrix](../REQUIREMENTS-MATRIX.md) 保留最终需求边界。Slice 完成只表示当前实现范围完成，不能通过删项把后续需求“做没”。
 
-用户实测反馈已记录：基础 Markdown 语法基本可用，公式渲染尚未接入。本轮完成普通 Markdown 文件操作与自动磁盘验证。LaTeX / Mermaid 渲染按当前 PRD 属于 V1.5 候选。
+## Markdown / 文件基础能力 — completed
 
-## 第四阶段：普通 Markdown 文件操作 — completed
+- [x] 可视化 / 源码双模式，复杂列表、任务列表、表格、代码、图片、粘贴、撤销 / 重做。
+- [x] Frontmatter、WikiLink、脚注、raw HTML、Mermaid、LaTeX 等风险语法进入保真路径，不静默丢失。
+- [x] Windows 普通 `.md` 新建、打开、保存、另存为、重载、关闭 / 重开。
+- [x] Dirty / 外部版本检查、保存失败恢复、迟到回执保护、关闭 / 切换生命周期保护。
+- [x] 用户已完成真实输入法、原生文件选择器和界面操作验证；Markdown Gate 已通过。
+- [x] Mermaid / LaTeX 源码保留；渲染增强仍属于后续候选。
 
-- [x] Windows 的新建、打开、保存、另存为、重载、关闭与重开接入实际界面。
-- [x] 网页 FileReader 导入副本，下载导出保留未保存状态；取消与非法文件不会替换当前笔记。
-- [x] 严格 UTF-8、BOM / CRLF、2 MiB 边界、后缀与 NUL 校验。
-- [x] 保存按序执行；保存中新输入、迟到回执、卸载和旧候选均有保护及失败回归。
-- [x] Windows 正文 / 目录锁、版本冲突、无覆盖提交与恢复路径；不支持的元数据明确拒绝。
-- [x] 私有 DACL / OWNER / GROUP、保护标志及基础属性保留；迟到 ADS 复核和原文副本保留通过真实测试。
-- [x] Gate 不绑定用户原文件，调试视图不改写未编辑内容，Mixed Note / 自动保存占位入口不返回假成功。
-- [x] 文件会话 16 项、App 到磁盘 13 项、Rust 23 项、Tauri 命令 9 项、关闭事件 12 项，加既有 105 项，共 178 项通过。
-- [x] 生产 / 测试共用 Tauri 注册，验证参数、主窗口及 origin 限制；测试 exe 补齐 Common Controls v6 清单。
-- [x] 最终销毁前锁定源码和可视化编辑；销毁失败恢复原模式与历史，成功后保持关闭状态；3 个失败回归已转绿。
-- [x] TypeScript、Rust Clippy、只读代码审查、Windows 发布构建完成。
-- [x] [第四阶段报告](../flownote-markdown-qualification/markdown-files-result-2026-09-14.md)记录 R01 / R02、恢复范围和限制。
-- [x] 用户于 2026-09-14 确认真实输入法、原生文件选择器及界面操作实测通过，并接受 Markdown Gate。
+## Slice 1 — completed
 
-以上 completed 指功能与自动验收；本地图片资源、`.note`、自动保存及原生 IME 不包含在该完成结论中。
+- [x] Markdown + HTML → `.note` 持久化 → Close → Reopen。
+- [x] 显式 HTML 导入；raw HTML 不自动升级为可执行 HTML Block。
+- [x] `content.md` 作为正文 / 顺序唯一事实来源，`note.json` 不重复正文。
+- [x] HTML Block Current / Original 分离，普通保存不覆盖 Original。
+- [x] HTML NodeView 已注册，在 Markdown 原位置渲染隔离 iframe。
+- [x] Script policy 与 network policy 分离；默认 sandbox + CSP 阻止联网。
+- [x] Ctrl+S、Dirty 关闭保护、真实 App → Rust → 磁盘关闭重开验证完成。
 
-## 第三阶段：图片、复杂列表与粘贴 — completed
+## Slice 2 — completed
 
-- [x] 既有图片 API 与工具栏，支持 HTTP(S) / 相对地址和替代文字，保留选区外内容、路径与列表归属。
-- [x] 图片插入可撤销；源码、只读、组合输入和代码上下文拒绝不适用操作。
-- [x] 补齐 PNG，开发路径只提供指定资源，生产构建排除图片和路由；4/4 HTTP 检查通过。
-- [x] 原始样例的五层列表、双向混合嵌套、多块内容、任务和图片项主动编辑通过。
-- [x] Markdown / 富文本粘贴保留结构；代码块属于原列表项；普通文本空白和 marks 保持。
-- [x] 修复嵌套 Backspace、行内代码上下文与 Markdown 实体 / 转义回归。
-- [x] qualification 36/36、stage-one 27/27、protection 38/38 通过，类型 / 构建 / 函数约束及审查复核通过。
-- [x] [25 项资格报告](../flownote-markdown-qualification/markdown-editor-qualification-result-2026-09-13.md)和[自动证据](../flownote-markdown-qualification/results/2026-09-13-stage-three-automatic.json)已记录已验证范围与剩余项。
+- [x] `.md → .note` 显式转换保留原 `.md`。
+- [x] Markdown managed images 复制到 `.note/assets/images/` 并只重写真实 image node。
+- [x] HTML Block 私有 `blocks/<id>/assets/**` 资源接入 capability-bound reader。
+- [x] CSS / JS / Image 与 CSS `url()` 当前运行时解析完成。
+- [x] 第二 HTML Block、多个 Block 的 Current / Original / private assets 独立。
+- [x] 保存失败 rollback，candidate → save → success apply 语义通过。
+- [x] 整个 `.note` 移动到新父目录后可重新打开，managed references 保持可用。
+- [x] Host 绝对路径不暴露给 iframe；persisted Source 保持相对路径。
 
-图片功能为地址插入，本地图片文件导入和资源持久化仍待文件模块。本阶段完成不等于完整 Gate 通过。
+## Slice 3 — completed（当前实现范围）
 
-## 第二阶段：Markdown 内容保真保护 — completed
+- [x] **Clean 自动 reload**：无本地修改时检测到外部变化可自动 / 轻提示重载。
+- [x] **Dirty conflict**：本地 Dirty + 磁盘变化进入显式冲突，不做 last-write-wins。
+- [x] **IME queue**：composition 期间外部变化先排队，composition 结束后重新检查版本再应用。
+- [x] **Missing repair**：缺失 Block / 资源条件可诊断并进入显式修复，不静默删除正文。
+- [x] **Orphan repair**：Orphan Block 不自动删除，可进入显式 repair / recovery 路径。
+- [x] **same-note Deep Copy**：HTML Block Deep Copy 生成新 Block ID，并复制 Block-private assets。
+- [x] **shared read-only probe / resource snapshot**：共享 / 外部资源按只读探测与快照处理，避免错误写回。
+- [x] **disposal guard**：关闭、切换、capability 释放及异步回执期间，旧会话结果不能重新污染当前文档。
 
-- [x] 正常写作页支持可视化 / 源码；保护原因可见，源码真正可编辑和导出。
-- [x] 风险初始内容不先交给富文本解析器；安全回切前检查已知扩展和 Markdown 往返语义。
-- [x] Frontmatter、WikiLink、公式、Mermaid、脚注、raw HTML、未知 fence / meta / directive 保留。
-- [x] 粘贴与文本输入保护选区前后内容；代码中的语法示例继续按代码处理。
-- [x] 源码同步标脏、回传和导出；旧编辑器通知 / 分析结果不覆盖新正文。
-- [x] 源码撤销 / 重做、组合输入整体撤销、模式延迟应用及外部版本冲突处理。
-- [x] 未改动部分保留 BOM / CRLF；实际文件导入拒绝非法 UTF-8，避免替换字符造成丢失。
-- [x] Gate 记录真实来源；源码模式 document:null，采集当前文本框值，磁盘保存标志仍为 false。
-- [x] npm run test:protection：38/38 通过，含 8 份资格样例的载入和两次往返。
-- [x] npm run test:stage-one：27/27 通过；类型、生产构建、函数约束和审查复核通过。
+### Slice 3 明确未包含
 
-该里程碑覆盖已实现入口的内容保护。第四阶段已补充自动磁盘关闭 / 重开，原生输入法、视觉和图片资源继续列在完整 Qualification 中。
+- [ ] **cross-note managed dependency copy**：跨 Note 复制时携带完整 managed shared dependencies，仍是后续需求。
+- [ ] Shared Localized Resource（`assets/shared/**`）完整产品路径。
+- [ ] CDN Localization 与 remote → local shared mapping。
+- [ ] `@import`、动态 `fetch()`、module import、Worker / WASM 等更广资源 resolver 支持。
+- [ ] 完整 FlowNote Trash / 删除资源恢复 UX。
 
-## 第一阶段：普通 Markdown 写作 — in_progress
+上述未完成项继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留，不能因为 Slice 3 completed 而删除。
 
-- [x] 标题、正文、粗斜体、删除线、链接、引用、代码和表格排版。
-- [x] 有序 / 无序列表编号与缩进；Tab、Shift+Tab、Enter、Backspace。
-- [x] 任务复选框可点击、可写回 Markdown，组合输入后不会一直禁用。
-- [x] 代码高亮及代码块缩进 / 退回；不执行代码内容。
-- [x] 表格插入、增删表体行列、跨单元格；表头明确保护。
-- [x] 工具栏格式操作、链接协议校验及 Tauri 相对链接。
-- [x] Ctrl+Z / Ctrl+Y，装载与相邻输入独立撤销。
-- [x] 合成中文组合输入下延迟替换、不重建实例、不重复内容。
-- [x] 普通 Markdown 草稿默认页、最新正文导出、首次修改即关闭保护。
-- [x] Mixed Note 不走简化导出；不显示虚假的磁盘自动保存成功。
-- [x] npm run test:stage-one：27/27 通过；生产构建通过，调试界面排除。
-- [x] 用户反馈基础 Markdown 语法基本可用；未将概括性反馈扩展成全部专项测试通过。
-- [ ] 真实浏览器检查数字、代码颜色、任务复选框与滚动布局。
-- [ ] 使用用户实际中文输入法完成段落与列表输入验收。
+## V1 UI 第一波 App 原型 — completed
 
-基础功能已获得用户实测反馈；上述逐项视觉与原生输入法专项仍缺少单独记录。功能实现及自动验收为 completed，完整 Qualification 仍待实机与文件流程的 P0 验证。
+- [x] App Shell：极简 Topbar + 可折叠 Files Sidebar + 中央 Document + 按需 Inspector。
+- [x] Markdown 保持连续可直接编辑，不引入 click-to-edit Markdown Block。
+- [x] Edit / Read / Focus：Read 只读去噪；Focus 隐藏左右栏但继续可编辑。
+- [x] New Note / Open 保持左栏高频入口，其余文件与 Mixed 操作进入 File actions。
+- [x] Inspector：Outline / Block / Info 第一波上下文视图。
+- [x] HTML Visual：Normal / Hover / Selected 控件渐进披露，支持第一波 Normal / Wide / Full 展示交互。
+- [x] HTML Quick Edit：HTML Source + Live Preview 大弹窗；现有 Current / Original 语义保持不变。
+- [x] HTML Fullscreen：独立展示层，支持 Esc / Close 退出。
+- [x] Light / Dark 基础主题切换。
+- [x] 真实 Workspace 文件树与基础搜索：本地目录绑定/恢复、`.md/.note` 树、Recent、New Note、rename、标题/正文直接扫描搜索已接入。当前搜索为 bounded native scan，不是 SQLite/FTS 索引。
+- [ ] Full HTML Editor（Quick Edit 已完成，复杂 CSS / JS / resource workflow 仍待实现）。
 
-## B0 基线同步 — completed
+## V1 Workspace Slice — completed
 
-- [x] 当前产品范围采用 [PRD v0.3](<../FlowNote PRD v0.3 — V1 Baseline.md>)。
-- [x] 当前格式采用 [Note Format v1.1 / Freeze Candidate](<../FlowNote Note Format v1.1 — Freeze Candidate Draft.md>)，磁盘 formatVersion 仍为 1。
-- [x] 保留 Milkdown 作为待验证候选，将 Markdown Gate 放在 HTML Vertical Slice 前。
-- [x] 复用已有测试包：8 份 Markdown 样例、25 项用例，其中 21 项 P0、4 项 P1。
-- [x] README / STATUS 明确旧状态文档仅作历史参考。
-- [x] 2026-09-10 类型与生产构建通过，19 项 DOM 集成回归通过；没有据此将完整 Gate 标为通过。
+- [x] 单一真实本地 Workspace：Choose / Change / Restart Restore。
+- [x] `.md` / `.markdown` / `.note` 真实树；`.note` 作为 package 叶节点，不展开内部资源。
+- [x] Workspace path capability：仅 relative path，拒绝 traversal / absolute / backslash / colon / NUL / symlink escape。
+- [x] New Note：当前 folder 下 collision-free `Untitled.md`；首次点击可完成 Choose Workspace → Create → Open。
+- [x] Rename：folder / Markdown / Note package；后缀保留、冲突拒绝；folder rename 迁移 active / expanded / selected folder / Recent 子路径。
+- [x] Recent：按 Workspace ID 记录相对路径，去重、限 10 条、Missing / Refresh 清理，不复制正文。
+- [x] 基础 Search：filename / H1 / Markdown body / Note metadata title / `.note/content.md`；跳过超大文本与 Block private assets，结果上限 100。
+- [x] Search race：旧查询结果不能覆盖更新查询。
+- [x] Markdown ↔ Mixed Note Workspace 切换复用既有 Dirty / IME / pending-save 保护。
+- [x] 候选/旧 capability 在 cancel / failure / successful switch 时按正确顺序释放。
+- [x] Sidebar 使用真实 Workspace 数据，无静态 Research / PD / Cislunar 假目录；row action 按 hover/focus 渐进显示。
+- [x] 手动 Refresh + create / rename / restore / change 后 rescan。
+- [ ] Favorites 持久化。
+- [ ] Trash / delete / recovery。
+- [ ] filesystem watcher。
+- [ ] multi-Workspace。
+- [ ] SQLite / FTS 索引搜索。
 
-## G0 测试准备 — in_progress
+## 最新验证 — completed
 
-- [ ] 记录 FlowNote 代码版本、依赖版本、OS、WebView、输入法。
-- [x] 保留 fixtures 原件，使用内存工作副本及独立输出目录测试。
-- [x] 按[图片说明](../flownote-markdown-qualification/fixtures/qualification.assets/README.md)补齐 PNG，原路径 HTTP 验证通过。
-- [x] 补齐实际编辑器的 Markdown 装载与序列化读取入口。
-- [x] 开发入口复用应用的 Milkdown 配置、HTML 插件、页面样式和同步链路；视觉验收待完成。
-- [x] 提供原文、实际编辑视图、ProseMirror 结构 / DOM、序列化 Markdown 的采集界面。
-- [x] 实现结果导出及重新装载；产品自动磁盘保存 / 重开已补齐，原生下载和选择器仍待验。
-- [x] 不用测试面板中的原文备份冒充产品的不支持语法保护。
-- [x] 在 [STATUS.md](./STATUS.md)及资格 / 文件报告中记录逐项证据；原生视觉 / IME 和文件交互保持 pending。
+- [x] Workspace Frontend：**8 / 8**
+- [x] Workspace Native：**11 / 11**
+- [x] Format Freeze Gate：PASS
+- [x] HTML：**12 / 12**
+- [x] Stage One：**58 / 58**
+- [x] Protection：**38 / 38**
+- [x] Qualification：**36 / 36**
+- [x] Files：**18 / 18**
+- [x] 真实磁盘：**16 / 16**
+- [x] Desktop UI：**12 / 12**
+- [x] Desktop IPC / Rust desktop commands：**12 / 12**
+- [x] Rust 全套：**85 passed / 1 ignored**
+- [x] Rust Clippy：PASS
+- [x] Frontend build：PASS
+- [x] Tauri release build：PASS
+- [x] 2026-09-19 production build 主 JS 约 **842.74 kB**（gzip **265.72 kB**）；>500 kB code-splitting warning 继续列入 V1 收尾。
+## Format Freeze — completed
 
-## G1 Round-trip 与不支持语法 — completed（自动检查）
+- [x] 冻结 `formatVersion: 1` 当前持久化语义；Note Format v1.2 已升级为 Final。
+- [x] 未知 future `formatVersion` 只读打开，不自动 rewrite / downgrade，且 save / save-as 被拒绝。
+- [x] Missing / duplicate / orphan / temp / partial Block 条件均有稳定可恢复行为，不自动删除异常数据。
+- [x] 外部修改三态在 `.md` 与 `.note` 关键路径完成冻结验证；IME 期间延迟处理。
+- [x] Deep Copy、保存失败 recovery package、Note 移动后重开进入冻结测试集。
+- [x] 新增 `npm run test:format-freeze` 作为可重复 Freeze Gate。
+- [x] 修复 external snapshot hydration 的 Markdown 规范化回声误标 Dirty 竞态；最小回归 RED→GREEN，真实磁盘 Deep Copy 场景连续 10 / 10 通过。
+- [x] Crash / Failure：partial Block、遗留 `.flownote-*.tmp` 与 atomic-save recovery 都保留可恢复数据。
+## V1 产品收尾 — pending
 
-- [x] R01：8 份原件经过实际 App 与 Rust 文件服务保存 / 关闭 / 重开通过，无编辑保存保持字节和修改时间。
-- [x] R02：03 的 LSU 可视化单项修改及 05 / 08 局部源码修改，真实保存 / 重开通过；其他语义或字节保持。
-- [x] R03：未知 fenced block 进入明确的源码保护路径。
-- [x] R04：YAML frontmatter 在源码中完整保留，05 / 08 首轮失败已修复，空元数据也覆盖。
-- [x] R05：Raw HTML 源码保留；实际编辑器中不产生可执行元素或自动导入 HTML Block。
-- [x] R06：WikiLink / 自定义指令进入源码保护，覆盖分段输入和粘贴的转义回归。
-- [x] R07（P1）：Footnote 源码保留。
-- [x] R08：Mermaid / LaTeX 源码保留，覆盖公式空白、换行及数字后缀；渲染尚未实现。
-- [x] 自动检查区分普通 Markdown 的语义等价与受保护源码的字面一致；完整证据表仍待填写。
+- [ ] Read / Focus / Fullscreen 最终硬化：第一波原型已可用，继续完成焦点、长内容、窗口尺寸和生命周期最终验收。
+- [x] 文件树：当前 Sidebar 已接入真实 Workspace 文件组织与持久化恢复。
+- [x] 搜索：已接入 filename / title / Markdown body / `.note/content.md` 的基础 native bounded scan；SQLite/FTS 索引属于后续增强。
+- [ ] Full HTML Editor：补复杂 HTML / CSS / JS 与资源管理路径。
+- [ ] Browser Bundle export：Mixed Note 可脱离 FlowNote 打开，保持正文 / 图片 / Block 顺序与隔离语义。
+- [ ] Markdown export：明确 Mixed Note 导出策略，不能静默丢失 HTML 或 managed resources。
+- [ ] 收尾 UI / 错误提示 / 空状态 / bundle 体积 / 最终发布验证。
 
-## G2 列表与粘贴 — completed（编辑器自动检查）
+## 需求保留规则
 
-- [x] L01–L05：普通列表、五层有序 / 无序、双向混合嵌套。
-- [x] L06–L07：Tab / Shift+Tab、Enter / Backspace，包含嵌套空项和带子列表项目的分合。
-- [x] L08：列表内 Bold / Link / Inline Code。
-- [x] L09–L10：列表项内多段、代码、子列表，以及引用与列表。
-- [x] L11：图片存在且地址、插入、缩进退回后归属正确；原生绘制仍待确认。
-- [x] L12（P1）：Task List 与普通列表混合。
-- [x] P01（P1）：富文本粘贴保持 Markdown 节点与上下文。
-- [x] P02：纯 Markdown 粘贴嵌套列表保留层级。
-- [x] P03（P1）：粘贴代码后仍属于预期列表项。
-- [x] 主动编辑比较 Markdown 语义与文档结构并重新装载；第四阶段完成 R01 / R02 的自动真实文件关闭重开。
-
-## G3 IME — pending
-
-- [ ] I01：真实中文输入法段落编辑无丢字、重字。
-- [ ] I02：真实中文输入法列表编辑无光标跳动、composition 中断或层级变化。
-- [ ] 覆盖选词、快速输入、Enter、Backspace 和嵌套列表。
-- [ ] 在实际桌面 / WebView 环境复核；程序化文本输入不替代 IME 验收。
-- [ ] 若文件监听尚未实现，外部更新与 composition 交互标记待后续 Slice 3 验证。
-
-## Gate 决策 — pending
-
-- [x] 25 项用例均已记录当前结果、证据与未覆盖说明。
-- [x] 已发现失败具备最小复现；修复前后使用同一用例验证。
-- [x] 按[结果模板](../flownote-markdown-qualification/markdown-editor-qualification-result-template.md)记录版本、diff、问题、补丁和当前限制。
-- [ ] 依据测试包作出 PASS / PASS WITH PATCHES / FAIL；不得用总分抵消 P0 数据安全失败。
-- [ ] 尚有未解决的 P0 失败时，保持 HTML / .note 深度集成为 pending。
-- [ ] 没有实用适配层修复方案的保真 / 语义 / IME 失败，进入替代编辑器的同套测试评估。
-
-## 后续里程碑 — pending
-
-- [ ] Slice 1：Markdown + HTML → 持久化 → 关闭 → 重开。
-- [ ] Slice 2：图片、Block 私有 CSS / JS、相对路径与第二个 HTML Block。
-- [ ] Slice 3：外部修改、IME 冲突、异常 Anchor、Missing / Orphan、失败恢复、移动、深复制。
-- [ ] Format Freeze：通过格式规范中的全部冻结测试；未知版本只读、保存失败可恢复。
-- [ ] 按 PRD 完成 V1 的 Read、文件树、搜索、全屏和导出验收。
+- [x] Slice 状态与最终需求分离：Slice 的 `completed` 不代表 Requirements Matrix 对应所有 Planned / Partial 项都完成。
+- [x] Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等继续保留。
+- [ ] 任何需求若确实决定取消，必须显式修改 PRD + Requirements Matrix，并记录原因；不得通过状态文档静默删除。

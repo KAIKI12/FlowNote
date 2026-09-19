@@ -8,6 +8,15 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 pub use crate::file_data::MAX_MARKDOWN_BYTES;
+const MAX_MARKDOWN_ASSET_BYTES: u64 = 16 * 1024 * 1024;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileAsset {
+    pub path: String,
+    pub mime: String,
+    pub bytes: Vec<u8>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -51,6 +60,44 @@ fn committed_snapshot(id: &str, path: &Path, data: (&str, SaveReceipt)) -> FileR
         read_only: data.1.read_only, notice: data.1.notice })
 }
 
+fn asset_mime(path: &str) -> &'static str {
+    match Path::new(path).extension().and_then(|value| value.to_str()).map(|value| value.to_ascii_lowercase()) {
+        Some(ext) if ext == "png" => "image/png",
+        Some(ext) if ext == "jpg" || ext == "jpeg" => "image/jpeg",
+        Some(ext) if ext == "gif" => "image/gif",
+        Some(ext) if ext == "webp" => "image/webp",
+        Some(ext) if ext == "svg" => "image/svg+xml",
+        _ => "application/octet-stream",
+    }
+}
+
+fn managed_asset_path(markdown: &Path, relative: &str) -> FileResult<PathBuf> {
+    if relative.is_empty() || relative.contains('\\') || Path::new(relative).is_absolute() {
+        return Err(FileError::new("invalidPath", "Markdown 图片必须使用同名 .assets 目录下的相对路径"));
+    }
+    let stem = markdown.file_stem().and_then(|value| value.to_str())
+        .ok_or_else(|| FileError::new("invalidPath", "Markdown 文件名无效"))?;
+    let expected = format!("{stem}.assets");
+    let parts: Vec<_> = relative.split('/').collect();
+    if parts.len() < 2 || parts[0] != expected || parts.iter().any(|part| part.is_empty() || *part == "." || *part == "..") {
+        return Err(FileError::new("invalidPath", "Markdown 图片只能位于当前笔记的 .assets 目录"));
+    }
+    let parent = markdown.parent().ok_or_else(|| FileError::new("invalidPath", "Markdown 缺少父目录"))?;
+    let mut current = parent.join(&expected);
+    let root_metadata = fs::symlink_metadata(&current).map_err(|error| FileError::io("无法读取 Markdown 资源目录", error))?;
+    if root_metadata.file_type().is_symlink() || !root_metadata.is_dir() {
+        return Err(FileError::new("invalidPath", "Markdown 资源目录不能是链接或普通文件"));
+    }
+    for (index, part) in parts.iter().enumerate().skip(1) {
+        current.push(part);
+        let metadata = fs::symlink_metadata(&current).map_err(|error| FileError::io("无法读取 Markdown 图片", error))?;
+        if metadata.file_type().is_symlink() { return Err(FileError::new("invalidPath", "Markdown 图片路径不能经过链接")); }
+        if index + 1 < parts.len() && !metadata.is_dir() { return Err(FileError::new("invalidPath", "Markdown 图片父路径不是目录")); }
+        if index + 1 == parts.len() && !metadata.is_file() { return Err(FileError::new("invalidPath", "Markdown 图片不是普通文件")); }
+    }
+    Ok(current)
+}
+
 impl FileStore {
     pub fn open_selected(&mut self, path: &Path) -> FileResult<FileSnapshot> {
         let path = canonical_file(path)?;
@@ -72,6 +119,19 @@ impl FileStore {
 
     pub fn reload(&self, id: &str) -> FileResult<FileSnapshot> {
         snapshot(id, &self.bound_path(id)?)
+    }
+
+    pub fn read_asset(&self, id: &str, relative: &str) -> FileResult<FileAsset> {
+        let markdown = self.bound_path(id)?;
+        let path = managed_asset_path(&markdown, relative)?;
+        let before = fs::metadata(&path).map_err(|error| FileError::io("读取 Markdown 图片属性失败", error))?;
+        if before.len() > MAX_MARKDOWN_ASSET_BYTES { return Err(FileError::new("tooLarge", "Markdown 图片不能超过 16 MiB")); }
+        let bytes = fs::read(&path).map_err(|error| FileError::io("读取 Markdown 图片失败", error))?;
+        let after = fs::metadata(&path).map_err(|error| FileError::io("复核 Markdown 图片属性失败", error))?;
+        if before.len() != after.len() || before.modified().ok() != after.modified().ok() {
+            return Err(FileError::new("conflict", "Markdown 图片在读取期间发生变化"));
+        }
+        Ok(FileAsset { path: relative.into(), mime: asset_mime(relative).into(), bytes })
     }
 
     pub fn save(&mut self, request: SaveRequest) -> FileResult<FileSnapshot> {

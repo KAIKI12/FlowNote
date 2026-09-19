@@ -2,6 +2,7 @@
  * FlowNote 核心数据类型定义
  */
 import type { MixedNoteData } from './mixedTypes';
+import type { NoteDiagnostic } from './nativeNotePort';
 
 /**
  * Note 类型
@@ -38,6 +39,7 @@ export interface NoteStructure {
   htmlBlocks: Map<string, string>; // id -> html content
   assets: string[];
   mixed?: MixedNoteData;
+  diagnostics?: NoteDiagnostic[];
 }
 
 /**

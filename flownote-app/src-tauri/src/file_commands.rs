@@ -1,5 +1,6 @@
 use crate::file_error::{FileError, FileResult};
-use crate::markdown_files::{FileSnapshot, FileStore, SaveRequest};
+use crate::markdown_files::{FileAsset, FileSnapshot, FileStore, SaveRequest};
+use crate::workspace::WorkspaceOpenRequest;
 use serde::Deserialize;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
@@ -13,6 +14,13 @@ pub struct ManagedFiles(pub Mutex<FileStore>);
 pub struct SaveAsRequest {
     pub name: String,
     pub content: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AssetRequest {
+    pub id: String,
+    pub path: String,
 }
 
 fn require_main<R: Runtime>(window: &WebviewWindow<R>) -> FileResult<()> {
@@ -48,6 +56,18 @@ pub async fn markdown_open<R: Runtime>(app: AppHandle<R>, window: WebviewWindow<
 }
 
 #[tauri::command]
+pub async fn markdown_open_workspace<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    request: WorkspaceOpenRequest,
+) -> FileResult<FileSnapshot> {
+    require_main(&window)?;
+    let path = crate::workspace::resolve_markdown_from_app(&app, &request.relative_path)?;
+    tauri::async_runtime::spawn_blocking(move || with_store(&app, |files| files.open_selected(&path)))
+        .await.map_err(|error| FileError::io("Workspace Markdown 打开被中断", error))?
+}
+
+#[tauri::command]
 pub async fn markdown_save<R: Runtime>(app: AppHandle<R>, window: WebviewWindow<R>, request: SaveRequest) -> FileResult<FileSnapshot> {
     file_task(app, window, move |files| files.save(request)).await
 }
@@ -71,6 +91,11 @@ pub async fn markdown_save_as<R: Runtime>(app: AppHandle<R>, window: WebviewWind
 #[tauri::command]
 pub async fn markdown_reload<R: Runtime>(app: AppHandle<R>, window: WebviewWindow<R>, id: String) -> FileResult<FileSnapshot> {
     file_task(app, window, move |files| files.reload(&id)).await
+}
+
+#[tauri::command]
+pub async fn markdown_read_asset<R: Runtime>(app: AppHandle<R>, window: WebviewWindow<R>, request: AssetRequest) -> FileResult<FileAsset> {
+    file_task(app, window, move |files| files.read_asset(&request.id, &request.path)).await
 }
 
 #[tauri::command]

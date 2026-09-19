@@ -5,8 +5,10 @@ pub mod file_error;
 pub mod markdown_files;
 pub mod note_commands;
 pub mod note_files;
+pub mod workspace;
 mod note_format;
 mod note_path;
+mod note_repair;
 #[cfg(windows)]
 mod windows_file;
 #[cfg(windows)]
@@ -30,16 +32,31 @@ pub fn configure_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         .plugin(tauri_plugin_dialog::init())
         .manage(file_commands::ManagedFiles::default())
         .manage(note_commands::ManagedNotes::default())
+        .manage(workspace::ManagedWorkspace::default())
         .invoke_handler(tauri::generate_handler![
             file_commands::markdown_open,
+            file_commands::markdown_open_workspace,
             file_commands::markdown_save,
             file_commands::markdown_save_as,
             file_commands::markdown_reload,
+            file_commands::markdown_read_asset,
             file_commands::markdown_release,
             note_commands::note_open,
+            note_commands::note_open_workspace,
             note_commands::note_save,
             note_commands::note_save_as,
             note_commands::note_reload,
+            note_commands::note_probe,
+            note_commands::note_repair_remove_reference,
+            note_commands::note_repair_restore_orphan,
+            note_commands::note_read_asset,
+            note_commands::note_read_image,
             note_commands::note_release,
+            workspace::workspace_pick,
+            workspace::workspace_restore,
+            workspace::workspace_scan,
+            workspace::workspace_search,
+            workspace::workspace_create_markdown,
+            workspace::workspace_rename,
         ])
 }

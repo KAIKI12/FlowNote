@@ -25,12 +25,22 @@ pub struct MixedNoteData {
     pub blocks: Vec<HtmlBlockData>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteDiagnostic {
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub block_id: Option<String>,
+    pub message: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct NoteDocument {
     pub content: String,
     pub mixed: MixedNoteData,
     pub read_only: bool,
     pub notice: Option<String>,
+    pub diagnostics: Vec<NoteDiagnostic>,
 }
 
 #[derive(Deserialize)]
@@ -100,6 +110,67 @@ pub(crate) fn anchor_ids(content: &str) -> FileResult<Vec<String>> {
     }
     if active.is_some_and(|fence| fence.anchor) { return Err(format_error("FlowNote Anchor 缺少结束 fence")); }
     Ok(ids)
+}
+
+fn scanned_anchor_ids(content: &str) -> Vec<String> {
+    let mut active: Option<Fence> = None;
+    let mut ids = Vec::new();
+    for line in content.trim_start_matches('\u{feff}').lines() {
+        if let Some(fence) = &mut active {
+            if close_fence(fence, line) {
+                if fence.anchor {
+                    if let Ok(anchor) = serde_json::from_str::<Anchor>(&fence.body) {
+                        if validate_id(&anchor.id).is_ok() { ids.push(anchor.id); }
+                    }
+                }
+                active = None;
+            } else if fence.anchor { fence.body.push_str(line); fence.body.push('\n'); }
+            continue;
+        }
+        if let Some((marker, width, info)) = fence_start(line) {
+            active = Some(Fence { marker, width, anchor: info == "flownote-html", body: String::new() });
+        }
+    }
+    ids
+}
+
+fn block_ids(files: &BTreeMap<String, &[u8]>) -> HashSet<String> {
+    files.keys().filter_map(|path| {
+        let rest = path.strip_prefix("blocks/")?;
+        let (id, child) = rest.split_once('/')?;
+        (child == "block.json" && validate_id(id).is_ok()).then(|| id.to_string())
+    }).collect()
+}
+
+fn block_complete(files: &BTreeMap<String, &[u8]>, id: &str) -> bool {
+    ["block.json", "index.html", "original.html"].iter()
+        .all(|name| files.contains_key(&format!("blocks/{id}/{name}")))
+}
+
+fn note_diagnostics(files: &BTreeMap<String, &[u8]>, content: &str) -> Vec<NoteDiagnostic> {
+    let scanned = scanned_anchor_ids(content);
+    let ids = match anchor_ids(content) {
+        Ok(ids) => ids,
+        Err(error) => {
+            let mut seen = HashSet::new();
+            let duplicate = scanned.iter().find(|id| !seen.insert((*id).clone())).cloned();
+            return vec![NoteDiagnostic { kind: if duplicate.is_some() { "duplicateAnchor" } else { "invalidAnchor" }.into(),
+                block_id: duplicate, message: error.message }];
+        }
+    };
+    let mut diagnostics = Vec::new();
+    for id in &ids {
+        if !block_complete(files, id) {
+            diagnostics.push(NoteDiagnostic { kind: "missingBlock".into(), block_id: Some(id.clone()),
+                message: format!("HTML Block Missing：{id}") });
+        }
+    }
+    let referenced: HashSet<_> = ids.into_iter().collect();
+    for id in block_ids(files).difference(&referenced) {
+        diagnostics.push(NoteDiagnostic { kind: "orphanBlock".into(), block_id: Some(id.clone()),
+            message: format!("Orphan HTML Block：{id}") });
+    }
+    diagnostics
 }
 
 fn forbidden_fields(value: &Value) -> FileResult<()> {
@@ -201,17 +272,49 @@ pub(crate) fn parse(files: &BTreeMap<String, &[u8]>, read_only: bool) -> FileRes
     let content = text_file(files, "content.md")?.to_string();
     let metadata = json_file(files, "note.json")?;
     let version = metadata["formatVersion"].as_u64().ok_or_else(|| format_error("note.json 缺少有效 formatVersion"))?;
-    let mut document = NoteDocument { content, mixed: MixedNoteData { metadata, blocks: Vec::new() }, read_only, notice: None };
+    let mut document = NoteDocument { content, mixed: MixedNoteData { metadata, blocks: Vec::new() }, read_only,
+        notice: None, diagnostics: Vec::new() };
     if version != FORMAT_VERSION {
         document.read_only = true;
         document.notice = Some(format!("未知 Note 格式版本 {version}：已按只读安全模式打开，禁止写回或降级"));
         return Ok(document);
     }
-    let loaded = validate_metadata(&document.mixed.metadata).and_then(|()| anchor_ids(&document.content))
-        .and_then(|ids| ids.into_iter().map(|id| read_block(files, id)).collect::<FileResult<Vec<_>>>());
+    document.diagnostics = note_diagnostics(files, &document.content);
+    let loaded = validate_metadata(&document.mixed.metadata).and_then(|()| anchor_ids(&document.content));
     match loaded {
-        Ok(blocks) => document.mixed.blocks = blocks,
-        Err(error) => { document.read_only = true; document.notice = Some(error.message); }
+        Ok(ids) => {
+            let missing: HashSet<_> = document.diagnostics.iter().filter(|item| item.kind == "missingBlock")
+                .filter_map(|item| item.block_id.clone()).collect();
+            let mut blocks = Vec::new();
+            let mut failure = None;
+            for id in ids {
+                match read_block(files, id.clone()) {
+                    Ok(block) => blocks.push(block),
+                    Err(_) if missing.contains(&id) => {},
+                    Err(error) => { failure = Some(error); break; }
+                }
+            }
+            document.mixed.blocks = blocks;
+            if let Some(error) = failure {
+                document.read_only = true;
+                if document.diagnostics.is_empty() {
+                    document.diagnostics.push(NoteDiagnostic { kind: "partialPackage".into(), block_id: None,
+                        message: error.message.clone() });
+                }
+                document.notice = Some(error.message);
+            } else if let Some(diagnostic) = document.diagnostics.iter().find(|item| item.kind == "missingBlock") {
+                document.read_only = true;
+                document.notice = Some(diagnostic.message.clone());
+            }
+        }
+        Err(error) => {
+            document.read_only = true;
+            if document.diagnostics.is_empty() {
+                document.diagnostics.push(NoteDiagnostic { kind: "partialPackage".into(), block_id: None,
+                    message: error.message.clone() });
+            }
+            document.notice = Some(error.message);
+        }
     }
     Ok(document)
 }

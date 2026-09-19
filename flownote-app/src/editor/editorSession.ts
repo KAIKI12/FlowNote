@@ -147,6 +147,10 @@ export class EditorSession {
     }
     if (source === this.getMarkdown()) return;
     this.install(source);
+    // External hydration may serialize to an equivalent but byte-different Markdown string.
+    // Treat that installed representation as the clean baseline so Milkdown's delayed
+    // markdownUpdated echo is not mistaken for a local edit.
+    this.lastPublished = this.getMarkdown();
   }
 
   private validateModeSwitch(mode: EditorMode): void {
@@ -209,6 +213,7 @@ export class EditorSession {
 
   visualChanged(): void {
     if (!this.state.ready || this.installing || this.state.active !== 'visual') return;
+    if (this.bridge?.read() === this.lastExternal) return;
     this.options.dirty();
   }
 

@@ -35,6 +35,8 @@ interface FileHookOptions {
   editorRef: MutableRefObject<FlowNoteEditorApi | null>;
   port?: MarkdownFilePort;
   showEditor: () => void;
+  saveAlternate?: (asNew: boolean) => Promise<boolean>;
+  closeAlternate?: () => Promise<void>;
 }
 
 async function closeDesktopWindow({ acquire, ready }: { acquire: AcquireEditorReadLock | null; ready: boolean }): Promise<void> {
@@ -87,6 +89,8 @@ function createSession({ latest, ready, readyChanged, readLockRef }: {
         metadata: { ...store.currentNote.metadata, title: update.file.name.replace(/\.(md|markdown)$/i, ''), updatedAt: new Date().toISOString() } },
       isDirty: !update.clean,
     })),
+    saveAlternate: asNew => latest.current.saveAlternate?.(asNew) ?? Promise.resolve(false),
+    closeAlternate: () => latest.current.closeAlternate?.() ?? Promise.resolve(),
     closeWindow: () => closeDesktopWindow({ acquire: readLockRef.current, ready: ready.current }),
   });
 }

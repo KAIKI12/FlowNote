@@ -1,4 +1,5 @@
 use crate::file_error::{FileError, FileResult};
+use crate::note_files::BlockCopyRequest;
 use crate::note_format::{MixedNoteData, NoteDocument};
 use crate::windows_note_io::{lock_ancestors, Directory};
 use crate::windows_note_stage::Draft;
@@ -12,6 +13,9 @@ pub(crate) struct NoteWrite<'a> {
     pub expected: Option<&'a str>,
     pub content: String,
     pub mixed: MixedNoteData,
+    pub assets: Vec<(String, Vec<u8>)>,
+    pub block_copies: Vec<BlockCopyRequest>,
+    pub repair_source: bool,
 }
 
 pub(crate) struct NoteReceipt {
@@ -95,7 +99,7 @@ where F: FnMut(SaveStage, &Path) {
     let mut source = prepare_source(&request)?;
     let commit = Commit { target: request.target, expected: request.expected.unwrap_or_default(), replacing };
     let source_tree = source.as_ref().and_then(|source| source.tree.as_ref());
-    let draft = Draft::prepare(request.content, request.mixed, source_tree)?;
+    let draft = Draft::prepare(request.content, request.mixed, request.assets, request.block_copies, source_tree, request.repair_source)?;
     if replacing && source_tree.is_some_and(|tree| draft.unchanged(tree)) {
         let tree = source_tree.ok_or_else(|| FileError::new("conflict", "Note 源状态缺失"))?;
         return Ok(NoteReceipt { document: tree.document()?, revision: tree.revision.clone(), notice: None });
