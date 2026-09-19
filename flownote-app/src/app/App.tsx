@@ -20,6 +20,7 @@ import type { InspectorTab, WorkspaceMode } from './WorkspaceChrome';
 import { WorkspaceNavigation } from '../workspace/WorkspaceTree';
 import { useWorkspace } from '../workspace/useWorkspace';
 import type { WorkspaceEntry, WorkspacePort } from '../workspace/workspaceTypes';
+import { nextThemePreference, readThemePreference, resolvedTheme, saveThemePreference, systemPrefersDark } from './themePreference';
 
 const QualificationPanel = import.meta.env.DEV
   ? lazy(() => import('../editor/MarkdownQualification')) : null;
@@ -87,7 +88,7 @@ function useAppNote(editorRef: RefObject<FlowNoteEditorApi>) {
     const latest = useNoteStore.getState();
     if (latest.isComposing) throw new Error('请先完成组合输入，再导出笔记');
     if (!latest.currentNote || latest.currentNote.metadata.type !== 'markdown' || latest.currentNote.htmlBlocks.size) {
-      throw new Error('当前阶段只导出普通 Markdown，Mixed Note 导出尚未实现');
+      throw new Error('Mixed Note 请使用目录型 Markdown 导出，以保留 HTML 与 managed resources');
     }
     downloadText({ content: api.getMarkdown(), fileName: 'FlowNote.md', type: 'text/markdown;charset=utf-8' });
     setNotice('已请求导出 FlowNote.md，请查看下载位置。');
@@ -244,7 +245,8 @@ function App({ filePort, notePort, workspacePort }: {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('outline');
   const [selectedHtmlBlockId, setSelectedHtmlBlockId] = useState<string | null>(null);
-  const [dark, setDark] = useState(false);
+  const [themePreference, setThemePreference] = useState(readThemePreference);
+  const [systemDark, setSystemDark] = useState(systemPrefersDark);
   const editorRef = useRef<FlowNoteEditorApi | null>(null);
   const note = useAppNote(editorRef);
   const dirty = useNoteStore(state => state.isDirty);
@@ -275,8 +277,23 @@ function App({ filePort, notePort, workspacePort }: {
   };
   const workspace = useWorkspace({ port: workspacePort, openEntry: openWorkspaceEntry });
   useEffect(() => {
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  }, [dark]);
+    if (typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const update = () => setSystemDark(media.matches);
+    update();
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+    media.addListener?.(update);
+    return () => media.removeListener?.(update);
+  }, []);
+  const theme = resolvedTheme(themePreference, systemDark);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    saveThemePreference(themePreference);
+  }, [theme, themePreference]);
   const selectView = (view: AppView) => {
     if (viewSwitchBlocked(files)) return;
     if (view === 'demo' && activeView !== 'demo' && !note.synchronize()) return;
@@ -300,10 +317,12 @@ function App({ filePort, notePort, workspacePort }: {
 
   return <div className="app writing-app" data-view-mode={workspaceMode}
       data-sidebar-open={showSidebar ? 'true' : 'false'} data-inspector-open={showInspector ? 'true' : 'false'}>
-    <WorkspaceTopbar mode={workspaceMode} title={title} sidebarOpen={showSidebar} inspectorOpen={showInspector} dark={dark}
+    <WorkspaceTopbar mode={workspaceMode} title={title} sidebarOpen={showSidebar} inspectorOpen={showInspector}
+      themePreference={themePreference} resolvedTheme={theme}
       searchQuery={workspace.query} searchDisabled={!workspace.snapshot} onSearchQueryChange={workspace.setQuery}
       onModeChange={setWorkspaceMode} onToggleSidebar={() => setSidebarOpen(value => !value)}
-      onToggleInspector={() => setInspectorOpen(value => !value)} onToggleTheme={() => setDark(value => !value)} />
+      onToggleInspector={() => setInspectorOpen(value => !value)}
+      onToggleTheme={() => setThemePreference(value => nextThemePreference(value))} />
     {showSidebar && <WorkspaceSidebar activeView={activeView} fileActions={fileActions}
       workspaceContent={<WorkspaceNavigation snapshot={workspace.snapshot} busy={workspace.busy} error={workspace.error}
         query={workspace.query} results={workspace.results} recent={workspace.recent}

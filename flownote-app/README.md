@@ -1,6 +1,6 @@
 # FlowNote 技术验证 Demo
 
-FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening、Full HTML Editor、Browser Bundle 与 Mixed Markdown export；当前继续进入 **V1 最终产品收尾**，主线转向系统主题、UI 一致性、错误/空状态与发布体验。
+FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting 与 V1 UI Polish；当前 V1 只剩安装 / 卸载 / 升级级发布验证。
 
 当前主能力包括：
 
@@ -17,18 +17,20 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 - shared read-only probe / resource snapshot 与 disposal guard 已覆盖资源只读检查、关闭 / 切换及迟到异步回执边界。
 - Browser Bundle 可直接通过浏览器 `file://` 打开；Mixed Markdown export 将 HTML Anchor 转为外部 HTML 相对链接，并同时复制 Current HTML、Note-managed images 与 Block-private assets，不静默丢内容。
 - 前端已完成第一轮稳定 vendor code-splitting，最大生产 chunk 降至 256.18 kB，Vite >500 kB warning 已消失。
+- V1 UI 已支持 Auto / Light / Dark：Auto 跟随系统主题，显式 Light / Dark 可持久化覆盖；视觉 token 重新对齐桌面参考稿，Ctrl/Cmd+K 已成为真实搜索快捷键。
+- Sidebar 不再展示未实现的 Tags / Trash 假入口；空 Workspace、空搜索、错误/成功状态采用克制的 Light/Dark 一致反馈，同时 Markdown 正文继续保持无 Block 框的连续编辑面。
 
 公式与 Mermaid 当前保证源码保留，渲染增强仍属于后续候选。
 
 ## 当前验证基线
 
-2026-09-19 Mixed Markdown Export 与 bundle splitting 完成后的当前验证结果：
+2026-09-19 V1 UI Polish 完成后的当前验证结果：
 
 - Workspace Frontend：**8 / 8**
 - Workspace Native：**11 / 11**
 - Format Freeze Gate：**PASS**
 - HTML：**15 / 15**
-- Stage One：**63 / 63**
+- Stage One：**64 / 64**
 - Protection：**38 / 38**
 - Qualification：**36 / 36**
 - Files：**18 / 18**
@@ -41,6 +43,7 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 - Rust Clippy：**PASS**
 - Frontend build：**PASS**
 - Tauri release build：**PASS**
+- Release exe smoke：**PASS**
 
 当前最大生产 JS chunk 为 **256.18 kB**（gzip **79.53 kB**）；React、ProseMirror、Milkdown 与 Tauri vendor 已拆分，原有 >500 kB warning 已消失。
 
@@ -184,8 +187,8 @@ flownote-app/src-tauri/target/release/flownote.exe
 
 接下来统一围绕 V1 可交付性收尾，不再继续扩张已完成 Slice：
 
-1. **最终 UI 收尾**：系统主题联动、Light / Dark 细节、UI 一致性、错误提示、空状态与关键交互 polish。
-2. **最终发布验证**：安装/升级体验、release smoke test、版本与产物检查；当前 MSI / NSIS 已可稳定构建。
-3. **Workspace 后续增强（非当前阻塞）**：Favorites、Trash / delete / recovery、filesystem watcher、multi-Workspace、SQLite / FTS 等按独立 Slice 继续。
+1. **最终发布验证**：release build 与 exe smoke 已完成；继续真实 MSI / NSIS 安装、卸载、升级路径与发布版本整理。
+2. **Workspace 后续增强（非当前阻塞）**：Favorites、Trash / delete / recovery、filesystem watcher、multi-Workspace、SQLite / FTS 等按独立 Slice 继续。
+3. **资源 / 产品后续增强（非当前阻塞）**：Shared Localized Resource、CDN Localization、cross-note dependency copy、Presentation / AI 等继续按 Requirements Matrix 分期实现。
 
 Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等需求继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留，后续单独实现，不因当前 Slice 完成而删除。

@@ -33,6 +33,55 @@ async function welcome() {
   });
 }
 
+async function themeFollowsSystemAndCyclesPreferences() {
+  const originalMatchMedia = window.matchMedia;
+  const listeners = new Set<() => void>();
+  let systemDark = true;
+  const media = {
+    get matches() { return systemDark; },
+    media: '(prefers-color-scheme: dark)',
+    onchange: null,
+    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+    addListener: (listener: () => void) => listeners.add(listener),
+    removeListener: (listener: () => void) => listeners.delete(listener),
+    dispatchEvent: () => true,
+  } as unknown as MediaQueryList;
+  Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: () => media });
+  window.localStorage.removeItem('flownote-theme');
+  try {
+    await withApp(async () => {
+      const toggle = document.querySelector<HTMLButtonElement>('[aria-label="切换主题"]')!;
+      assert.ok(toggle);
+      await waitFor(() => document.documentElement.dataset.theme === 'dark');
+      assert.match(toggle.textContent ?? '', /Auto/);
+
+      systemDark = false;
+      await act(async () => listeners.forEach(listener => listener()));
+      await waitFor(() => document.documentElement.dataset.theme === 'light');
+
+      await act(async () => toggle.click());
+      assert.match(toggle.textContent ?? '', /Light/);
+      assert.equal(window.localStorage.getItem('flownote-theme'), 'light');
+
+      systemDark = true;
+      await act(async () => listeners.forEach(listener => listener()));
+      assert.equal(document.documentElement.dataset.theme, 'light', 'Explicit Light must ignore later system changes');
+
+      await act(async () => toggle.click());
+      await waitFor(() => document.documentElement.dataset.theme === 'dark');
+      assert.match(toggle.textContent ?? '', /Dark/);
+
+      await act(async () => toggle.click());
+      assert.match(toggle.textContent ?? '', /Auto/);
+      assert.equal(document.documentElement.dataset.theme, 'dark', 'Auto should resolve back to the current system theme');
+    });
+  } finally {
+    window.localStorage.removeItem('flownote-theme');
+    Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: originalMatchMedia });
+  }
+}
+
 async function exportNote() {
   await withApp(async () => {
     const exporter = document.querySelector<HTMLButtonElement>('[aria-label="导出 Markdown 笔记"]');
@@ -1104,6 +1153,7 @@ async function workspaceModesKeepFocusEditableAndReadOnlyWhenRequested() {
 
 export const appChecks = [
   { name: '默认首页：打开即为可编辑的普通 Markdown 笔记', run: welcome },
+  { name: '主题：Auto 跟随系统且可显式切换 Light / Dark', run: themeFollowsSystemAndCyclesPreferences },
   { name: 'HTML Full Editor：draft 不污染 live Note，Current + asset 原子提交', run: fullHtmlEditorKeepsDraftLocalAndSavesCurrentWithAssets },
   { name: 'HTML Full Editor：保存失败保留 draft 且不污染 live Note', run: fullHtmlEditorFailedSaveKeepsLiveNoteAndDraftOpen },
   { name: 'Browser Bundle：Dirty Current 可导出且不隐式保存 Note', run: browserBundleExportsDirtyCurrentWithoutSavingNote },

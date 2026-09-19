@@ -69,7 +69,7 @@ export function WorkspaceNavigation(props: Props) {
       <div className="workspace-empty-title">Local Workspace</div>
       <p>选择一个本地文件夹，FlowNote 只会管理其中的 Markdown 和 .note。</p>
       <button type="button" onClick={props.onPick} disabled={!!props.busy}>Choose Workspace</button>
-      {props.error && <p role="alert">{props.error.message}</p>}
+      {props.error && <p className="workspace-inline-error" role="alert">{props.error.message}</p>}
     </div>;
   }
   const searchMode = !!props.query.trim();
@@ -85,7 +85,7 @@ export function WorkspaceNavigation(props: Props) {
     {searchMode ? <div className="workspace-nav-section">
       <span>Search</span>
       {props.busy === 'search' && <p className="workspace-tree-empty">Searching…</p>}
-      {!props.busy && !props.results.length && <p className="workspace-tree-empty">No matches</p>}
+      {!props.busy && !props.results.length && <p className="workspace-tree-empty">No notes match this search.</p>}
       {props.results.map(result => <button type="button" className="workspace-search-result" key={result.relativePath}
         onClick={() => props.onOpen({ name: nameOf(result.relativePath), relativePath: result.relativePath,
           kind: result.kind, children: [] })}>
@@ -108,11 +108,8 @@ export function WorkspaceNavigation(props: Props) {
           <TreeEntry key={entry.relativePath} entry={entry} depth={0} activeRelativePath={props.activeRelativePath}
             selectedFolder={props.selectedFolder} expanded={props.expanded} renameDisabled={props.renameDisabled}
             onOpen={props.onOpen} onRename={props.onRename} />)
-          : <p className="workspace-tree-empty">No Markdown or .note files</p>}
+          : <p className="workspace-tree-empty">No notes yet. Use + New Note above to create your first Markdown file.</p>}
       </div>
     </>}
-    <div className="workspace-nav-section workspace-nav-section--weak">
-      <span>More</span><div className="workspace-folder">Tags</div><div className="workspace-folder">Trash</div>
-    </div>
   </nav>;
 }

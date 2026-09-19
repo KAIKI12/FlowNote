@@ -2,7 +2,7 @@
 
 **更新时间：2026-09-19**
 
-**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 UI 第一波原型、V1 Workspace Slice、Note Format v1 Format Freeze、Read/Focus/Fullscreen 硬化、Full HTML Editor、Browser Bundle export 与 Mixed Markdown export 均已完成。当前继续 `V1 产品收尾`，主线转向系统主题联动、UI 一致性、错误/空状态与最终发布体验。**
+**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read/Focus/Fullscreen、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting 与 V1 UI Polish 均已完成。当前 `V1 产品收尾` 只剩安装 / 升级级发布验证；Workspace 高阶能力与资源架构扩展继续作为后续独立 Slice。**
 
 **范围原则：Slice 完成只表示当前切片定义的实现与验证范围完成，不删除最终需求。Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等尚未实现的能力继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留。**
 
@@ -52,9 +52,9 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 - **HTML Visual**：Normal / Hover / Selected 渐进控制已实现；Visual 支持 Normal / Wide / Full 的第一波展示交互，不把 Markdown 本身 Block 化。
 - **HTML Quick Edit**：使用大尺寸 Source + Live Preview 双栏弹窗；保留现有 Current / Original 与快速编辑语义。其 `Open Full Editor` 入口现已接通真实 Full HTML Editor。
 - **HTML Fullscreen**：当前 Visual 可进入独立展示层，FlowNote 工作区 chrome 隐藏，支持 Esc / Close 退出。
-- **Light / Dark 基础主题**：App Shell 已具备基础主题切换，但最终颜色、对比度和系统主题联动仍属于 UI 收尾。
+- **Light / Dark 基础主题**：第一波原型仅提供手动切换；后续 V1 UI Polish 已升级为 Auto / Light / Dark、系统主题联动和持久化显式偏好。
 
-第一波原型当时未把静态演示能力伪装成完成项；其中真实 Workspace 文件树与基础搜索已在 Workspace Slice 中实现，Full HTML Editor、Browser Bundle export 与 Mixed Markdown export 也已在后续独立 Slice 完成。当前继续 UI 与最终发布收尾。
+第一波原型当时未把静态演示能力伪装成完成项；其中真实 Workspace 文件树与基础搜索、Full HTML Editor、Browser Bundle、Mixed Markdown export 与最终 V1 UI Polish 均已在后续独立 Slice 完成。当前仅继续安装级发布收尾。
 
 ## 2.6 V1 Workspace Slice — completed
 
@@ -144,9 +144,23 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 
 本 Slice 不改变 Note Format v1；Shared Localized Resource、CDN Localization、cross-note managed dependency copy 与更广动态资源解析仍保留为后续需求。
 
+## 2.12 V1 UI Polish — completed
+
+2026-09-19 已完成 V1 最终 UI 收尾，继续保持 Document-first / continuous Markdown 编辑模型：
+
+- **Auto / Light / Dark**：默认 Auto 跟随 `prefers-color-scheme`，系统主题实时变化时自动更新；用户显式选择 Light / Dark 后保持覆盖，并持久化到本地偏好。
+- **参考稿视觉对齐**：重新对齐 `E:\flownote-desktop-ui-design` 的浅色 / 深色 app、sidebar、editor、border、text 与 accent token；没有为 Markdown 正文重新引入卡片、Block 框或 focus canvas 边框。
+- **真实快捷键**：Topbar 的 `Ctrl/Cmd+K` 不再只是装饰提示；在非 Focus 且 Workspace 可搜索时会直接聚焦并选中搜索框。
+- **诚实的 V1 Sidebar**：移除未实现的 Tags / Trash 假入口；这些能力仍由 Requirements Matrix 保留，不以静态占位伪装完成。
+- **Quiet empty / error states**：无 Workspace、空 Workspace、无搜索结果、错误与成功提示使用更克制、可读、Light/Dark 一致的状态样式。
+- **真实页面 QA**：启动实际 Vite 页面并生成 1440×960 的 Light / Dark Chrome 截图检查；临时截图与 browser profile 已清理，不进入仓库。
+- **Release smoke**：Tauri release exe 启动后保持运行超过 4 秒，无启动即崩；随后由测试主动关闭。MSI 与 NSIS 均重新成功生成。
+
+本 Slice 不新增存储语义，也没有把后续 Favorites / Trash / watcher / multi-Workspace / SQLite-FTS / tags / backlinks 等需求缩出产品定义。
+
 ## 3. 最新验证基线
 
-2026-09-19 Mixed Markdown Export 与 bundle splitting 完成后的新鲜验证结果：
+2026-09-19 V1 UI Polish 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
@@ -154,7 +168,7 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 | Workspace Native | **11 / 11** |
 | Format Freeze Gate | **PASS** |
 | HTML | **15 / 15** |
-| Stage One | **63 / 63** |
+| Stage One | **64 / 64** |
 | Protection | **38 / 38** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |
@@ -167,6 +181,7 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 | Rust Clippy | **PASS** |
 | Frontend build | **PASS** |
 | Tauri release build | **PASS** |
+| Release exe smoke | **PASS** |
 
 本轮前端 production build **PASS**。经过稳定 vendor 拆分后，最大 JS chunk 为 **256.18 kB**（gzip **79.53 kB**），原先约 861 kB 的单主 bundle 与 Vite >500 kB warning 已消失；其余主要 chunk 均低于 204 kB。Tauri release build 已重新产出 MSI 与 NSIS bundle。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。测试环境仍会输出既有 Prism Tcl language 与部分 React `act()` warning，但本轮相关断言均 PASS。
 
@@ -187,8 +202,8 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 
 Format Freeze 已完成，接下来不再修改 Format v1 的既有磁盘语义，而是围绕 V1 可交付性收尾：
 
-1. **最终 UI 收尾**：系统主题联动、Light / Dark 细节、UI 一致性、错误提示、空状态与关键交互 polish。
-2. **最终发布验证**：安装/升级体验、release smoke test、版本与产物检查；当前 MSI / NSIS 已可稳定构建。
-3. **Workspace 后续增强（非当前阻塞）**：真实 Favorites、Trash/delete/recovery、filesystem watcher、multi-Workspace、SQLite/FTS 等按后续独立 Slice 处理。
+1. **最终发布验证**：release build 与 exe 启动 smoke 已完成；下一步只需做真实安装 / 卸载 / 升级路径验证与版本发布整理。
+2. **Workspace 后续增强（非当前阻塞）**：真实 Favorites、Trash/delete/recovery、filesystem watcher、multi-Workspace、SQLite/FTS 等按后续独立 Slice 处理。
+3. **资源 / 产品后续增强（非当前阻塞）**：Shared Localized Resource、CDN Localization、cross-note dependency copy、Presentation / AI 等继续按 Requirements Matrix 分期实现。
 
 V1 收尾过程中不得通过删除 Requirements Matrix 中的未实现条目来缩小产品定义。超出 V1 当前收尾范围的 Shared Localized Resource、CDN Localization、cross-note dependency copy 等继续保持 Planned / Partial，后续按 Matrix 单独进入实现切片。

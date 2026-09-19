@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
+import type { ThemePreference } from './themePreference';
 
 export type WorkspaceMode = 'edit' | 'read' | 'focus';
 export type InspectorTab = 'outline' | 'block' | 'info';
@@ -8,7 +10,8 @@ interface TopbarProps {
   title: string;
   sidebarOpen: boolean;
   inspectorOpen: boolean;
-  dark: boolean;
+  themePreference: ThemePreference;
+  resolvedTheme: 'light' | 'dark';
   searchQuery: string;
   searchDisabled?: boolean;
   onSearchQueryChange(value: string): void;
@@ -19,9 +22,21 @@ interface TopbarProps {
 }
 
 export function WorkspaceTopbar({
-  mode, title, sidebarOpen, inspectorOpen, dark, searchQuery, searchDisabled,
+  mode, title, sidebarOpen, inspectorOpen, themePreference, resolvedTheme, searchQuery, searchDisabled,
   onSearchQueryChange, onModeChange, onToggleSidebar, onToggleInspector, onToggleTheme,
 }: TopbarProps) {
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const focusSearch = (event: globalThis.KeyboardEvent) => {
+      if (mode === 'focus' || searchDisabled || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
+      event.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, [mode, searchDisabled]);
+  const themeLabel = themePreference === 'system' ? 'Auto' : themePreference === 'light' ? 'Light' : 'Dark';
   return <header className="workspace-topbar">
     <div className="workspace-brand">
       {mode !== 'focus' && <button type="button" className="workspace-icon-button"
@@ -33,8 +48,8 @@ export function WorkspaceTopbar({
     </div>
     <div className="workspace-global-search" aria-label="全局搜索">
       <span aria-hidden="true">⌕</span>
-      <input aria-label="搜索笔记" placeholder="Search notes…" value={searchQuery} disabled={searchDisabled}
-        onChange={event => onSearchQueryChange(event.target.value)} />
+      <input ref={searchRef} aria-label="搜索笔记" placeholder={searchDisabled ? 'Choose a workspace to search' : 'Search notes…'}
+        value={searchQuery} disabled={searchDisabled} onChange={event => onSearchQueryChange(event.target.value)} />
       <kbd>Ctrl K</kbd>
     </div>
     <div className="workspace-mode-switch" role="group" aria-label="工作区模式">
@@ -45,7 +60,10 @@ export function WorkspaceTopbar({
     <div className="workspace-top-actions">
       {mode !== 'focus' && <button type="button" aria-label="切换 Inspector" aria-pressed={inspectorOpen}
         onClick={onToggleInspector}>Inspector</button>}
-      <button type="button" aria-label="切换主题" onClick={onToggleTheme}>{dark ? 'Light' : 'Dark'}</button>
+      <button type="button" aria-label="切换主题" onClick={onToggleTheme}
+        title={themePreference === 'system' ? `Theme: Auto · System ${resolvedTheme}` : `Theme: ${themeLabel}`}>
+        Theme · {themeLabel}
+      </button>
     </div>
   </header>;
 }

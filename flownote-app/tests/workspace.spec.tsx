@@ -167,6 +167,8 @@ async function realWorkspaceSidebarDrivesOpenCreateAndSearch() {
     await waitFor(() => document.querySelector('[aria-label="当前 Workspace"]')?.textContent?.includes('My Notes') === true);
 
     assert.equal(document.body.textContent?.includes('Research'), false, 'Static fake folder is still rendered');
+    assert.equal(document.body.textContent?.includes('Tags'), false, 'Unimplemented Tags placeholder is still rendered');
+    assert.equal(document.body.textContent?.includes('Trash'), false, 'Unimplemented Trash placeholder is still rendered');
     const folder = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.includes('PD'));
     assert.ok(folder, 'Real workspace folder missing');
     const contextualRename = document.querySelector<HTMLButtonElement>('[aria-label="重命名 PD"]')!;
@@ -179,6 +181,8 @@ async function realWorkspaceSidebarDrivesOpenCreateAndSearch() {
     assert.equal(useNoteStore.getState().currentNote?.metadata.title, 'Timing');
 
     const search = document.querySelector<HTMLInputElement>('[aria-label="搜索笔记"]')!;
+    await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true })));
+    assert.equal(document.activeElement, search, 'Ctrl+K should focus the visible workspace search field');
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search, 'useful');
       search.dispatchEvent(new Event('input', { bubbles: true }));
