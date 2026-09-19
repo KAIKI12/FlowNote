@@ -81,15 +81,25 @@ async function sourceEchoUndo(h: Harness) {
   assert.equal(h.api.current!.getMarkdown(), '[[改后]]\n');
 }
 
-async function readonlySource(h: Harness) {
-  await h.mount('<script>window.untrustedCode = true</script>\n');
-  assert.equal(document.querySelector('script'), null);
-  await act(async () => h.api.current!.setMode('read'));
-  assert.equal(sourceArea().readOnly, true);
-  await act(async () => assert.throws(() => h.api.current!.insertHtmlBlock('id'), /源码保护|只读/));
-  assert.equal(h.api.current!.getMarkdown(), '<script>window.untrustedCode = true</script>\n');
+async function rawHtmlIsInert(h: Harness) {
+  const input = '<script>window.untrustedCode = true</script>\n\n# 后续 Markdown\n';
+  delete (window as unknown as { untrustedCode?: boolean }).untrustedCode;
+  await h.mount(input);
+  assert.equal(h.view().editable, true);
+  assert.equal(document.querySelector('.ProseMirror script'), null);
+  assert.equal((window as unknown as { untrustedCode?: boolean }).untrustedCode, undefined);
+  const raw = document.querySelector<HTMLElement>('.ProseMirror [data-type="html"]');
+  assert.ok(raw);
+  assert.equal(raw.textContent, '<script>window.untrustedCode = true</script>');
+  assert.equal(document.querySelector('.ProseMirror h1')?.textContent, '后续 Markdown');
+  assert.match(h.api.current!.getMarkdown(), /<script>window\.untrustedCode = true<\/script>/);
+
   await act(async () => h.api.current!.setMode('source'));
   assert.equal(sourceArea().readOnly, false);
+  await act(async () => h.api.current!.setMode('read'));
+  assert.equal(sourceArea().readOnly, true);
+  await act(async () => assert.throws(() => h.api.current!.insertHtmlBlock('id'), /源码|只读/));
+  assert.match(h.api.current!.getMarkdown(), /<script>window\.untrustedCode = true<\/script>/);
 }
 
 async function parserFailure(h: Harness) {
@@ -111,7 +121,7 @@ export function protectionInputChecks(h: Harness) {
     { name: '输入保护：代码中的 WikiLink 和公式示例仍作为代码', run: () => codePaste(h) },
     { name: '输入保护：源码 IME 与外部更新冲突保留两个版本', run: () => sourceComposition(h) },
     { name: '输入保护：源码回传不重建、不移动光标，并支持撤销重做', run: () => sourceEchoUndo(h) },
-    { name: '输入保护：HTML 原文不执行，源码只读与命令隔离', run: () => readonlySource(h) },
+    { name: '输入保护：Raw HTML 可视化但保持惰性，源码只读与命令隔离', run: () => rawHtmlIsInert(h) },
     { name: '输入保护：解析异常可见，仍可编辑和导出原文', run: () => parserFailure(h) },
   ];
 }

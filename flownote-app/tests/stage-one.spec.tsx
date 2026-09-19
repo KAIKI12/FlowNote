@@ -37,8 +37,13 @@ function foundationChecks(h: ReturnType<typeof createHarness>): Check[] {
       assert.equal(/\.writing-app\s+:focus-visible\s*\{/.test(globalCss), false,
         'Do not apply one global focus ring to every descendant of the writing workspace');
       assert.match(editorCss,
-        /\.editor-source-surface\s*>\s*textarea:focus,[\s\S]*?textarea:focus-visible\s*\{[^}]*outline:\s*none[^}]*box-shadow:\s*none/s,
-        'Source editor focus should be communicated by the caret, not a bright canvas line');
+        /\.writing-app\s+\.editor-source-surface\s*>\s*textarea:focus,[\s\S]*?\.writing-app\s+\.editor-source-surface\s*>\s*textarea:focus-visible\s*\{[^}]*outline:\s*none[^}]*box-shadow:\s*none/s,
+        'Source editor must override the workspace-wide textarea focus ring');
+      assert.match(editorCss, /\.editor-source-notice\s*\{[^}]*border:\s*0/s,
+        'Source protection notice must not draw a full-width divider above the editor');
+      assert.match(editorCss,
+        /\.flownote-editor\s+\.ProseMirror-gapcursor:after\s*\{[^}]*width:\s*0[^}]*border-top:\s*0\s*!important[^}]*border-left:\s*1px/s,
+        'Gap cursor must look like a caret rather than ProseMirror\'s default horizontal rule');
     } },
     { name: '参考稿对齐：Workspace chrome 尺寸、顶部栏与 selection-only 工具栏保持桌面设计基线', run: async () => {
       const globalCss = readFileSync(path.join(process.cwd(), 'src/styles/global.css'), 'utf8');

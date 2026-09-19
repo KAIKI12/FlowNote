@@ -10,7 +10,7 @@ export interface MarkdownTree {
 }
 
 const FOOTNOTES = new Set(['footnote', 'footnoteDefinition', 'footnoteReference']);
-const LITERAL_NODES = new Set(['code', 'inlineCode', 'image', 'imageReference', 'definition']);
+const LITERAL_NODES = new Set(['code', 'inlineCode', 'image', 'imageReference', 'definition', 'html']);
 const AST_METADATA = new Set(['position', 'spread', 'data']);
 
 function flatten(tree: MarkdownTree): MarkdownTree[] {
@@ -59,7 +59,6 @@ function textReasons(text: string): string[] {
 export function protectionReasons(source: string, tree: MarkdownTree, htmlIds?: ReadonlySet<string>): string[] {
   const nodes = flatten(tree);
   const reasons = textReasons(maskLiteralNodes(source, nodes));
-  if (nodes.some(node => node.type === 'html')) reasons.push('HTML 原文');
   if (nodes.some(node => FOOTNOTES.has(node.type))) reasons.push('脚注源码');
   reasons.push(...nodes.map(node => codeReason(node, htmlIds)).filter((reason): reason is string => !!reason));
   const references = nodes.filter(node => node.type === 'code' && node.lang === 'flownote-html')

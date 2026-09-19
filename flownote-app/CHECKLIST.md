@@ -131,6 +131,7 @@
 - [x] V1 UI Polish：Auto / Light / Dark 系统主题联动与偏好持久化、参考稿 token 对齐、Ctrl/Cmd+K 搜索、Quiet empty/error states、移除 Tags / Trash 假入口；连续 Markdown 编辑面保持无 Block 框。
 - [x] Source Protection Narrowing：Frontmatter 原字节包络 + 可视化正文、任意 fenced code language 普通往返、HTML 候选保留 Frontmatter；源码输入 focus accent 横线已移除。
 - [x] Reference UI Alignment：二次逐组件对照 `E:\flownote-desktop-ui-design`，完成 256 px Sidebar、288 px Inspector、参考 Topbar / breadcrumb / tabs / typography / scrollbar、selection-only 工具栏；不引入 Markdown Block 编辑模型或未实现假入口。
+- [x] Raw HTML Visual Compatibility / Seamless Focus：Raw HTML 通过 semantic round-trip 后作为惰性 atom 保留，外围 Markdown 继续可视化；08-roundtrip-stress 已覆盖 visual save/reopen；ProseMirror 水平 gap cursor 改为竖直 caret，Source notice / textarea focus 横线已移除。
 - [x] Release build / exe smoke：production build、MSI、NSIS 均 PASS；release exe 启动后保持运行，无启动即崩。
 - [ ] 最终安装级发布验证：真实 MSI / NSIS 安装、卸载、升级路径与发布版本整理。
 

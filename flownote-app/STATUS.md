@@ -2,7 +2,7 @@
 
 **更新时间：2026-09-19**
 
-**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read/Focus/Fullscreen、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、V1 UI Polish、Source Protection Narrowing 与 Reference UI Alignment 均已完成。当前 `V1 产品收尾` 只剩安装 / 升级级发布验证；Workspace 高阶能力与资源架构扩展继续作为后续独立 Slice。**
+**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read/Focus/Fullscreen、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、V1 UI Polish、Source Protection Narrowing、Reference UI Alignment 与 Raw HTML Visual Compatibility / Seamless Focus 均已完成。当前 `V1 产品收尾` 只剩安装 / 升级级发布验证；Workspace 高阶能力与资源架构扩展继续作为后续独立 Slice。**
 
 **范围原则：Slice 完成只表示当前切片定义的实现与验证范围完成，不删除最终需求。Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等尚未实现的能力继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留。**
 
@@ -166,7 +166,7 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 - **自定义代码块语言不再误判危险语法**：任意 fenced code language（如 `systemverilog`、工具自定义 language tag）按普通 code block 往返；Prism 不认识的语言只是不高亮，不再因此禁止可视化编辑。带额外 code-fence meta 的代码块仍保留源码保护。
 - **HTML 候选路径保留 Frontmatter**：插入 / Deep Copy HTML Block 时生成的候选 Markdown 会重新附加原 Frontmatter，避免转换或插入 Visual 时丢失元数据。
 - **源码输入 focus 亮线移除**：源码 textarea 的 focus / focus-visible 不再绘制整块 accent outline；与可视化编辑一致，只通过 caret / selection 表达编辑焦点。
-- **仍保留的保护**：WikiLink、Footnote、raw HTML、Mermaid、LaTeX、扩展 directive / attributes、code fence meta 及无效 HTML Anchor 等仍在不能证明安全往返时进入源码保护。
+- **仍保留的保护**：WikiLink、Footnote、Mermaid、LaTeX、扩展 directive / attributes、code fence meta 及无效 HTML Anchor 等仍在不能证明安全往返时进入源码保护。
 
 此变更不修改 Note Format v1，也不改变 Frontmatter 内容本身；FlowNote 只负责原字节保留与正文编辑，不尝试解释或重写元数据字段。
 
@@ -185,9 +185,24 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 
 本轮只调整 App Shell / 编辑展示与真实已有入口，不通过新增静态按钮伪装未实现能力，也不改变 Note Format v1 或连续 Markdown 的产品原则。
 
+## 2.15 Raw HTML Visual Compatibility / Seamless Focus — completed
+
+2026-09-19 根据真实 Markdown 文件继续修复“整篇被源码保护”和点击编辑区出现横线的问题：
+
+- **Raw HTML 不再拖累整篇 Markdown**：Milkdown CommonMark 已把 raw HTML 解析为惰性 `html` atom，并以文本节点显示，不会把 `<script>` 等原文插成可执行 DOM；因此取消此前“一出现 HTML 原文就整篇源码保护”的过度保护。
+- **仍保留语义门禁**：Raw HTML 只是取消 blanket reject，文档仍必须通过现有 AST semantic round-trip 检查；如果可视化往返会改变 Markdown 结构，仍会回到源码保护。
+- **HTML 内部不误触扩展检测**：HTML atom 已纳入 literal masking，标签属性 / script block 内的 `$`、`[[` 等字面字符不会再被误认成 LaTeX / WikiLink；HTML 外真正的扩展语法仍按原规则保护。
+- **Markdown 外围继续可视化**：含普通 Raw HTML 的文档现在仍可展示标题、强调、列表、引用、代码等标准 Markdown；资格样例 `08-roundtrip-stress.md` 已从整篇 source fallback 改为 visual edit，并覆盖保存 / 关闭 / 重开。
+- **编辑区横线根因修复**：ProseMirror 默认 `.ProseMirror-gapcursor:after` 是 **20 px 水平 border-top**；现在改成正常的竖直 caret，不再在块间点击时显示横线。
+- **源码区 focus 横线真正清除**：此前通用 `.writing-app textarea:focus-visible` 会覆盖 Source Editor 自己的 `outline: none`；本轮增加更高 specificity 的 Source Editor override，真实 Chrome computed style 已确认 outline style 为 `none`。
+- **源码保护提示去分隔线**：`.editor-source-notice` 移除 full-width bottom border 和实色底，保护提示继续可见但不再形成编辑区上沿横线。
+- **真实浏览器 QA**：在实际 Vite 页面中从 Source 输入“标题 + Markdown + Raw HTML + 列表”后切回 Visual，确认 `active=visual`、H1 / strong / 2 个列表项正常渲染、Raw HTML 作为惰性节点保留且 Source notice 消失；gap cursor pseudo-element computed style 为 `border-top: 0`、`border-left: 1px`。
+
+本轮不执行任意 Markdown raw HTML；需要真实 HTML 运行 / 可视化的内容仍应使用 FlowNote 的隔离 HTML Block。WikiLink、Footnote、Mermaid、LaTeX、directive / attributes 等未接入完整 visual round-trip 的扩展语法继续安全地保留源码保护。
+
 ## 3. 最新验证基线
 
-2026-09-19 Reference UI Alignment 完成后的新鲜验证结果：
+2026-09-19 Raw HTML Visual Compatibility / Seamless Focus 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
@@ -196,10 +211,10 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 | Format Freeze Gate | **PASS** |
 | HTML | **16 / 16** |
 | Stage One | **65 / 65** |
-| Protection | **41 / 41** |
+| Protection | **42 / 42** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |
-| 真实磁盘 | **18 / 18** |
+| 真实磁盘 | **19 / 19** |
 | Browser Bundle `file://` qualification | **PASS** |
 | Markdown Export `file://` qualification | **PASS** |
 | Desktop UI | **12 / 12** |

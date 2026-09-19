@@ -1,11 +1,11 @@
 # FlowNote 技术验证 Demo
 
-FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、Source Protection Narrowing 与 Reference UI Alignment；当前 V1 只剩安装 / 卸载 / 升级级发布验证。
+FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、Source Protection Narrowing、Reference UI Alignment 与 Raw HTML Visual Compatibility / Seamless Focus；当前 V1 只剩安装 / 卸载 / 升级级发布验证。
 
 当前主能力包括：
 
 - Markdown 可视化 / 源码双模式编辑，复杂列表、任务列表、表格、代码、图片、粘贴、撤销 / 重做与中文 IME 保护。
-- Frontmatter 已改为 metadata envelope：原字节、BOM、换行与分隔符保持不变，正文仍可直接可视化编辑；任意 fenced code language 可作为普通代码块安全往返。WikiLink、脚注、raw HTML、Mermaid、LaTeX、code-fence meta 等仍在无法证明安全往返时走源码保真路径。
+- Frontmatter 已改为 metadata envelope：原字节、BOM、换行与分隔符保持不变，正文仍可直接可视化编辑；任意 fenced code language 可作为普通代码块安全往返。Raw HTML 现在作为惰性源码 atom 保留且不会执行，外围标准 Markdown 继续可视化；WikiLink、脚注、Mermaid、LaTeX、code-fence meta 等仍在无法证明安全往返时走源码保真路径。
 - Windows 普通 `.md` 文件的新建、打开、保存、另存为、重载、关闭 / 重开，以及外部版本检测、冲突与失败恢复。
 - Mixed Note 使用开放 `.note` 目录格式，支持 `content.md`、`note.json`、多个 HTML Block、Block Current / Original 与 managed resources。
 - HTML Block 已注册 NodeView，在 Markdown 原位置通过隔离 iframe 渲染；默认 sandbox + CSP，网络默认关闭。
@@ -20,23 +20,23 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 - V1 UI 已支持 Auto / Light / Dark：Auto 跟随系统主题，显式 Light / Dark 可持久化覆盖；视觉 token 重新对齐桌面参考稿，Ctrl/Cmd+K 已成为真实搜索快捷键。
 - 第二轮 Reference UI Alignment 已进一步对齐最初桌面样例：256 px Sidebar、288 px Inspector、FN + breadcrumb 顶栏、居中的 Edit / Read / Focus、Sidebar Files / Recent tabs、真实 Export 图标入口及参考稿正文排版。
 - Sidebar 不再展示未实现的 Tags / Trash 假入口；空 Workspace、空搜索、错误/成功状态采用克制的 Light/Dark 一致反馈，同时 Markdown 正文继续保持无 Block 框的连续编辑面。
-- Markdown 格式工具栏现在只在文本选区或代码 / 表格上下文出现；点击正文不会弹出整块编辑 chrome。源码 textarea 也取消整块 focus outline，只保留 caret / selection 反馈。
+- Markdown 格式工具栏现在只在文本选区或代码 / 表格上下文出现；点击正文不会弹出整块编辑 chrome。ProseMirror 默认的块间水平 gap-cursor 已改为竖直 caret；源码 textarea 也通过更高 specificity 覆盖通用 focus ring，只保留 caret / selection 反馈。
 
 公式与 Mermaid 当前保证源码保留，渲染增强仍属于后续候选。
 
 ## 当前验证基线
 
-2026-09-19 Reference UI Alignment 完成后的当前验证结果：
+2026-09-19 Raw HTML Visual Compatibility / Seamless Focus 完成后的当前验证结果：
 
 - Workspace Frontend：**8 / 8**
 - Workspace Native：**11 / 11**
 - Format Freeze Gate：**PASS**
 - HTML：**16 / 16**
 - Stage One：**65 / 65**
-- Protection：**41 / 41**
+- Protection：**42 / 42**
 - Qualification：**36 / 36**
 - Files：**18 / 18**
-- 真实磁盘：**18 / 18**
+- 真实磁盘：**19 / 19**
 - Browser Bundle `file://` qualification：**PASS**
 - Markdown Export `file://` qualification：**PASS**
 - Desktop UI：**12 / 12**

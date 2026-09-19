@@ -19,7 +19,7 @@
 .editor-mode-bar button:disabled { opacity: .5; cursor: not-allowed; }
 .editor-mode-bar [role='alert'] { color: #b42318; margin-top: 6px; }
 .editor-source-surface { display: flex; flex: 1; min-height: 0; flex-direction: column; }
-.editor-source-notice { flex: 0 0 auto; margin: 0; padding: 10px 16px; background: var(--bg-secondary); color: var(--text-secondary); font: 13px/1.6 system-ui; border-bottom: 1px solid var(--border); }
+.editor-source-notice { flex: 0 0 auto; margin: 0; padding: 9px 16px 4px; background: transparent; color: var(--text-secondary); font: 12px/1.55 system-ui; border: 0; }
 .editor-source-surface > textarea { display: block; flex: 1; min-height: 160px; width: 100%; resize: none; overflow: auto; padding: 20px; border: 0; background: var(--bg-primary); color: var(--text-primary); font: 15px/1.75 Consolas, 'Cascadia Code', monospace; tab-size: 2; }
 .editor-source-surface > textarea:focus,
 .editor-source-surface > textarea:focus-visible { outline: none; box-shadow: none; }
@@ -596,4 +596,29 @@
 .flownote-editor .ProseMirror:focus-visible {
   border-color: transparent;
   background: transparent;
+}
+
+/* Raw HTML stays inert in the rich editor so surrounding Markdown can remain visual/editable. */
+.flownote-editor .ProseMirror [data-type='html'] {
+  padding: 0.08em 0.28em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--workspace-subtle, #94a3b8) 12%, transparent);
+  color: var(--workspace-muted, var(--text-secondary));
+  font: 0.86em/1.55 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* ProseMirror's default gap cursor is a horizontal 20px rule. Use a normal vertical caret instead. */
+.flownote-editor .ProseMirror-gapcursor:after {
+  top: -0.72em;
+  width: 0;
+  height: 1.45em;
+  border-top: 0 !important;
+  border-left: 1px solid var(--workspace-text, var(--text-primary));
+}
+
+/* Override the workspace-wide textarea focus ring inside the source editor. */
+.writing-app .editor-source-surface > textarea:focus,
+.writing-app .editor-source-surface > textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
 }

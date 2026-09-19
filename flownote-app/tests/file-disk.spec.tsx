@@ -731,21 +731,46 @@ async function sliceThreeMissingAndOrphanRepairsSurviveDisk() {
   }, 'repair-bootstrap.md');
 }
 
-async function originalProtectedFixtureEditsSurviveDisk() {
-  for (const name of ['05-unsupported-syntax.md', '08-roundtrip-stress.md']) {
-    const original = await fs.readFile(path.resolve('../flownote-markdown-qualification/fixtures', name), 'utf8');
-    const title = original.split(/\r?\n/).find(line => line.startsWith('title:'))!;
-    assert.ok(title);
-    await withDiskApp(original, async h => {
-      await sourceEdit(title, title + ' 已更新');
-      await actualSave();
-      const expected = original.replace(title, title + ' 已更新');
-      assert.equal(await fs.readFile(h.file, 'utf8'), expected);
-      await click('关闭笔记'); await idle(); await open(h);
-      assert.equal(useNoteStore.getState().currentNote!.contentMd, expected);
-      assert.equal(document.querySelector('.flownote-editor')?.getAttribute('data-active-editor'), 'source');
-    });
-  }
+async function originalProtectedFixtureEditSurvivesDisk() {
+  const name = '05-unsupported-syntax.md';
+  const original = await fs.readFile(path.resolve('../flownote-markdown-qualification/fixtures', name), 'utf8');
+  const title = original.split(/\r?\n/).find(line => line.startsWith('title:'))!;
+  assert.ok(title);
+  await withDiskApp(original, async h => {
+    await sourceEdit(title, title + ' 已更新');
+    await actualSave();
+    const expected = original.replace(title, title + ' 已更新');
+    assert.equal(await fs.readFile(h.file, 'utf8'), expected);
+    await click('关闭笔记'); await idle(); await open(h);
+    assert.equal(useNoteStore.getState().currentNote!.contentMd, expected);
+    assert.equal(document.querySelector('.flownote-editor')?.getAttribute('data-active-editor'), 'source');
+  });
+}
+
+async function rawHtmlFixtureStaysVisualOnDisk() {
+  const original = await fs.readFile(path.resolve('../flownote-markdown-qualification/fixtures/08-roundtrip-stress.md'), 'utf8');
+  await withDiskApp(original, async h => {
+    assert.equal(document.querySelector('.flownote-editor')?.getAttribute('data-active-editor'), 'visual');
+    assert.equal(document.querySelector('.ProseMirror h1')?.textContent, 'Round-trip Stress');
+    const raw = [...document.querySelectorAll<HTMLElement>('.ProseMirror [data-type="html"]')]
+      .map(node => node.textContent ?? '').join('\n');
+    assert.match(raw, /<div data-test="raw-html">/);
+
+    const heading = document.querySelector<HTMLElement>('.ProseMirror h1');
+    assert.ok(heading?.firstChild);
+    await act(async () => { heading.firstChild!.nodeValue = 'Round-trip 编辑验证'; });
+    await waitFor(() => useNoteStore.getState().isDirty);
+    await actualSave();
+
+    const saved = await fs.readFile(h.file, 'utf8');
+    assert.deepEqual(markdownMeaning(saved), markdownMeaning(original.replace('# Round-trip Stress', '# Round-trip 编辑验证')));
+    assert.match(saved, /<div data-test="raw-html">\nDo not silently delete this raw HTML\.\n<\/div>/);
+
+    await click('关闭笔记'); await idle(); await open(h);
+    assert.equal(document.querySelector('.flownote-editor')?.getAttribute('data-active-editor'), 'visual');
+    assert.equal(document.querySelector('.ProseMirror h1')?.textContent, 'Round-trip 编辑验证');
+    assert.match(useNoteStore.getState().currentNote!.contentMd, /<div data-test="raw-html">\nDo not silently delete this raw HTML\.\n<\/div>/);
+  }, 'roundtrip-html.md');
 }
 
 export async function run(filter: string) {
@@ -767,7 +792,8 @@ export async function run(filter: string) {
     { name: 'Markdown Export 真实磁盘：外部 HTML 链接 / Current / 资源导出且源 Note 不变', run: mixedMarkdownExportMaterializesExternalLinksWithoutMutatingSourceDisk },
     { name: 'Slice 3 真实磁盘：外部冲突另存本地后 Deep Copy 私有资源独立', run: sliceThreeExternalConflictAndDeepCopySurviveDisk },
     { name: 'Slice 3 真实磁盘：Missing / Orphan 显式修复后关闭重开有效', run: sliceThreeMissingAndOrphanRepairsSurviveDisk },
-    { name: 'R02 真实文件：05 / 08 原件局部源码编辑保存并重开保留其他字节', run: originalProtectedFixtureEditsSurviveDisk },
+    { name: 'R02 真实文件：05 原件局部源码编辑保存并重开保留其他字节', run: originalProtectedFixtureEditSurvivesDisk },
+    { name: 'R02 真实文件：08 Raw HTML 文档保持可视化编辑并保存重开', run: rawHtmlFixtureStaysVisualOnDisk },
   ];
   const results = [];
   for (const check of checks) {
