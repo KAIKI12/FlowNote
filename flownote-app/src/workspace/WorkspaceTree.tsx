@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FileText, Folder, Layers3 } from 'lucide-react';
 import type { WorkspaceEntry, WorkspaceSearchResult, WorkspaceSnapshot } from './workspaceTypes';
 import type { WorkspaceRecentView } from './useWorkspace';
 
@@ -7,6 +8,7 @@ interface Props {
   busy: string | null;
   error: Error | null;
   query: string;
+  view: 'files' | 'recent';
   results: WorkspaceSearchResult[];
   recent: WorkspaceRecentView[];
   activeRelativePath: string | null;
@@ -51,6 +53,9 @@ function TreeEntry({ entry, depth, activeRelativePath, selectedFolder, expanded,
           aria-label={(isFolder ? '打开文件夹 ' : '打开 Workspace 笔记 ') + entry.relativePath}
           onClick={() => onOpen(entry)}>
           <span className={'workspace-tree-chevron' + (isExpanded ? ' expanded' : '')} aria-hidden="true">{isFolder ? '›' : ''}</span>
+          <span className="workspace-tree-kind" aria-hidden="true">
+            {isFolder ? <Folder size={13} /> : entry.kind === 'note' ? <Layers3 size={13} /> : <FileText size={13} />}
+          </span>
           <span className="workspace-tree-name">{entry.name}</span>
         </button>
         <button type="button" className="workspace-tree-more" aria-label={'重命名 ' + entry.relativePath}
@@ -91,25 +96,26 @@ export function WorkspaceNavigation(props: Props) {
           kind: result.kind, children: [] })}>
         <strong>{result.title}</strong><span>{result.relativePath}</span><small>{result.snippet}</small>
       </button>)}
-    </div> : <>
-      <div className="workspace-nav-section">
-        <span>Recent</span>
-        {props.recent.length ? props.recent.slice(0, 6).map(item =>
-          <button type="button" className="workspace-nav-item workspace-recent" key={item.relativePath}
-            disabled={!item.available} onClick={() => props.onOpen({
-              name: item.name, relativePath: item.relativePath, kind: item.kind, children: [],
-            })}>
-            <span>{item.name}</span>{!item.available && <small>Missing</small>}
-          </button>) : <p className="workspace-tree-empty">No recent notes</p>}
-      </div>
-      <div className="workspace-nav-section workspace-tree-section">
-        <span>Files</span>
-        {props.snapshot.entries.length ? props.snapshot.entries.map(entry =>
-          <TreeEntry key={entry.relativePath} entry={entry} depth={0} activeRelativePath={props.activeRelativePath}
-            selectedFolder={props.selectedFolder} expanded={props.expanded} renameDisabled={props.renameDisabled}
-            onOpen={props.onOpen} onRename={props.onRename} />)
-          : <p className="workspace-tree-empty">No notes yet. Use + New Note above to create your first Markdown file.</p>}
-      </div>
-    </>}
+    </div> : props.view === 'recent' ? <div className="workspace-nav-section workspace-nav-section--primary">
+      <span>Recent Notes</span>
+      {props.recent.length ? props.recent.map(item =>
+        <button type="button" className="workspace-nav-item workspace-recent" key={item.relativePath}
+          disabled={!item.available} onClick={() => props.onOpen({
+            name: item.name, relativePath: item.relativePath, kind: item.kind, children: [],
+          })}>
+          <span className="workspace-recent-main">
+            {item.kind === 'note' ? <Layers3 size={13} aria-hidden="true" /> : <FileText size={13} aria-hidden="true" />}
+            <span>{item.name}</span>
+          </span>
+          {!item.available && <small>Missing</small>}
+        </button>) : <p className="workspace-tree-empty">No recent notes</p>}
+    </div> : <div className="workspace-nav-section workspace-tree-section workspace-nav-section--primary">
+      <span>Workspace Files</span>
+      {props.snapshot.entries.length ? props.snapshot.entries.map(entry =>
+        <TreeEntry key={entry.relativePath} entry={entry} depth={0} activeRelativePath={props.activeRelativePath}
+          selectedFolder={props.selectedFolder} expanded={props.expanded} renameDisabled={props.renameDisabled}
+          onOpen={props.onOpen} onRename={props.onRename} />)
+        : <p className="workspace-tree-empty">No notes yet. Use New Note above to create your first Markdown file.</p>}
+    </div>}
   </nav>;
 }

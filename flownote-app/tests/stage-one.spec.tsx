@@ -40,6 +40,18 @@ function foundationChecks(h: ReturnType<typeof createHarness>): Check[] {
         /\.editor-source-surface\s*>\s*textarea:focus,[\s\S]*?textarea:focus-visible\s*\{[^}]*outline:\s*none[^}]*box-shadow:\s*none/s,
         'Source editor focus should be communicated by the caret, not a bright canvas line');
     } },
+    { name: '参考稿对齐：Workspace chrome 尺寸、顶部栏与 selection-only 工具栏保持桌面设计基线', run: async () => {
+      const globalCss = readFileSync(path.join(process.cwd(), 'src/styles/global.css'), 'utf8');
+      const editorCss = readFileSync(path.join(process.cwd(), 'src/styles/editor.css'), 'utf8');
+      assert.match(globalCss, /data-sidebar-open='true'\]\[data-inspector-open='true'\]\s*\{[^}]*grid-template-columns:\s*256px\s+minmax\(0,\s*1fr\)\s+288px/s);
+      assert.match(globalCss, /--workspace-topbar:\s*#fafbfc/);
+      assert.match(globalCss, /\[data-theme='dark'\][\s\S]*?--workspace-topbar:\s*#13161c/);
+      assert.match(globalCss, /\.workspace-topbar\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto\s+minmax\(0,\s*1fr\)/s);
+      assert.match(editorCss, /\.editor-toolbar\.selection-active\s*\{/);
+      assert.equal(/\.editor-visual-surface:focus-within\s+\.editor-toolbar/.test(editorCss), false,
+        'Formatting toolbar must not appear just because the continuous Markdown canvas was clicked');
+      assert.match(editorCss, /\.flownote-editor\s+\.ProseMirror\s+h1\s*\{[^}]*font-size:\s*1\.85rem/s);
+    } },
     { name: '长文档布局：滚动限制在中央编辑区而不是撑高整个 App', run: async () => {
       const globalCss = readFileSync(path.join(process.cwd(), 'src/styles/global.css'), 'utf8');
       const editorCss = readFileSync(path.join(process.cwd(), 'src/styles/editor.css'), 'utf8');

@@ -44,6 +44,7 @@
     "@milkdown/utils": "^7.22.1",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-shell": "^2.0.2",
+    "lucide-react": "^1.47.0",
     "prosemirror-model": "^1.25.11",
     "prosemirror-state": "^1.4.4",
     "prosemirror-view": "^1.42.3",

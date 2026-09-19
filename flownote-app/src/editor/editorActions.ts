@@ -180,7 +180,7 @@ export function readToolbarState(editor: Editor | undefined) {
   const parent = state.selection.$from.parent;
   const inTable = isInTable(state);
   return { inTable, canDeleteRow: inTable && selectedRect(state).top > 0,
-    inCode: parent.type.name === 'code_block',
+    inCode: parent.type.name === 'code_block', selectionEmpty: state.selection.empty,
     heading: parent.type.name === 'heading' ? Number(parent.attrs.level) : 0,
     language: parent.type.name === 'code_block' ? String(parent.attrs.language) : '',
     canUndo: undoDepth(state) > 0, canRedo: redoDepth(state) > 0,

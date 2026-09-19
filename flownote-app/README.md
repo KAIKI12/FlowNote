@@ -1,6 +1,6 @@
 # FlowNote 技术验证 Demo
 
-FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting 与 V1 UI Polish；当前 V1 只剩安装 / 卸载 / 升级级发布验证。
+FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、Source Protection Narrowing 与 Reference UI Alignment；当前 V1 只剩安装 / 卸载 / 升级级发布验证。
 
 当前主能力包括：
 
@@ -18,20 +18,21 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 - Browser Bundle 可直接通过浏览器 `file://` 打开；Mixed Markdown export 将 HTML Anchor 转为外部 HTML 相对链接，并同时复制 Current HTML、Note-managed images 与 Block-private assets，不静默丢内容。
 - 前端已完成第一轮稳定 vendor code-splitting，最大生产 chunk 降至 256.18 kB，Vite >500 kB warning 已消失。
 - V1 UI 已支持 Auto / Light / Dark：Auto 跟随系统主题，显式 Light / Dark 可持久化覆盖；视觉 token 重新对齐桌面参考稿，Ctrl/Cmd+K 已成为真实搜索快捷键。
+- 第二轮 Reference UI Alignment 已进一步对齐最初桌面样例：256 px Sidebar、288 px Inspector、FN + breadcrumb 顶栏、居中的 Edit / Read / Focus、Sidebar Files / Recent tabs、真实 Export 图标入口及参考稿正文排版。
 - Sidebar 不再展示未实现的 Tags / Trash 假入口；空 Workspace、空搜索、错误/成功状态采用克制的 Light/Dark 一致反馈，同时 Markdown 正文继续保持无 Block 框的连续编辑面。
-- 源码 textarea 也取消整块 focus outline；点击源码编辑区不再在顶部出现 accent 亮横线，只保留 caret / selection 反馈。
+- Markdown 格式工具栏现在只在文本选区或代码 / 表格上下文出现；点击正文不会弹出整块编辑 chrome。源码 textarea 也取消整块 focus outline，只保留 caret / selection 反馈。
 
 公式与 Mermaid 当前保证源码保留，渲染增强仍属于后续候选。
 
 ## 当前验证基线
 
-2026-09-19 Source Protection Narrowing 完成后的当前验证结果：
+2026-09-19 Reference UI Alignment 完成后的当前验证结果：
 
 - Workspace Frontend：**8 / 8**
 - Workspace Native：**11 / 11**
 - Format Freeze Gate：**PASS**
 - HTML：**16 / 16**
-- Stage One：**64 / 64**
+- Stage One：**65 / 65**
 - Protection：**41 / 41**
 - Qualification：**36 / 36**
 - Files：**18 / 18**

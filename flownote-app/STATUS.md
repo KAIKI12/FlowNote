@@ -2,7 +2,7 @@
 
 **更新时间：2026-09-19**
 
-**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read/Focus/Fullscreen、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting 与 V1 UI Polish 均已完成。当前 `V1 产品收尾` 只剩安装 / 升级级发布验证；Workspace 高阶能力与资源架构扩展继续作为后续独立 Slice。**
+**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read/Focus/Fullscreen、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、V1 UI Polish、Source Protection Narrowing 与 Reference UI Alignment 均已完成。当前 `V1 产品收尾` 只剩安装 / 升级级发布验证；Workspace 高阶能力与资源架构扩展继续作为后续独立 Slice。**
 
 **范围原则：Slice 完成只表示当前切片定义的实现与验证范围完成，不删除最终需求。Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等尚未实现的能力继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留。**
 
@@ -170,9 +170,24 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 
 此变更不修改 Note Format v1，也不改变 Frontmatter 内容本身；FlowNote 只负责原字节保留与正文编辑，不尝试解释或重写元数据字段。
 
+## 2.14 Reference UI Alignment — completed
+
+2026-09-19 针对“真实 App 与最初桌面样例仍不够一致”的反馈，第二次逐组件对照 `E:\flownote-desktop-ui-design`，重点还原其桌面 shell、比例与排版，而不是重做产品交互：
+
+- **Topbar 对齐**：改为参考稿的 FN 标识 + breadcrumb + 当前标题 / Mixed Note badge + Local 状态，中间保持紧凑 Edit / Read / Focus segmented control；右侧使用图标化 Search、真实 Export、Theme 与 Inspector。
+- **搜索交互**：不再长期占用 Topbar 中央；`Ctrl/Cmd+K` 打开居中的搜索浮层，Sidebar 同时提供常驻搜索输入。
+- **Sidebar 对齐**：宽度调整为 **256 px**，增加参考稿风格的 Search、New Note / Open / More、Files / Recent segmented tabs；真实 Workspace 文件树继续驱动内容，不恢复未实现的 Tags / Trash 假入口。
+- **Inspector 对齐**：宽度调整为 **288 px**，增加带图标的 Outline / Block / Info segmented tabs 与关闭按钮；Outline / properties / empty state 的层级、边框和密度重新收敛。
+- **编辑区排版**：保持约 820 px 的正文有效宽度，按参考稿对齐 15.5 px / 1.75 正文字号行高、H1/H2/H3、blockquote、inline code、列表间距与滚动条视觉。
+- **无感编辑继续保持**：Markdown 仍是连续、直接可编辑文档；没有复制参考样例的 click-to-edit Block 模型。格式工具栏由“点击正文即出现”改为仅在文本选区或代码 / 表格上下文时出现。
+- **Light / Dark 精确 token**：Topbar 采用参考值 Light `#fafbfc` / Dark `#13161c`，Sidebar 与 Editor 继续使用已对齐的参考 token。
+- **视觉 QA**：使用相同 1440×960 真实 Chrome 截图与最初参考稿做像素级辅助比较；Topbar MAE 由 **11.77 → 9.35**，Sidebar 由 **8.71 → 7.63**（越低越接近）。Light Topbar 主背景已与参考稿一致为 `#fafbfc`；Dark 的 Topbar / Sidebar / Editor 主背景分别为 `#13161c` / `#151922` / `#191d26`。
+
+本轮只调整 App Shell / 编辑展示与真实已有入口，不通过新增静态按钮伪装未实现能力，也不改变 Note Format v1 或连续 Markdown 的产品原则。
+
 ## 3. 最新验证基线
 
-2026-09-19 Source Protection Narrowing 完成后的新鲜验证结果：
+2026-09-19 Reference UI Alignment 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
@@ -180,7 +195,7 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 | Workspace Native | **11 / 11** |
 | Format Freeze Gate | **PASS** |
 | HTML | **16 / 16** |
-| Stage One | **64 / 64** |
+| Stage One | **65 / 65** |
 | Protection | **41 / 41** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |

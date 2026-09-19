@@ -140,7 +140,8 @@ function ImageControls({ model }: { model: ToolbarModel }) {
 
 export function EditorToolbar() {
   const model = useToolbar();
-  return <div className="editor-toolbar" role="toolbar" aria-label="Markdown 格式">
+  const visible = !model.state?.selectionEmpty || !!model.state?.inCode || !!model.state?.inTable;
+  return <div className={'editor-toolbar' + (visible ? ' selection-active' : '')} role="toolbar" aria-label="Markdown 格式">
     <div className="editor-toolbar-main">
       <button type="button" aria-label="撤销" title="撤销 Ctrl+Z" disabled={model.blocked || !model.state?.canUndo}
         onMouseDown={event => event.preventDefault()} onClick={() => model.command('undo')}>↶</button>

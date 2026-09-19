@@ -242,6 +242,7 @@ function App({ filePort, notePort, workspacePort }: {
   const [activeView, setActiveView] = useState<AppView>('editor');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('edit');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarView, setSidebarView] = useState<'files' | 'recent'>('files');
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('outline');
   const [selectedHtmlBlockId, setSelectedHtmlBlockId] = useState<string | null>(null);
@@ -314,18 +315,34 @@ function App({ filePort, notePort, workspacePort }: {
   const showSidebar = sidebarOpen && workspaceMode !== 'focus';
   const showInspector = inspectorOpen && workspaceMode !== 'focus';
   const fileActions = <WritingHeader activeView={activeView} note={note} files={files} mixed={mixed} editorRef={editorRef} />;
+  const topbarStatus = files.state.busy || mixed.state.busy ? 'Local · Working…' : dirty ? 'Local · Modified' : 'Local · Saved';
+  const exportCurrent = () => {
+    if (note.currentNote?.metadata.type === 'mixed') void mixed.exportMarkdown();
+    else note.exportNote();
+  };
 
   return <div className="app writing-app" data-view-mode={workspaceMode}
       data-sidebar-open={showSidebar ? 'true' : 'false'} data-inspector-open={showInspector ? 'true' : 'false'}>
-    <WorkspaceTopbar mode={workspaceMode} title={title} sidebarOpen={showSidebar} inspectorOpen={showInspector}
+    <WorkspaceTopbar mode={workspaceMode} title={title} documentPath={note.currentNote?.path}
+      mixed={note.currentNote?.metadata.type === 'mixed'} modified={dirty}
+      sidebarOpen={showSidebar} inspectorOpen={showInspector}
       themePreference={themePreference} resolvedTheme={theme}
       searchQuery={workspace.query} searchDisabled={!workspace.snapshot} onSearchQueryChange={workspace.setQuery}
+      exportDisabled={!note.currentNote || note.isComposing || !!files.state.busy || !!mixed.state.busy}
+      onExport={exportCurrent}
+      statusNode={<>
+        <span className="workspace-status-copy">{topbarStatus}</span>
+        <span className="workspace-file-status-sr"><FileStatus session={files.session} state={files.state}
+          hasDocument={!!note.currentNote} dirty={dirty} composing={note.isComposing} ready={files.editorReady} /></span>
+      </>}
       onModeChange={setWorkspaceMode} onToggleSidebar={() => setSidebarOpen(value => !value)}
       onToggleInspector={() => setInspectorOpen(value => !value)}
       onToggleTheme={() => setThemePreference(value => nextThemePreference(value))} />
     {showSidebar && <WorkspaceSidebar activeView={activeView} fileActions={fileActions}
+      searchQuery={workspace.query} searchDisabled={!workspace.snapshot} view={sidebarView}
+      onSearchQueryChange={workspace.setQuery} onViewChange={setSidebarView}
       workspaceContent={<WorkspaceNavigation snapshot={workspace.snapshot} busy={workspace.busy} error={workspace.error}
-        query={workspace.query} results={workspace.results} recent={workspace.recent}
+        query={workspace.query} view={sidebarView} results={workspace.results} recent={workspace.recent}
         activeRelativePath={workspace.activeRelativePath} selectedFolder={workspace.selectedFolder}
         expanded={workspace.expanded} renameDisabled={dirty || note.isComposing || !!files.state.busy || !!mixed.state.busy}
         onPick={() => void workspace.pick()} onRefresh={() => void workspace.refresh()}
@@ -335,11 +352,6 @@ function App({ filePort, notePort, workspacePort }: {
       onOpen={() => void files.session.open().catch(cause => files.session.notifyError(cause))}
       onSelectView={selectView} />}
     <main className="writing-main">
-      <div className="writing-document-status">
-        <span>{note.currentNote?.path ?? 'untitled.md'}</span>
-        <FileStatus session={files.session} state={files.state} hasDocument={!!note.currentNote} dirty={dirty}
-          composing={note.isComposing} ready={files.editorReady} />
-      </div>
       <div className="writing-feedback-stack">
         {note.error && <p role="alert" className="writing-error">{note.error}</p>}
         {note.notice && <p role="status" className="writing-notice">{note.notice}</p>}
@@ -368,7 +380,7 @@ function App({ filePort, notePort, workspacePort }: {
     </main>
     {showInspector && <WorkspaceInspector tab={inspectorTab} markdown={note.currentNote?.contentMd ?? ''} title={title}
       type={note.currentNote?.metadata.type ?? 'markdown'} dirty={dirty} selectedBlockId={selectedHtmlBlockId}
-      selectedBlock={selectedBlock} onTabChange={setInspectorTab} />}
+      selectedBlock={selectedBlock} onTabChange={setInspectorTab} onClose={() => setInspectorOpen(false)} />}
     <UnsavedDialog session={files.session} state={files.state} composing={note.isComposing} exportNote={note.exportNote}
       canSave={note.currentNote?.metadata.type === 'mixed' ? true : undefined} />
   </div>;

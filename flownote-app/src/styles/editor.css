@@ -255,32 +255,57 @@
 .milkdown {
   width: min(100%, 900px);
   margin: 0 auto;
-  padding: 58px 40px 120px;
+  padding: 64px 40px 140px;
   min-height: 100%;
   background: transparent !important;
 }
 .flownote-editor .ProseMirror {
   color: var(--workspace-text, var(--text-primary));
-  line-height: 1.86;
-  font-size: 16px;
+  line-height: 1.75;
+  font-size: 15.5px;
 }
-.flownote-editor .ProseMirror > p { color: color-mix(in srgb, var(--workspace-text, var(--text-primary)) 88%, var(--workspace-muted, #737b87)); }
-.flownote-editor .ProseMirror h1 { margin-top: .15em; font-size: 2.15em; letter-spacing: -.038em; font-weight: 720; }
-.flownote-editor .ProseMirror h2 { margin-top: 1.8em; padding-bottom: 0; border-bottom: 0; font-size: 1.42em; letter-spacing: -.025em; }
-.flownote-editor .ProseMirror h3 { font-size: 1.18em; letter-spacing: -.015em; }
-.flownote-editor .ProseMirror blockquote { border-left: 2px solid var(--workspace-border, var(--border)); color: var(--workspace-muted, var(--text-secondary)); }
-.flownote-editor .ProseMirror pre { border-color: var(--workspace-border, var(--border)); background: var(--bg-secondary); border-radius: 9px; }
+.flownote-editor .ProseMirror > p {
+  margin: .75rem 0; color: var(--workspace-text, var(--text-primary));
+}
+.flownote-editor .ProseMirror h1 {
+  margin: 0 0 .8rem; font-size: 1.85rem; line-height: 1.3; letter-spacing: -.02em; font-weight: 700;
+}
+.flownote-editor .ProseMirror h2 {
+  margin: 1.6rem 0 .6rem; padding-bottom: 0; border-bottom: 0;
+  font-size: 1.4rem; line-height: 1.35; letter-spacing: -.015em; font-weight: 600;
+}
+.flownote-editor .ProseMirror h3 {
+  margin: 1.3rem 0 .4rem; font-size: 1.15rem; letter-spacing: -.01em; font-weight: 600;
+}
+.flownote-editor .ProseMirror ul,
+.flownote-editor .ProseMirror ol { margin: .5rem 0 .75rem; }
+.flownote-editor .ProseMirror li { margin-block: .25rem; }
+.flownote-editor .ProseMirror blockquote {
+  margin: 1rem 0; padding-left: 1rem; border-left: 3px solid color-mix(in srgb, var(--workspace-muted, #64748b) 42%, transparent);
+  color: var(--workspace-muted, var(--text-secondary)); font-style: italic;
+}
+.flownote-editor .ProseMirror code:not(pre code) {
+  padding: .15em .38em; border-radius: 4px; background: color-mix(in srgb, var(--workspace-subtle, #94a3b8) 15%, transparent);
+  color: #c026d3; font-size: .88em; font-weight: 500;
+}
+[data-theme='dark'] .flownote-editor .ProseMirror code:not(pre code) { color: #e879f9; }
+.flownote-editor .ProseMirror pre {
+  margin: 1rem 0; border-color: var(--workspace-border, var(--border)); background: var(--bg-secondary); border-radius: 9px;
+}
 
 .editor-mode-bar {
-  position: absolute; top: 11px; right: 16px; z-index: 22; padding: 3px;
-  border: 1px solid var(--workspace-border, var(--border)); border-radius: 8px;
-  background: color-mix(in srgb, var(--workspace-surface, var(--bg-primary)) 96%, transparent);
-  box-shadow: 0 4px 14px rgb(24 30 42 / .06);
+  position: absolute; top: 14px; right: 18px; z-index: 22; padding: 2px;
+  border: 1px solid transparent; border-radius: 7px; background: transparent; box-shadow: none;
+  opacity: .58; transition: opacity .14s ease, background .14s ease, border-color .14s ease;
 }
-.editor-mode-bar [role='group'] { gap: 2px; }
-.editor-mode-bar button { min-height: 25px; padding: 2px 8px; border: 0; border-radius: 6px; font-size: 10px; color: var(--workspace-muted, var(--text-secondary)); }
+.editor-mode-bar:hover, .editor-mode-bar:focus-within {
+  opacity: 1; border-color: var(--workspace-border, var(--border));
+  background: color-mix(in srgb, var(--workspace-surface, var(--bg-primary)) 96%, transparent);
+}
+.editor-mode-bar [role='group'] { gap: 1px; }
+.editor-mode-bar button { min-height: 24px; padding: 2px 7px; border: 0; border-radius: 5px; font-size: 9.5px; color: var(--workspace-muted, var(--text-secondary)); }
 .editor-mode-bar button[aria-pressed='true'] { background: var(--workspace-accent-soft, var(--bg-secondary)); color: var(--workspace-accent, var(--accent)); }
-.editor-mode-bar span { padding-inline: 6px; font-size: 10px; color: var(--workspace-muted, var(--text-secondary)); }
+.editor-mode-bar span { padding-inline: 5px; font-size: 9.5px; color: var(--workspace-subtle, var(--text-tertiary)); }
 
 .editor-toolbar {
   position: absolute; top: 12px; left: 50%; z-index: 24; transform: translateX(-50%) translateY(-5px);
@@ -289,7 +314,7 @@
   box-shadow: 0 9px 28px rgb(18 22 31 / .2); opacity: 0; pointer-events: none;
   transition: opacity .16s ease, transform .16s ease;
 }
-.editor-visual-surface:focus-within .editor-toolbar { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+.editor-toolbar.selection-active { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
 .editor-toolbar button, .editor-toolbar select { min-height: 27px; border: 0; background: transparent; color: #e9edf4; font-size: 11px; }
 .editor-toolbar button:hover:not(:disabled) { background: rgb(255 255 255 / .1); }
 .editor-toolbar button[aria-pressed='true'] { background: #5968d8; color: white; }
