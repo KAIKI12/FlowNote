@@ -50,6 +50,7 @@ pub fn configure_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
             note_commands::note_repair_remove_reference,
             note_commands::note_repair_restore_orphan,
             note_commands::note_read_asset,
+            note_commands::note_list_assets,
             note_commands::note_read_image,
             note_commands::note_release,
             workspace::workspace_pick,

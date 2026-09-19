@@ -1,6 +1,6 @@
 # FlowNote 技术验证 Demo
 
-FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate，以及 HTML Block / `.note` Vertical Slice 1、Slice 2、Slice 3 的当前实现范围；下一阶段进入 **Format Freeze + V1 产品收尾**。
+FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening 与 Full HTML Editor；当前继续进入 **V1 产品收尾**，主线转向 Browser Bundle / Mixed Markdown export 与最终发布体验。
 
 当前主能力包括：
 
@@ -9,6 +9,7 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 - Windows 普通 `.md` 文件的新建、打开、保存、另存为、重载、关闭 / 重开，以及外部版本检测、冲突与失败恢复。
 - Mixed Note 使用开放 `.note` 目录格式，支持 `content.md`、`note.json`、多个 HTML Block、Block Current / Original 与 managed resources。
 - HTML Block 已注册 NodeView，在 Markdown 原位置通过隔离 iframe 渲染；默认 sandbox + CSP，网络默认关闭。
+- HTML Quick Edit + Full HTML Editor 已接通：Current / Original / Block-private Assets 分离，CSS / JS / MJS / JSON / TXT 支持本地 draft、live preview、新建与原子保存，binary assets 只读。
 - Markdown managed images 与 HTML Block 私有 CSS / JS / Image 已接入 capability-bound resource reader；持久化仍保存相对路径，不写入 Host 绝对路径或 runtime URL。
 - 外部修改采用 Clean / Dirty / IME 三态处理：Clean 自动 reload，Dirty 显式 conflict，composition 期间先 queue，结束后重新检查版本。
 - Missing / Orphan 条件支持显式 repair，不自动删除资源或正文。
@@ -19,22 +20,25 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 
 ## 当前验证基线
 
-2026-09-16 当前验证结果：
+2026-09-19 Full HTML Editor 完成后的当前验证结果：
 
-- HTML：**11 / 11**
-- Stage One：**47 / 47**
+- Workspace Frontend：**8 / 8**
+- Workspace Native：**11 / 11**
+- Format Freeze Gate：**PASS**
+- HTML：**12 / 12**
+- Stage One：**62 / 62**
 - Protection：**38 / 38**
 - Qualification：**36 / 36**
-- Files：**17 / 17**
+- Files：**18 / 18**
 - 真实磁盘：**16 / 16**
 - Desktop UI：**12 / 12**
-- Desktop IPC：**10 / 10**
-- Note Rust：**28 / 28**
+- Desktop IPC：**12 / 12**
+- Rust 全套：**87 passed / 1 ignored**
 - Rust Clippy：**PASS**
 - Frontend build：**PASS**
-- Tauri build：**PASS**
+- Tauri release build：**PASS**
 
-当前主 bundle 约 **819.62 kB**。体积与 code splitting 属于 V1 收尾项，不改变当前功能验证结论。
+当前主 JS bundle 约 **852.21 kB**（gzip **268.31 kB**）。Vite 仍提示 >500 kB，体积与 code splitting 继续作为 V1 收尾项。
 
 ## 文档入口与基线
 
@@ -42,7 +46,7 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 - [CHECKLIST.md](./CHECKLIST.md)：当前完成项与 Format Freeze / V1 收尾清单。
 - [PRD v0.3 — V1 Baseline](<../FlowNote PRD v0.3 — V1 Baseline.md>)：产品范围与 V1 成功标准。
 - [Requirements Matrix](../REQUIREMENTS-MATRIX.md)：最终需求、当前覆盖状态与后续需求的防回归记录。
-- [Note Format v1.2 — Freeze Candidate](<../FlowNote Note Format v1.2 — Freeze Candidate Draft.md>)：当前持久化规范；文档修订号为 v1.2，磁盘字段仍为 `formatVersion: 1`。
+- [Note Format v1.2 — Final](<../FlowNote Note Format v1.2 — Freeze Candidate Draft.md>)：当前已冻结的持久化规范；文档修订号为 v1.2，磁盘字段仍为 `formatVersion: 1`。
 - [Resource Architecture](../docs/superpowers/specs/2026-09-15-resource-architecture-design.md)：Block-private / Note-managed / Shared localized resources 与 Runtime Resolver 的长期边界。
 - [Open Source Development Guide v0.1](<../FlowNote Open Source Development Guide v0.1.md>)：开源参考与开发顺序。
 
@@ -79,6 +83,8 @@ Slice 的 completed 只表示该 Slice 的当前实现范围完成，**不会自
 - HTML NodeView 已注册并实际参与编辑器运行时。
 - iframe 使用 `srcdoc` + sandbox + CSP 隔离。
 - Current / Original 独立；普通编辑不覆盖 Original。
+- Quick Edit 用于轻量 Current 修改；Full HTML Editor 提供 Current / Original / Assets rail、Source + Live Preview 与文本资源新建/编辑。
+- Full Editor draft 在 Save 前不修改 live Note；Current + 文本 assets 通过既有 atomic-save 一次提交，失败时保持 live Note / 磁盘不变。
 - 多个 Block 的资源与持久化状态相互独立。
 
 ### 外部修改 / 修复 / 复制
@@ -167,15 +173,12 @@ flownote-app/src-tauri/target/release/flownote.exe
 - [Rust Markdown backend](./src-tauri/src/markdown_files.rs)：普通 `.md` 文件后端。
 - [Rust Note backend](./src-tauri/src/note_files.rs) / [note_commands](./src-tauri/src/note_commands.rs)：`.note` 持久化、resource capability 与 repair / copy 相关后端。
 
-## 下一阶段：Format Freeze + V1 产品收尾
+## 下一阶段：V1 产品收尾
 
-接下来统一围绕 V1 可交付性收尾，不再继续扩张 Slice：
+接下来统一围绕 V1 可交付性收尾，不再继续扩张已完成 Slice：
 
-1. **Format Freeze**：完成最终格式冻结测试，确认未知版本只读、Missing / Orphan、失败恢复、Deep Copy、外部修改和移动后重开等不变量。
-2. **Read**：完成独立阅读模式。
-3. **文件树 / 搜索**：完成 V1 文件组织与基础搜索。
-4. **HTML Fullscreen**：完成 HTML Block 全屏展示路径。
-5. **Browser Bundle / Markdown export**：明确 Mixed Note 的可移植导出语义，不静默丢失 HTML 或 managed resources。
-6. **产品收尾**：UI 一致性、错误提示、空状态、bundle 体积与最终发布验证。
+1. **Browser Bundle / Markdown export**：明确 Mixed Note 的可移植导出语义，不静默丢失 HTML 或 managed resources。
+2. **产品收尾**：系统主题联动、UI 一致性、错误提示、空状态、bundle 体积与最终发布验证。
+3. **Workspace 后续增强（非当前阻塞）**：Favorites、Trash / delete / recovery、filesystem watcher、multi-Workspace、SQLite / FTS 等按独立 Slice 继续。
 
 Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等需求继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留，后续单独实现，不因当前 Slice 完成而删除。

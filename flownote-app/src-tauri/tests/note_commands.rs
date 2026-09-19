@@ -73,6 +73,7 @@ fn every_note_command_denies_non_main_windows_before_dialog_or_disk_access() {
         ("note_repair_remove_reference", json!({ "request": { "id": "note:unknown", "revision": "x", "blockId": note_support::SECOND } })),
         ("note_repair_restore_orphan", json!({ "request": { "id": "note:unknown", "revision": "x", "blockId": note_support::SECOND } })),
         ("note_read_asset", json!({ "request": { "id": "note:unknown", "blockId": note_support::FIRST, "path": "assets/style.css" } })),
+        ("note_list_assets", json!({ "request": { "id": "note:unknown", "blockId": note_support::FIRST } })),
         ("note_read_image", json!({ "request": { "id": "note:unknown", "path": "assets/images/plot.png" } })),
         ("note_release", json!({ "id": "note:unknown" })),
     ];
@@ -145,6 +146,13 @@ fn production_dispatch_reads_scoped_block_assets() {
     std::fs::create_dir(&assets).unwrap();
     std::fs::write(assets.join("style.css"), "body{color:red}").unwrap();
     desktop.call("note_reload", json!({ "id": note.id })).unwrap();
+    let listed = desktop.call("note_list_assets", json!({ "request": { "id": note.id,
+        "blockId": note_support::FIRST } })).unwrap();
+    assert_eq!(listed.as_array().unwrap().len(), 1);
+    assert_eq!(listed[0]["path"], "assets/style.css");
+    assert_eq!(listed[0]["mime"], "text/css");
+    assert_eq!(listed[0]["size"], 15);
+    assert_eq!(listed[0]["editable"], true);
     let asset = desktop.call("note_read_asset", json!({ "request": { "id": note.id,
         "blockId": note_support::FIRST, "path": "assets/style.css" } })).unwrap();
     assert_eq!(asset["path"], "assets/style.css");

@@ -2,7 +2,7 @@
 
 **更新时间：2026-09-19**
 
-**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 UI 第一波原型、V1 Workspace Slice 与 Note Format v1 Format Freeze 均已完成。当前进入 `V1 产品收尾`，重点转向 Read/Focus/Fullscreen 硬化、Full HTML Editor、导出、bundle 与最终发布体验。**
+**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 UI 第一波原型、V1 Workspace Slice、Note Format v1 Format Freeze、Read/Focus/Fullscreen 硬化与 Full HTML Editor 均已完成。当前继续 `V1 产品收尾`，主线转向 Browser Bundle / Mixed Markdown export、bundle 与最终发布体验。**
 
 **范围原则：Slice 完成只表示当前切片定义的实现与验证范围完成，不删除最终需求。Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等尚未实现的能力继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留。**
 
@@ -50,11 +50,11 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 - **Files Sidebar**：New Note / Open 为直接入口，保存、另存、Mixed Note、导出等低频操作折叠到 File actions；其后 Workspace Slice 已接入真实本地文件树。
 - **Inspector**：Outline / Block / Info 三个上下文 Tab 已接入；HTML Visual 选中后可打开 Block Inspector。
 - **HTML Visual**：Normal / Hover / Selected 渐进控制已实现；Visual 支持 Normal / Wide / Full 的第一波展示交互，不把 Markdown 本身 Block 化。
-- **HTML Quick Edit**：使用大尺寸 Source + Live Preview 双栏弹窗；保留现有 Current / Original 与保存语义。Full Editor 入口当前仅作为后续能力占位。
+- **HTML Quick Edit**：使用大尺寸 Source + Live Preview 双栏弹窗；保留现有 Current / Original 与快速编辑语义。其 `Open Full Editor` 入口现已接通真实 Full HTML Editor。
 - **HTML Fullscreen**：当前 Visual 可进入独立展示层，FlowNote 工作区 chrome 隐藏，支持 Esc / Close 退出。
 - **Light / Dark 基础主题**：App Shell 已具备基础主题切换，但最终颜色、对比度和系统主题联动仍属于 UI 收尾。
 
-第一波原型当时未把静态演示能力伪装成完成项；其中真实 Workspace 文件树与基础搜索现已在 Workspace Slice 中实现。Full HTML Editor、Browser Bundle / Mixed Markdown export 仍按后续 V1 工作处理。
+第一波原型当时未把静态演示能力伪装成完成项；其中真实 Workspace 文件树与基础搜索已在 Workspace Slice 中实现，Full HTML Editor 也已在后续独立 Slice 完成。当前仍待完成的是 Browser Bundle / Mixed Markdown export 与最终发布收尾。
 
 ## 2.6 V1 Workspace Slice — completed
 
@@ -72,7 +72,7 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 - **Quiet Technical Sidebar**：真实树采用紧凑行、高亮克制、More/Rename 按 hover/focus 渐进出现；搜索结果保持列表形态，不做 Dashboard 卡片化。
 - **Refresh 语义**：当前 V1 使用手动 Refresh，以及 create / rename / restore / change 后自动 rescan；尚未加入递归 filesystem watcher。
 
-本 Slice 明确未包含：真实 Favorites、Trash/delete/recovery、drag & drop move、多 Workspace、filesystem watcher、SQLite/FTS 索引、tags/backlinks/graph、Full HTML Editor 与导出能力。
+本 Slice 明确未包含：真实 Favorites、Trash/delete/recovery、drag & drop move、多 Workspace、filesystem watcher、SQLite/FTS 索引、tags/backlinks/graph 与导出能力。Full HTML Editor 已由后续独立 Slice 完成。
 
 ## 2.7 Note Format v1 Format Freeze — completed
 
@@ -99,9 +99,26 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 
 系统主题自动联动、最终视觉一致性和 bundle code-splitting 仍属于最终 UI / release 收尾，不并入本次 mode hardening 完成结论。
 
+## 2.9 Full HTML Editor — completed
+
+2026-09-19 已完成 Full HTML Editor V1 Slice，继续保持 Note Format v1 的磁盘语义不变：
+
+- **双路径编辑**：Quick Edit 继续作为快速修改 Current HTML 的轻路径；`Open Full Editor` 已接通真实高级编辑工作区，不再是 disabled placeholder。
+- **Current / Original / Assets**：Full Editor 左侧 rail 明确区分 Current HTML、只读 Original HTML 与 Block-private `assets/**`；Original 仍受冻结不变量保护。
+- **文本资源编辑**：CSS / JS / MJS / JSON / TXT 可读取、编辑与新建；binary assets 可列出并参与 preview，但 V1 不把它们当文本编辑。
+- **本地 Draft 语义**：Full Editor 内 Current 与 asset 修改先只存在于 modal draft，不提前写入 Zustand live Note；Cancel 直接丢弃 Full Editor draft。
+- **原子保存**：Save 将 Current HTML 与所有变更的文本 assets 一次提交到既有 Note atomic-save 管线；native save 成功后才 apply 新 snapshot。
+- **失败保护**：native save 失败时 modal 保持打开、live Note 与磁盘 Current 均不变；非法 asset edit 不允许“Current 已写入、asset 失败”的半提交。
+- **Live Preview**：右侧继续复用 sandbox + CSP 预览；未保存的文本 asset draft 会覆盖 preview resolver，因此 CSS / JS draft 可即时进入预览而不先落盘。
+- **资源安全**：`note_list_assets` 只作用于已绑定且正文引用的 Block；asset edit 拒绝 traversal、绝对路径、反斜杠、冒号 / Windows ADS、NUL、跨 Block、binary edit、重复 target 与单文件超过 2 MiB。
+- **重开验证**：Current HTML、既有 CSS 与新建 MJS 在真实磁盘保存后 close / reopen 保持一致，Original 保持导入时内容。
+- **响应式 UI**：桌面三栏为 Assets rail + Source + Live Preview；窄窗口收敛为 rail + Source，不把 Markdown 本身变成 Block 编辑模型。
+
+本 Slice 没有引入新的 `note.json` 字段、Block 目录或 `formatVersion`；asset delete / rename、binary asset 编辑、更完整资源 IDE 能力继续作为后续增强，不纳入 V1 Full Editor 完成条件。
+
 ## 3. 最新验证基线
 
-2026-09-19 Read / Focus / Fullscreen hardening 完成后的新鲜验证结果：
+2026-09-19 Full HTML Editor 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
@@ -109,19 +126,19 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 | Workspace Native | **11 / 11** |
 | Format Freeze Gate | **PASS** |
 | HTML | **12 / 12** |
-| Stage One | **60 / 60** |
+| Stage One | **62 / 62** |
 | Protection | **38 / 38** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |
 | 真实磁盘 | **16 / 16** |
 | Desktop UI | **12 / 12** |
 | Desktop IPC / Rust desktop commands | **12 / 12** |
-| Rust 全套 | **85 passed / 1 ignored** |
+| Rust 全套 | **87 passed / 1 ignored** |
 | Rust Clippy | **PASS** |
 | Frontend build | **PASS** |
 | Tauri release build | **PASS** |
 
-本轮前端 production build **PASS**，主 JS bundle 约 **843.35 kB**（gzip 约 **265.93 kB**）；Vite 仍提示 >500 kB 的 code-splitting 警告，继续作为 V1 收尾项。Tauri release build 已重新产出 MSI 与 NSIS bundle。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。
+本轮前端 production build **PASS**，主 JS bundle 约 **852.21 kB**（gzip 约 **268.31 kB**）；Vite 仍提示 >500 kB 的 code-splitting 警告，继续作为 V1 收尾项。Tauri release build 已重新产出 MSI 与 NSIS bundle。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。测试环境仍会输出既有 Prism Tcl language 与部分 React `act()` warning，但本轮相关断言均 PASS。
 
 ## 4. 当前基线文档
 
@@ -140,9 +157,8 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 
 Format Freeze 已完成，接下来不再修改 Format v1 的既有磁盘语义，而是围绕 V1 可交付性收尾：
 
-1. **HTML Full Editor**：在不破坏 Quick Edit 简洁性的前提下，为复杂 HTML / CSS / JS 与资源管理提供高级编辑路径。
-2. **导出**：完成 Browser Bundle / Markdown export 的 V1 明确语义，尤其保证 Mixed Note 导出不会静默丢失 HTML 或 managed resources。
-3. **Workspace 后续增强（非当前阻塞）**：真实 Favorites、Trash/delete/recovery、filesystem watcher、multi-Workspace、SQLite/FTS 等按后续独立 Slice 处理。
-4. **最终收尾**：处理系统主题联动、bundle 体积、UI 一致性、错误提示、空状态及最终发布验证。
+1. **导出**：完成 Browser Bundle / Markdown export 的 V1 明确语义，尤其保证 Mixed Note 导出不会静默丢失 HTML 或 managed resources。
+2. **Workspace 后续增强（非当前阻塞）**：真实 Favorites、Trash/delete/recovery、filesystem watcher、multi-Workspace、SQLite/FTS 等按后续独立 Slice 处理。
+3. **最终收尾**：处理系统主题联动、bundle 体积、UI 一致性、错误提示、空状态及最终发布验证。
 
 V1 收尾过程中不得通过删除 Requirements Matrix 中的未实现条目来缩小产品定义。超出 V1 当前收尾范围的 Shared Localized Resource、CDN Localization、cross-note dependency copy 等继续保持 Planned / Partial，后续按 Matrix 单独进入实现切片。

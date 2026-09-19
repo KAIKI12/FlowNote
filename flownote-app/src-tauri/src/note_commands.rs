@@ -1,5 +1,5 @@
 use crate::file_error::{FileError, FileResult};
-use crate::note_files::{validate_save_as, BlockAsset, NoteProbe, NoteSaveAsRequest, NoteSaveRequest, NoteSnapshot, NoteStore};
+use crate::note_files::{validate_save_as, BlockAsset, BlockAssetInfo, NoteProbe, NoteSaveAsRequest, NoteSaveRequest, NoteSnapshot, NoteStore};
 use crate::workspace::WorkspaceOpenRequest;
 use serde::Deserialize;
 use std::sync::Mutex;
@@ -15,6 +15,13 @@ pub struct AssetRequest {
     pub id: String,
     pub block_id: String,
     pub path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlockRequest {
+    pub id: String,
+    pub block_id: String,
 }
 
 #[derive(Deserialize)]
@@ -114,6 +121,11 @@ pub async fn note_repair_restore_orphan<R: Runtime>(app: AppHandle<R>, window: W
 #[tauri::command]
 pub async fn note_read_asset<R: Runtime>(app: AppHandle<R>, window: WebviewWindow<R>, request: AssetRequest) -> FileResult<BlockAsset> {
     note_task(app, window, move |notes| notes.read_asset(&request.id, &request.block_id, &request.path)).await
+}
+
+#[tauri::command]
+pub async fn note_list_assets<R: Runtime>(app: AppHandle<R>, window: WebviewWindow<R>, request: BlockRequest) -> FileResult<Vec<BlockAssetInfo>> {
+    note_task(app, window, move |notes| notes.list_assets(&request.id, &request.block_id)).await
 }
 
 #[tauri::command]

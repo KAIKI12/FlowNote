@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import type { FlowNoteEditorApi } from '../editor/editorTypes';
 import { fileError, MarkdownFileError } from '../files/fileTypes';
-import { mixedFingerprint } from './htmlBlockData';
+import { mixedFingerprint, validateHtmlSource } from './htmlBlockData';
 import type { MixedNoteData, MixedNoteMetadata } from './mixedTypes';
 import { createNativeNotePort } from './nativeNotePort';
-import type { NativeNotePort, NoteAssetData, NoteProbe, NoteSnapshot } from './nativeNotePort';
+import type { BlockAssetEdit, BlockAssetInfo, NativeNotePort, NoteAssetData, NoteProbe, NoteSnapshot } from './nativeNotePort';
 import { useNoteStore } from './noteStore';
 import type { NoteStructure } from './noteTypes';
 
@@ -323,6 +323,43 @@ export function useMixedNoteFiles(options: Options) {
     catch (cause) { report(cause); return false; }
   };
 
+
+  const listAssets = async (blockId: string): Promise<BlockAssetInfo[]> => {
+    const file = stateRef.current.file;
+    if (!file) throw new MarkdownFileError('closed', 'Mixed Note 尚未绑定磁盘文件，无法列出 Block 资源');
+    return port.listAssets(file.id, blockId);
+  };
+
+  const commitFullEditor = async (blockId: string, html: string, blockAssetEdits: BlockAssetEdit[]): Promise<boolean> => {
+    const store = useNoteStore.getState();
+    const note = store.currentNote;
+    const file = stateRef.current.file;
+    const api = latest.current.editorRef.current;
+    if (stateRef.current.busy) { report(new MarkdownFileError('busy', '请等待当前 Note 操作完成')); return false; }
+    if (store.isComposing) { report(new MarkdownFileError('composing', '请先完成组合输入，再保存 Full HTML Editor')); return false; }
+    if (stateRef.current.externalConflict) { report(new MarkdownFileError('externalConflict', '磁盘内容已被外部修改，Full HTML Editor 不能直接覆盖')); return false; }
+    if (!file || file.readOnly || !note?.mixed || note.mixed.metadata.formatVersion !== 1 || !api) {
+      report(new MarkdownFileError('readonly', '当前 Mixed Note 不可通过 Full HTML Editor 写入'));
+      return false;
+    }
+    const index = note.mixed.blocks.findIndex(block => block.id === blockId);
+    if (index < 0 || blockAssetEdits.some(edit => edit.blockId !== blockId)) {
+      report(new MarkdownFileError('invalidFormat', 'Full HTML Editor Block 状态无效'));
+      return false;
+    }
+    try { validateHtmlSource(html); }
+    catch (cause) { report(cause); return false; }
+    const content = api.getMarkdown();
+    const mixed = cloneMixed(note.mixed);
+    mixed.blocks[index].html = html;
+    update({ busy: 'save', error: null, notice: '' });
+    try {
+      const saved = await port.save({ id: file.id, revision: file.revision, content, mixed, blockAssetEdits });
+      apply(saved);
+      return true;
+    } catch (cause) { report(cause); return false; }
+  };
+
   const readAsset = async (blockId: string, path: string) => {
     const file = stateRef.current.file;
     if (!file) throw new MarkdownFileError('closed', 'Mixed Note 尚未绑定磁盘文件，无法读取 Block 资源');
@@ -345,5 +382,5 @@ export function useMixedNoteFiles(options: Options) {
   };
 
   return { state, open, openWorkspace, create, commit, save, reload, reloadExternal, saveLocalAs, duplicateBlock,
-    repairMissing, restoreOrphan, readAsset, readNoteImage, close };
+    repairMissing, restoreOrphan, listAssets, commitFullEditor, readAsset, readNoteImage, close };
 }

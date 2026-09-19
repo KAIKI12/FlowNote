@@ -19,7 +19,10 @@ export interface NoteSnapshot {
 }
 
 export interface BlockCopyRequest { sourceId: string; targetId: string }
-export interface NoteSaveRequest { id: string; revision: string; content: string; mixed: MixedNoteData; blockCopies?: BlockCopyRequest[] }
+export interface BlockAssetEdit { blockId: string; path: string; content: string }
+export interface BlockAssetInfo { path: string; mime: string; size: number; editable: boolean }
+export interface NoteSaveRequest { id: string; revision: string; content: string; mixed: MixedNoteData;
+  blockCopies?: BlockCopyRequest[]; blockAssetEdits?: BlockAssetEdit[] }
 export interface NoteProbe { revision: string; changed: boolean }
 export interface NoteDiagnostic { kind: string; blockId?: string; message: string }
 export interface NoteAssetData { path: string; bytes: number[] }
@@ -37,6 +40,7 @@ export interface NativeNotePort {
   probe?(id: string): Promise<NoteProbe>;
   repairRemoveReference?(id: string, revision: string, blockId: string): Promise<NoteSnapshot>;
   repairRestoreOrphan?(id: string, revision: string, blockId: string): Promise<NoteSnapshot>;
+  listAssets(id: string, blockId: string): Promise<BlockAssetInfo[]>;
   readAsset(id: string, blockId: string, path: string): Promise<BlockAsset>;
   readNoteImage(id: string, path: string): Promise<BlockAsset>;
   release(id: string): Promise<void>;
@@ -96,6 +100,18 @@ function blockAsset(value: unknown): BlockAsset {
     protocol('Block asset 响应字段不完整');
   }
   return { path: asset.path as string, mime: asset.mime as string, bytes: asset.bytes as number[] };
+}
+
+function blockAssetInfo(value: unknown): BlockAssetInfo {
+  const asset = object(value, 'Block asset info');
+  if (typeof asset.path !== 'string' || typeof asset.mime !== 'string' || !Number.isInteger(asset.size)
+    || Number(asset.size) < 0 || typeof asset.editable !== 'boolean') protocol('Block asset info 响应字段不完整');
+  return { path: asset.path as string, mime: asset.mime as string, size: Number(asset.size), editable: asset.editable as boolean };
+}
+
+function blockAssetList(value: unknown): BlockAssetInfo[] {
+  if (!Array.isArray(value)) protocol('Block asset list 响应字段不完整');
+  return value.map(blockAssetInfo);
 }
 
 function noteProbe(value: unknown): NoteProbe {
@@ -159,6 +175,10 @@ export function createNativeNotePort(call: NoteInvoke = invoke): NativeNotePort 
     async repairRestoreOrphan(id, revision, blockId) {
       if (!validBlockId(blockId)) protocol('Repair 使用了无效 Block ID');
       return noteSnapshot(await request('note_repair_restore_orphan', { request: { id, revision, blockId } }));
+    },
+    async listAssets(id, blockId) {
+      if (!validBlockId(blockId)) protocol('Block asset list 使用了无效 Block ID');
+      return blockAssetList(await request('note_list_assets', { request: { id, blockId } }));
     },
     async readAsset(id, blockId, path) {
       if (!validBlockId(blockId)) protocol('Block asset 使用了无效 Block ID');

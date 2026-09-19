@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { HtmlSandbox } from '../../../html/HtmlSandbox';
 import { resolveHtmlResources } from '../../../html/htmlResources';
+import { HtmlFullEditor } from './HtmlFullEditor';
 import type { HtmlBlockHost } from './htmlBlockContext';
 
 interface HtmlBlockViewProps {
@@ -22,6 +23,7 @@ export function HtmlBlockView({ blockId, width, host }: HtmlBlockViewProps) {
   );
   const [editing, setEditing] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [fullEditing, setFullEditing] = useState(false);
   const [selected, setSelected] = useState(false);
   const [layout, setLayout] = useState<'normal' | 'wide' | 'full'>(width);
   const [draft, setDraft] = useState(block?.html ?? '');
@@ -153,12 +155,17 @@ export function HtmlBlockView({ blockId, width, host }: HtmlBlockViewProps) {
               <span>{draft === editBase ? 'No unsaved changes' : 'Unsaved changes'}</span>
               <div>
                 <button type="button" onClick={cancelEditing}>Cancel</button>
-                <button type="button" disabled title="Full Editor will be connected after the first-wave prototype">Open Full Editor</button>
+                <button type="button" aria-label="打开 HTML Full Editor" disabled={!host?.listAssets || !host.commitFullEditor}
+                  onClick={() => { setEditing(false); setFullEditing(true); }}>Open Full Editor</button>
                 <button type="button" className="primary" onClick={() => setEditing(false)}>Save</button>
               </div>
             </footer>
           </section>
         </div>, document.body)}
+
+      {fullEditing && block && host && createPortal(
+        <HtmlFullEditor block={block} host={host} onCancel={() => setFullEditing(false)} onSaved={() => setFullEditing(false)} />,
+        document.body)}
 
       {fullscreen && block && createPortal(
         <div className="html-fullscreen" role="dialog" aria-modal="true" aria-label="HTML 全屏展示">

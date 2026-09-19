@@ -217,8 +217,8 @@ function WritingWorkspace({ activeView, editorRef, note, files, mixed, workspace
     <div hidden={activeView === 'demo'} className={'writing-workspace ' + (showQualification ? 'qualification-workspace' : 'editor-workspace')}>
       <FlowNoteEditor ref={editorRef} initialContent={note.currentNote.contentMd} onContentChange={note.onContentChange}
         mode={workspaceMode === 'read' ? 'read' : 'edit'} onReadyChange={files.readyChanged} readLockRef={files.readLockRef}
-        readHtmlAsset={mixed.readAsset} readManagedImage={readManagedImage} onDuplicateHtmlBlock={mixed.duplicateBlock}
-        onHtmlBlockSelect={onHtmlBlockSelect} />
+        readHtmlAsset={mixed.readAsset} listHtmlAssets={mixed.listAssets} commitHtmlFullEditor={mixed.commitFullEditor}
+        readManagedImage={readManagedImage} onDuplicateHtmlBlock={mixed.duplicateBlock} onHtmlBlockSelect={onHtmlBlockSelect} />
       {showQualification && QualificationPanel && <Suspense fallback={<p role="status">正在加载测试面板…</p>}>
         <QualificationPanel editorRef={editorRef} />
       </Suspense>}

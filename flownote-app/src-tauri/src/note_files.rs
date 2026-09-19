@@ -16,6 +16,23 @@ pub struct BlockAsset {
     pub bytes: Vec<u8>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockAssetInfo {
+    pub path: String,
+    pub mime: String,
+    pub size: usize,
+    pub editable: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlockAssetEdit {
+    pub block_id: String,
+    pub path: String,
+    pub content: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NoteProbe {
@@ -55,6 +72,8 @@ pub struct NoteSaveRequest {
     pub mixed: MixedNoteData,
     #[serde(default, rename = "blockCopies")]
     pub block_copies: Vec<BlockCopyRequest>,
+    #[serde(default, rename = "blockAssetEdits")]
+    pub block_asset_edits: Vec<BlockAssetEdit>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -86,6 +105,7 @@ fn asset_mime(path: &str) -> &'static str {
         Some(ext) if ext == "css" => "text/css",
         Some(ext) if ext == "js" || ext == "mjs" => "text/javascript",
         Some(ext) if ext == "json" => "application/json",
+        Some(ext) if ext == "txt" => "text/plain",
         Some(ext) if ext == "png" => "image/png",
         Some(ext) if ext == "jpg" || ext == "jpeg" => "image/jpeg",
         Some(ext) if ext == "gif" => "image/gif",
@@ -97,14 +117,24 @@ fn asset_mime(path: &str) -> &'static str {
     }
 }
 
-fn validate_asset_path(path: &str) -> FileResult<()> {
-    if path.is_empty() || path.contains('\\') || Path::new(path).is_absolute() {
-        return Err(FileError::new("invalidPath", "Block 资源必须使用 assets/ 下的相对路径"));
+pub(crate) fn validate_asset_path(path: &str) -> FileResult<()> {
+    if path.is_empty() || path.contains('\\') || path.contains(':') || path.contains('\0') || Path::new(path).is_absolute() {
+        return Err(FileError::new("invalidPath", "Block 资源必须使用 assets/ 下的安全相对路径"));
     }
     let parts: Vec<_> = path.split('/').collect();
     if parts.first() != Some(&"assets") || parts.len() < 2
         || parts.iter().any(|part| part.is_empty() || *part == "." || *part == "..") {
         return Err(FileError::new("invalidPath", "Block 资源只能位于 assets/ 目录内"));
+    }
+    Ok(())
+}
+
+pub(crate) fn editable_asset_path(path: &str) -> FileResult<()> {
+    validate_asset_path(path)?;
+    let extension = Path::new(path).extension().and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase()).unwrap_or_default();
+    if !["css", "js", "mjs", "json", "txt"].contains(&extension.as_str()) {
+        return Err(FileError::new("unsupported", "Full HTML Editor 只允许编辑 CSS / JS / MJS / JSON / TXT 文本资源"));
     }
     Ok(())
 }
@@ -218,6 +248,35 @@ impl NoteStore {
         Ok(BlockAsset { path: relative.into(), mime: asset_mime(relative).into(), bytes: bytes.to_vec() })
     }
 
+    pub fn list_assets(&self, id: &str, block_id: &str) -> FileResult<Vec<BlockAssetInfo>> {
+        crate::note_format::validate_id(block_id)?;
+        let binding = self.binding(id)?;
+        let _parents = crate::windows_note_io::lock_ancestors(&binding.path)?;
+        let path = selected_path(&binding.path, false)?;
+        let directory = crate::windows_note_io::Directory::open(&path, false)?;
+        let tree = crate::windows_note_tree::NoteTree::read_shared(&directory)?;
+        tree.unchanged(&binding.revision)?;
+        let document = tree.document()?;
+        if !document.mixed.blocks.iter().any(|block| block.id == block_id) {
+            return Err(FileError::new("notFound", "HTML Block 不存在或未被正文引用"));
+        }
+        let prefix = format!("blocks/{block_id}/assets/");
+        let mut result = Vec::new();
+        for (path, bytes) in tree.files().iter() {
+            let Some(suffix) = path.strip_prefix(&prefix) else { continue; };
+            if suffix.is_empty() { continue; }
+            let relative = format!("assets/{suffix}");
+            result.push(BlockAssetInfo {
+                path: relative.clone(),
+                mime: asset_mime(&relative).into(),
+                size: bytes.len(),
+                editable: editable_asset_path(&relative).is_ok(),
+            });
+        }
+        result.sort_by(|left, right| left.path.cmp(&right.path));
+        Ok(result)
+    }
+
     pub fn read_note_asset(&self, id: &str, relative: &str) -> FileResult<BlockAsset> {
         validate_note_image_path(relative)?;
         let binding = self.binding(id)?;
@@ -253,7 +312,7 @@ impl NoteStore {
         drop(directory);
         let receipt = crate::windows_note_save::save(crate::windows_note_save::NoteWrite {
             target: &binding.path, source: Some(&binding.path), expected: Some(expected), content, mixed,
-            assets: Vec::new(), block_copies: Vec::new(), repair_source: true,
+            assets: Vec::new(), block_copies: Vec::new(), block_asset_edits: Vec::new(), repair_source: true,
         })?;
         let file = snapshot(id, &binding.path, (receipt.document, receipt.revision, receipt.notice))?;
         Ok(self.remember(file))
@@ -271,7 +330,8 @@ impl NoteStore {
         let binding = self.binding(&request.id)?;
         let receipt = crate::windows_note_save::save(crate::windows_note_save::NoteWrite {
             target: &binding.path, source: Some(&binding.path), expected: Some(&request.revision),
-            content: request.content, mixed: request.mixed, assets: Vec::new(), block_copies: request.block_copies, repair_source: false,
+            content: request.content, mixed: request.mixed, assets: Vec::new(), block_copies: request.block_copies,
+            block_asset_edits: request.block_asset_edits, repair_source: false,
         })?;
         let file = snapshot(&request.id, &binding.path, (receipt.document, receipt.revision, receipt.notice))?;
         Ok(self.remember(file))
@@ -286,7 +346,7 @@ impl NoteStore {
         let receipt = crate::windows_note_save::save(crate::windows_note_save::NoteWrite {
             target: &path, source: source.as_ref().map(|source| source.path.as_path()),
             expected: source.as_ref().map(|source| source.revision.as_str()), content: request.content, mixed: request.mixed, assets,
-            block_copies: Vec::new(), repair_source: false,
+            block_copies: Vec::new(), block_asset_edits: Vec::new(), repair_source: false,
         })?;
         let id = format!("note:{}", Uuid::new_v4());
         let file = snapshot(&id, &path, (receipt.document, receipt.revision, receipt.notice))?;
@@ -302,6 +362,7 @@ impl NoteStore {
     pub fn repair_remove_reference(&mut self, _: &str, _: &str, _: &str) -> FileResult<NoteSnapshot> { unsupported() }
     pub fn repair_restore_orphan(&mut self, _: &str, _: &str, _: &str) -> FileResult<NoteSnapshot> { unsupported() }
     pub fn read_asset(&self, _: &str, _: &str, _: &str) -> FileResult<BlockAsset> { unsupported() }
+    pub fn list_assets(&self, _: &str, _: &str) -> FileResult<Vec<BlockAssetInfo>> { unsupported() }
     pub fn read_note_asset(&self, _: &str, _: &str) -> FileResult<BlockAsset> { unsupported() }
     pub fn save(&mut self, _: NoteSaveRequest) -> FileResult<NoteSnapshot> { unsupported() }
     pub fn save_as_selected(&mut self, _: &Path, _: NoteSaveAsRequest) -> FileResult<NoteSnapshot> { unsupported() }

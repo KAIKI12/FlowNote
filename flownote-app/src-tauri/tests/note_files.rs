@@ -1,7 +1,7 @@
 #![cfg(windows)]
 
 mod note_support;
-use flownote::note_files::{NoteAssetData, NoteStore};
+use flownote::note_files::{BlockAssetEdit, NoteAssetData, NoteStore};
 use note_support::*;
 use serde_json::{json, Value};
 use std::fs;
@@ -105,6 +105,83 @@ fn block_assets_are_read_only_and_scoped_to_the_bound_block() {
     assert_eq!(store.read_asset(&loaded.id, FIRST, "C:/outside.css").unwrap_err().code, "invalidPath");
     assert_eq!(store.read_asset(&loaded.id, SECOND, "assets/style.css").unwrap_err().code, "notFound");
     assert_eq!(store.read_asset("note:forged", FIRST, "assets/style.css").unwrap_err().code, "closed");
+}
+
+#[test]
+fn block_text_assets_can_be_listed_and_saved_atomically() {
+    let path = folder().join("full-editor-assets.note");
+    let mut store = NoteStore::default();
+    let file = store.save_as_selected(&path, draft()).unwrap();
+    let assets = path.join("blocks").join(FIRST).join("assets");
+    fs::create_dir_all(assets.join("nested")).unwrap();
+    fs::write(assets.join("style.css"), "body{color:red}").unwrap();
+    fs::write(assets.join("app.js"), "window.v=1").unwrap();
+    fs::write(assets.join("image.png"), [137, 80, 78, 71]).unwrap();
+    let loaded = store.reload(&file.id).unwrap();
+
+    let listed = store.list_assets(&loaded.id, FIRST).unwrap();
+    assert_eq!(listed.iter().map(|item| item.path.as_str()).collect::<Vec<_>>(),
+        ["assets/app.js", "assets/image.png", "assets/style.css"]);
+    assert!(listed.iter().find(|item| item.path == "assets/style.css").unwrap().editable);
+    assert!(!listed.iter().find(|item| item.path == "assets/image.png").unwrap().editable);
+
+    let mut request = edit(&loaded);
+    request.mixed.blocks[0].html = "<div>Full Editor Current</div>".into();
+    request.block_asset_edits = vec![
+        BlockAssetEdit { block_id: FIRST.into(), path: "assets/style.css".into(), content: "body{color:blue}".into() },
+        BlockAssetEdit { block_id: FIRST.into(), path: "assets/nested/new.mjs".into(), content: "export const value=2;".into() },
+    ];
+    let saved = store.save(request).unwrap();
+    assert_ne!(saved.revision, loaded.revision);
+    assert_eq!(fs::read_to_string(path.join("blocks").join(FIRST).join("index.html")).unwrap(), "<div>Full Editor Current</div>");
+    assert_eq!(fs::read_to_string(assets.join("style.css")).unwrap(), "body{color:blue}");
+    assert_eq!(fs::read_to_string(assets.join("nested/new.mjs")).unwrap(), "export const value=2;");
+    assert_eq!(fs::read(assets.join("image.png")).unwrap(), [137, 80, 78, 71]);
+    assert_eq!(fs::read_to_string(path.join("blocks").join(FIRST).join("original.html")).unwrap(), "<div>首次输入</div>");
+
+    store.close(&saved.id).unwrap();
+    let reopened = store.open_selected(&path).unwrap();
+    assert_eq!(reopened.mixed.blocks[0].html, "<div>Full Editor Current</div>");
+    assert_eq!(reopened.mixed.blocks[0].original_html, "<div>首次输入</div>");
+    assert_eq!(fs::read_to_string(assets.join("style.css")).unwrap(), "body{color:blue}");
+    assert_eq!(fs::read_to_string(assets.join("nested/new.mjs")).unwrap(), "export const value=2;");
+}
+
+#[test]
+fn block_text_asset_edits_reject_escape_binary_wrong_block_duplicates_and_oversize() {
+    let path = folder().join("full-editor-validation.note");
+    let mut store = NoteStore::default();
+    let file = store.save_as_selected(&path, draft()).unwrap();
+
+    for (asset_edit, code) in [
+        (BlockAssetEdit { block_id: FIRST.into(), path: "assets/../index.html".into(), content: "BAD".into() }, "invalidPath"),
+        (BlockAssetEdit { block_id: FIRST.into(), path: "assets/stream:private.css".into(), content: "BAD".into() }, "invalidPath"),
+        (BlockAssetEdit { block_id: FIRST.into(), path: "assets/bad\0name.css".into(), content: "BAD".into() }, "invalidPath"),
+        (BlockAssetEdit { block_id: FIRST.into(), path: "assets/image.png".into(), content: "BAD".into() }, "unsupported"),
+        (BlockAssetEdit { block_id: SECOND.into(), path: "assets/style.css".into(), content: "BAD".into() }, "notFound"),
+        (BlockAssetEdit { block_id: FIRST.into(), path: "assets/huge.css".into(), content: "x".repeat(2 * 1024 * 1024 + 1) }, "tooLarge"),
+    ] {
+        let mut request = edit(&file);
+        request.block_asset_edits = vec![asset_edit];
+        assert_eq!(store.save(request).unwrap_err().code, code);
+    }
+
+    let mut duplicate = edit(&file);
+    duplicate.block_asset_edits = vec![
+        BlockAssetEdit { block_id: FIRST.into(), path: "assets/style.css".into(), content: "a{}".into() },
+        BlockAssetEdit { block_id: FIRST.into(), path: "assets/style.css".into(), content: "b{}".into() },
+    ];
+    assert_eq!(store.save(duplicate).unwrap_err().code, "invalidFormat");
+    assert!(!path.join("blocks").join(FIRST).join("assets/style.css").exists());
+
+    let mut atomic_failure = edit(&file);
+    atomic_failure.mixed.blocks[0].html = "<div>MUST NOT REACH DISK</div>".into();
+    atomic_failure.block_asset_edits = vec![BlockAssetEdit {
+        block_id: FIRST.into(), path: "assets/image.png".into(), content: "BAD".into(),
+    }];
+    assert_eq!(store.save(atomic_failure).unwrap_err().code, "unsupported");
+    assert_eq!(fs::read_to_string(path.join("blocks").join(FIRST).join("index.html")).unwrap(), "<div>首次输入</div>");
+    assert!(!path.join("blocks").join(FIRST).join("assets/image.png").exists());
 }
 
 #[test]

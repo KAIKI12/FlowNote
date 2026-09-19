@@ -800,6 +800,170 @@ async function openEditAndSaveMixedNote() {
 }
 
 
+async function fullHtmlEditorKeepsDraftLocalAndSavesCurrentWithAssets() {
+  const blockId = '0199a111-0000-7000-8000-000000000001';
+  const html = '<link rel="stylesheet" href="./assets/style.css"><section>Original Current</section>';
+  const content = 'Before\n\n\x60\x60\x60flownote-html\n{"id":"' + blockId + '"}\n\x60\x60\x60\n\nAfter\n';
+  const mixed = { metadata: { formatVersion: 1, type: 'mixed' as const, title: 'Full Editor',
+    createdAt: '2026-09-19T00:00:00Z', updatedAt: '2026-09-19T00:00:00Z' },
+    blocks: [{ id: blockId, html, originalHtml: '<section>Original Import</section>',
+      config: { kind: 'html' as const, inputKind: 'document' as const, scriptPolicy: 'sandbox' as const, viewport: { heightPx: 480 } } }] };
+  const initial: NoteSnapshot = { id: 'note:full-editor', path: 'E:\\\\Notes\\\\Full.note', name: 'Full.note', content,
+    revision: 'r1', readOnly: false, mixed };
+  let saved: Parameters<NativeNotePort['save']>[0] | undefined;
+  const bytes = (value: string) => [...new TextEncoder().encode(value)];
+  const notePort = {
+    mode: 'desktop', canWrite: true,
+    open: async () => initial,
+    save: async (request: Parameters<NativeNotePort['save']>[0]) => {
+      saved = request;
+      return { ...initial, content: request.content, mixed: request.mixed, revision: 'r2' };
+    },
+    saveAs: async (request: Parameters<NativeNotePort['saveAs']>[0]) =>
+      ({ ...initial, content: request.content, mixed: request.mixed, revision: 'r2' }),
+    reload: async () => initial,
+    listAssets: async () => [
+      { path: 'assets/app.js', mime: 'text/javascript', size: 11, editable: true },
+      { path: 'assets/image.png', mime: 'image/png', size: 4, editable: false },
+      { path: 'assets/style.css', mime: 'text/css', size: 15, editable: true },
+    ],
+    readAsset: async (_id: string, _blockId: string, assetPath: string) => {
+      const source = assetPath === 'assets/style.css' ? 'body{color:red}' :
+        assetPath === 'assets/app.js' ? 'window.v=1;' : 'PNG';
+      return { path: assetPath, mime: assetPath.endsWith('.css') ? 'text/css' :
+        assetPath.endsWith('.js') ? 'text/javascript' : 'image/png', bytes: bytes(source) };
+    },
+    readNoteImage: async () => { throw new Error('not used'); },
+    release: async () => undefined,
+  } as NativeNotePort;
+
+  const openFullEditor = async () => {
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="编辑 HTML Block"]')!.click());
+    const openFull = document.querySelector<HTMLButtonElement>('[aria-label="打开 HTML Full Editor"]');
+    assert.ok(openFull && !openFull.disabled, 'Full Editor entry is missing or disabled');
+    await act(async () => openFull.click());
+    await waitFor(() => !!document.querySelector('[role="dialog"][aria-label="HTML Full Editor"]'));
+  };
+
+  await withApp(async () => {
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="打开 Mixed Note"]')!.click());
+    await waitFor(() => !!document.querySelector('[aria-label="编辑 HTML Block"]'));
+    await openFullEditor();
+
+    const fullSource = () => document.querySelector<HTMLTextAreaElement>('[aria-label="Full Editor 源码"]')!;
+    assert.equal(fullSource().value, html);
+    const draftHtml = '<link rel="stylesheet" href="./assets/style.css"><section>Draft Current</section>';
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(fullSource(), draftHtml);
+      fullSource().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    assert.equal(useNoteStore.getState().currentNote!.mixed!.blocks[0].html, html,
+      'Full Editor Current draft mutated the live Note before Save');
+    assert.equal(useNoteStore.getState().isDirty, false);
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="编辑资源 assets/style.css"]')!.click());
+    await waitFor(() => fullSource().value === 'body{color:red}');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(fullSource(), 'body{color:blue}');
+      fullSource().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await waitFor(() => document.querySelector<HTMLIFrameElement>('.html-full-editor-preview iframe')?.srcdoc.includes('data:text/css;base64,Ym9keXtjb2xvcjpibHVlfQ==') === true);
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="查看 Original HTML"]')!.click());
+    assert.equal(fullSource().readOnly, true);
+    assert.equal(fullSource().value, '<section>Original Import</section>');
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="查看资源 assets/image.png"]')!.click());
+    assert.ok(document.querySelector('.html-full-editor-binary'), 'Binary asset did not switch to the read-only asset view');
+    assert.equal(document.querySelector('[aria-label="Full Editor 源码"]'), null,
+      'Binary asset unexpectedly exposed a text editor');
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="取消 HTML Full Editor"]')!.click());
+    assert.equal(document.querySelector('[role="dialog"][aria-label="HTML Full Editor"]'), null);
+    assert.equal(saved, undefined);
+    assert.equal(useNoteStore.getState().currentNote!.mixed!.blocks[0].html, html);
+
+    await openFullEditor();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(fullSource(), draftHtml);
+      fullSource().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="编辑资源 assets/style.css"]')!.click());
+    await waitFor(() => fullSource().value === 'body{color:red}');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(fullSource(), 'body{color:blue}');
+      fullSource().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const newAssetPath = document.querySelector<HTMLInputElement>('[aria-label="新建文本资源路径"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(newAssetPath, 'scripts/new.js');
+      newAssetPath.dispatchEvent(new Event('input', { bubbles: true }));
+      newAssetPath.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await waitFor(() => !document.querySelector<HTMLButtonElement>('[aria-label="创建文本资源"]')!.disabled);
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="创建文本资源"]')!.click());
+    await waitFor(() => fullSource().value === '');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(fullSource(), 'window.n=1;');
+      fullSource().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="保存 HTML Full Editor"]')!.click());
+    await waitFor(() => !!saved);
+    assert.equal(saved!.mixed.blocks[0].html, draftHtml);
+    assert.equal(saved!.mixed.blocks[0].originalHtml, '<section>Original Import</section>');
+    assert.deepEqual(saved!.blockAssetEdits, [
+      { blockId, path: 'assets/style.css', content: 'body{color:blue}' },
+      { blockId, path: 'assets/scripts/new.js', content: 'window.n=1;' },
+    ]);
+    await waitFor(() => useNoteStore.getState().currentNote?.mixed?.blocks[0].html === draftHtml);
+    assert.equal(useNoteStore.getState().isDirty, false);
+  }, { notePort });
+}
+
+
+async function fullHtmlEditorFailedSaveKeepsLiveNoteAndDraftOpen() {
+  const blockId = '0199a111-0000-7000-8000-000000000001';
+  const html = '<section>Disk Current</section>';
+  const content = 'Before\n\n\x60\x60\x60flownote-html\n{"id":"' + blockId + '"}\n\x60\x60\x60\n';
+  const mixed = { metadata: { formatVersion: 1, type: 'mixed' as const, title: 'Full Editor Failure',
+    createdAt: '2026-09-19T00:00:00Z', updatedAt: '2026-09-19T00:00:00Z' },
+    blocks: [{ id: blockId, html, originalHtml: '<section>Original Import</section>',
+      config: { kind: 'html' as const, inputKind: 'fragment' as const, scriptPolicy: 'off' as const, viewport: { heightPx: 480 } } }] };
+  const initial: NoteSnapshot = { id: 'note:full-editor-fail', path: 'E:\\Notes\\Fail.note', name: 'Fail.note', content,
+    revision: 'r1', readOnly: false, mixed };
+  let attempts = 0;
+  const notePort = {
+    mode: 'desktop', canWrite: true,
+    open: async () => initial,
+    save: async () => { attempts += 1; throw new Error('simulated disk failure'); },
+    saveAs: async () => null,
+    reload: async () => initial,
+    listAssets: async () => [],
+    readAsset: async () => { throw new Error('not used'); },
+    readNoteImage: async () => { throw new Error('not used'); },
+    release: async () => undefined,
+  } as NativeNotePort;
+
+  await withApp(async () => {
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="打开 Mixed Note"]')!.click());
+    await waitFor(() => !!document.querySelector('[aria-label="编辑 HTML Block"]'));
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="编辑 HTML Block"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="打开 HTML Full Editor"]')!.click());
+    await waitFor(() => !!document.querySelector('[role="dialog"][aria-label="HTML Full Editor"]'));
+    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="Full Editor 源码"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(source, '<section>Unsaved Draft</section>');
+      source.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="保存 HTML Full Editor"]')!.click());
+    await waitFor(() => attempts === 1);
+    assert.ok(document.querySelector('[role="dialog"][aria-label="HTML Full Editor"]'),
+      'Full Editor closed even though native Save failed');
+    assert.equal(useNoteStore.getState().currentNote!.mixed!.blocks[0].html, html,
+      'Failed Full Editor Save mutated the live Note');
+    assert.equal(useNoteStore.getState().isDirty, false);
+  }, { notePort });
+}
+
 async function workspaceModesKeepFocusEditableAndReadOnlyWhenRequested() {
   await withApp(async () => {
     const read = document.querySelector<HTMLButtonElement>('[aria-label="阅读模式"]');
@@ -840,6 +1004,8 @@ async function workspaceModesKeepFocusEditableAndReadOnlyWhenRequested() {
 
 export const appChecks = [
   { name: '默认首页：打开即为可编辑的普通 Markdown 笔记', run: welcome },
+  { name: 'HTML Full Editor：draft 不污染 live Note，Current + asset 原子提交', run: fullHtmlEditorKeepsDraftLocalAndSavesCurrentWithAssets },
+  { name: 'HTML Full Editor：保存失败保留 draft 且不污染 live Note', run: fullHtmlEditorFailedSaveKeepsLiveNoteAndDraftOpen },
   { name: '工作区模式：Read 只读，Focus 保持连续可编辑', run: workspaceModesKeepFocusEditableAndReadOnlyWhenRequested },
   { name: '笔记导出：读取编辑器最新正文，不使用滞后状态', run: exportNote },
   { name: '关闭保护：首次修改后立即关闭也会提示', run: immediateClose },

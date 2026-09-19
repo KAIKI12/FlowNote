@@ -180,19 +180,32 @@ async function nativeNotePortUsesRegisteredCommands() {
     if (command === 'note_open') return snapshot;
     if (command === 'note_save') return { ...snapshot, revision: 'rev-2' };
     if (command === 'note_reload') return snapshot;
+    if (command === 'note_list_assets') return [
+      { path: 'assets/app.js', mime: 'text/javascript', size: 12, editable: true },
+      { path: 'assets/image.png', mime: 'image/png', size: 4, editable: false },
+    ];
     if (command === 'note_read_asset') return { path: 'assets/style.css', mime: 'text/css', bytes: [98, 111, 100, 121] };
     return null;
   });
   const opened = await port.open();
   assert.equal(opened?.mixed.blocks[0].originalHtml, HTML);
-  await port.save({ id: snapshot.id, revision: snapshot.revision, content: SOURCE, mixed: snapshot.mixed });
+  await port.save({ id: snapshot.id, revision: snapshot.revision, content: SOURCE, mixed: snapshot.mixed,
+    blockAssetEdits: [{ blockId: ID, path: 'assets/app.js', content: 'window.v=2;' }] });
   await port.reload(snapshot.id);
+  const listed = await port.listAssets(snapshot.id, ID);
+  assert.deepEqual(listed, [
+    { path: 'assets/app.js', mime: 'text/javascript', size: 12, editable: true },
+    { path: 'assets/image.png', mime: 'image/png', size: 4, editable: false },
+  ]);
   const asset = await port.readAsset(snapshot.id, ID, 'assets/style.css');
   assert.deepEqual(asset, { path: 'assets/style.css', mime: 'text/css', bytes: [98, 111, 100, 121] });
   await port.release(snapshot.id);
-  assert.deepEqual(calls.map(value => value.command), ['note_open', 'note_save', 'note_reload', 'note_read_asset', 'note_release']);
-  assert.deepEqual(calls[1].args, { request: { id: snapshot.id, revision: snapshot.revision, content: SOURCE, mixed: snapshot.mixed } });
-  assert.deepEqual(calls[3].args, { request: { id: snapshot.id, blockId: ID, path: 'assets/style.css' } });
+  assert.deepEqual(calls.map(value => value.command),
+    ['note_open', 'note_save', 'note_reload', 'note_list_assets', 'note_read_asset', 'note_release']);
+  assert.deepEqual(calls[1].args, { request: { id: snapshot.id, revision: snapshot.revision, content: SOURCE, mixed: snapshot.mixed,
+    blockAssetEdits: [{ blockId: ID, path: 'assets/app.js', content: 'window.v=2;' }] } });
+  assert.deepEqual(calls[3].args, { request: { id: snapshot.id, blockId: ID } });
+  assert.deepEqual(calls[4].args, { request: { id: snapshot.id, blockId: ID, path: 'assets/style.css' } });
 }
 
 async function invalidNativeNoteSnapshotIsRejected() {

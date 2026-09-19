@@ -1,5 +1,5 @@
 use crate::file_error::{FileError, FileResult};
-use crate::note_files::BlockCopyRequest;
+use crate::note_files::{editable_asset_path, BlockAssetEdit, BlockCopyRequest};
 use crate::note_format::{merge_compatible, validate_mixed, MixedNoteData};
 use crate::windows_note_io::{create_file, Directory, NoteMetadata};
 use crate::windows_note_tree::{NoteTree, MAX_PACKAGE_BYTES, MAX_PACKAGE_FILES};
@@ -108,9 +108,36 @@ fn copy_private_assets(source: &NoteTree, files: &mut BTreeMap<String, Vec<u8>>,
     Ok(())
 }
 
+fn apply_block_asset_edits(source: &NoteTree, files: &mut BTreeMap<String, Vec<u8>>, directories: &mut BTreeSet<String>,
+    mixed: &MixedNoteData, edits: Vec<BlockAssetEdit>) -> FileResult<()> {
+    if edits.is_empty() { return Ok(()); }
+    let previous = source.document()?;
+    let mut targets = BTreeSet::new();
+    for edit in edits {
+        crate::note_format::validate_id(&edit.block_id)?;
+        editable_asset_path(&edit.path)?;
+        if edit.content.len() > crate::file_data::MAX_MARKDOWN_BYTES {
+            return Err(FileError::new("tooLarge", "Full HTML Editor 文本资源不能超过 2 MiB"));
+        }
+        if !previous.mixed.blocks.iter().any(|block| block.id == edit.block_id)
+            || !mixed.blocks.iter().any(|block| block.id == edit.block_id) {
+            return Err(FileError::new("notFound", "HTML Block 不存在或未被正文引用"));
+        }
+        let full = format!("blocks/{}/{}", edit.block_id, edit.path);
+        if !targets.insert(full.clone()) {
+            return Err(format_error("同一次保存不能重复编辑同一 Block 资源"));
+        }
+        let parts: Vec<_> = full.split('/').collect();
+        for end in 1..parts.len() { directories.insert(parts[..end].join("/")); }
+        files.insert(full, edit.content.into_bytes());
+    }
+    Ok(())
+}
+
+
 impl Draft {
     pub fn prepare(content: String, mut mixed: MixedNoteData, assets: Vec<(String, Vec<u8>)>, block_copies: Vec<BlockCopyRequest>,
-        source: Option<&NoteTree>, repair_source: bool) -> FileResult<Self> {
+        block_asset_edits: Vec<BlockAssetEdit>, source: Option<&NoteTree>, repair_source: bool) -> FileResult<Self> {
         let mut files = BTreeMap::new();
         let mut directories = BTreeSet::from(["blocks".to_string()]);
         if let Some(source) = source {
@@ -128,8 +155,9 @@ impl Draft {
                 }
             }
             copy_private_assets(source, &mut files, &mut directories, &mixed, &block_copies)?;
-        } else if !block_copies.is_empty() {
-            return Err(format_error("Deep Copy 需要已绑定的源 Note"));
+            apply_block_asset_edits(source, &mut files, &mut directories, &mixed, block_asset_edits)?;
+        } else if !block_copies.is_empty() || !block_asset_edits.is_empty() {
+            return Err(format_error("Deep Copy / Block asset edit 需要已绑定的源 Note"));
         }
         for (path, bytes) in assets { add_asset(&mut files, &mut directories, path, bytes)?; }
         validate_mixed(&content, &mixed)?;

@@ -31,7 +31,7 @@ pub fn draft() -> NoteSaveAsRequest {
 
 pub fn edit(file: &NoteSnapshot) -> NoteSaveRequest {
     NoteSaveRequest { id: file.id.clone(), revision: file.revision.clone(),
-        content: file.content.clone(), mixed: file.mixed.clone(), block_copies: Vec::new() }
+        content: file.content.clone(), mixed: file.mixed.clone(), block_copies: Vec::new(), block_asset_edits: Vec::new() }
 }
 
 pub fn copy(file: &NoteSnapshot) -> NoteSaveAsRequest {
