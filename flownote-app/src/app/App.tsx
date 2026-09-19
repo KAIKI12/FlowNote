@@ -156,6 +156,10 @@ function WritingHeader({ activeView, note, files, mixed, editorRef }: {
         onClick={() => void mixed.open(async () => { await files.session.detachCurrent(); return true; })}>打开 Mixed Note</button>
       <button aria-label="保存 Mixed Note" disabled={!!mixed.state.busy || note.isComposing || note.currentNote?.metadata.type !== 'mixed'}
         onClick={() => void mixed.save()}>保存 Mixed Note</button>
+      <button aria-label="导出 Browser Bundle" disabled={activeView === 'demo' || note.isComposing || !!mixed.state.busy
+        || !!mixed.state.externalConflict || note.currentNote?.metadata.type !== 'mixed' || !mixed.state.file
+        || mixed.state.file.readOnly || !files.editorReady}
+        onClick={() => void mixed.exportBrowserBundle()}>导出 Browser Bundle</button>
       <button aria-label="导出 Markdown 笔记" disabled={activeView === 'demo' || note.isComposing || !note.currentNote || !files.editorReady}
         onClick={note.exportNote}>导出 Markdown</button>
       {htmlOpen && <form className="editor-link-form html-import-form" aria-label="HTML 导入" onSubmit={event => void importHtml(event)}>

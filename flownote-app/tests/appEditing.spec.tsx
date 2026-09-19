@@ -964,6 +964,74 @@ async function fullHtmlEditorFailedSaveKeepsLiveNoteAndDraftOpen() {
   }, { notePort });
 }
 
+
+async function browserBundleExportsDirtyCurrentWithoutSavingNote() {
+  const { initial } = externalMixedFixture();
+  let normalSaves = 0;
+  let exportAttempts = 0;
+  let failExport = false;
+  let exported: Parameters<NativeNotePort['exportBrowserBundle']>[0] | undefined;
+  const notePort = {
+    mode: 'desktop', canWrite: true,
+    open: async () => initial,
+    save: async () => { normalSaves += 1; throw new Error('Browser Bundle must not save the Note'); },
+    saveAs: async () => null,
+    reload: async () => initial,
+    listAssets: async () => [],
+    readAsset: async () => { throw new Error('no assets'); },
+    readNoteImage: async () => { throw new Error('no images'); },
+    exportBrowserBundle: async (request: Parameters<NativeNotePort['exportBrowserBundle']>[0]) => {
+      exportAttempts += 1;
+      if (failExport) throw new Error('simulated Browser Bundle failure');
+      exported = request;
+      return { path: 'E:\\Exports\\External-export', name: 'External-export' };
+    },
+    release: async () => undefined,
+  } as NativeNotePort;
+
+  await withApp(async () => {
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="打开 Mixed Note"]')!.click());
+    await waitFor(() => !!document.querySelector('[aria-label="编辑 HTML Block"]'));
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="编辑 HTML Block"]')!.click());
+    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML 源码"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(source, '<div>Dirty Browser Current</div>');
+      source.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+      .find(button => button.textContent === 'Save')!.click());
+    await waitFor(() => useNoteStore.getState().isDirty === true);
+
+    const button = document.querySelector<HTMLButtonElement>('[aria-label="导出 Browser Bundle"]');
+    assert.ok(button && !button.disabled, 'Browser Bundle export action is unavailable for a writable Mixed Note');
+    await act(async () => button.click());
+    await waitFor(() => !!exported);
+
+    assert.equal(normalSaves, 0, 'Browser Bundle export implicitly saved the Note');
+    assert.equal(useNoteStore.getState().isDirty, true, 'Browser Bundle export cleared the Note dirty state');
+    assert.equal(exported!.id, initial.id);
+    assert.equal(exported!.revision, initial.revision);
+    assert.equal(exported!.content, initial.content);
+    assert.match(exported!.indexHtml, /Markdown A|Before/);
+    assert.equal(exported!.blocks.length, 1);
+    assert.match(exported!.blocks[0].html, /Dirty Browser Current/);
+
+    await act(async () => useNoteStore.getState().setComposing(true));
+    assert.equal(document.querySelector<HTMLButtonElement>('[aria-label="导出 Browser Bundle"]')!.disabled, true,
+      'Browser Bundle export stayed enabled during IME composition');
+    await act(async () => useNoteStore.getState().setComposing(false));
+
+    const liveBeforeFailure = useNoteStore.getState().currentNote!.mixed!.blocks[0].html;
+    failExport = true;
+    await act(async () => button.click());
+    await waitFor(() => exportAttempts === 2);
+    await settle();
+    assert.equal(useNoteStore.getState().isDirty, true, 'Failed Browser Bundle export cleared Dirty');
+    assert.equal(useNoteStore.getState().currentNote!.mixed!.blocks[0].html, liveBeforeFailure,
+      'Failed Browser Bundle export mutated Current HTML');
+  }, { notePort });
+}
+
 async function workspaceModesKeepFocusEditableAndReadOnlyWhenRequested() {
   await withApp(async () => {
     const read = document.querySelector<HTMLButtonElement>('[aria-label="阅读模式"]');
@@ -1006,6 +1074,7 @@ export const appChecks = [
   { name: '默认首页：打开即为可编辑的普通 Markdown 笔记', run: welcome },
   { name: 'HTML Full Editor：draft 不污染 live Note，Current + asset 原子提交', run: fullHtmlEditorKeepsDraftLocalAndSavesCurrentWithAssets },
   { name: 'HTML Full Editor：保存失败保留 draft 且不污染 live Note', run: fullHtmlEditorFailedSaveKeepsLiveNoteAndDraftOpen },
+  { name: 'Browser Bundle：Dirty Current 可导出且不隐式保存 Note', run: browserBundleExportsDirtyCurrentWithoutSavingNote },
   { name: '工作区模式：Read 只读，Focus 保持连续可编辑', run: workspaceModesKeepFocusEditableAndReadOnlyWhenRequested },
   { name: '笔记导出：读取编辑器最新正文，不使用滞后状态', run: exportNote },
   { name: '关闭保护：首次修改后立即关闭也会提示', run: immediateClose },

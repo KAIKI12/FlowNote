@@ -1,11 +1,24 @@
 /**
  * FlowNote 编辑器 API 接口
  */
+export interface BrowserBundleEditorSnapshot {
+  markdown: string;
+  protected: boolean;
+  reasons: string[];
+  bodyHtml: string;
+}
+
 export interface FlowNoteEditorApi {
   /**
    * 获取当前 Markdown 内容
    */
   getMarkdown(): string;
+
+  /**
+   * Capture a read-only Browser Bundle source snapshot.
+   * Protected/source-mode documents return Markdown fidelity fallback data instead of stale visual DOM.
+   */
+  getBrowserBundleSnapshot(): BrowserBundleEditorSnapshot;
 
   /**
    * 设置 Markdown 内容

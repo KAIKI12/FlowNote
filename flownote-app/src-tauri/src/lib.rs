@@ -1,4 +1,5 @@
 mod atomic_save;
+pub mod browser_bundle;
 mod file_data;
 pub mod file_commands;
 pub mod file_error;
@@ -52,6 +53,7 @@ pub fn configure_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
             note_commands::note_read_asset,
             note_commands::note_list_assets,
             note_commands::note_read_image,
+            note_commands::note_export_browser_bundle,
             note_commands::note_release,
             workspace::workspace_pick,
             workspace::workspace_restore,

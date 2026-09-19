@@ -177,7 +177,7 @@ flownote-app/src-tauri/target/release/flownote.exe
 
 接下来统一围绕 V1 可交付性收尾，不再继续扩张已完成 Slice：
 
-1. **Browser Bundle / Markdown export**：明确 Mixed Note 的可移植导出语义，不静默丢失 HTML 或 managed resources。
+1. **Markdown export**：Browser Bundle 已完成；继续明确 Mixed Note 的纯 Markdown / 降级导出语义，不能静默丢失 HTML 或 managed resources。
 2. **产品收尾**：系统主题联动、UI 一致性、错误提示、空状态、bundle 体积与最终发布验证。
 3. **Workspace 后续增强（非当前阻塞）**：Favorites、Trash / delete / recovery、filesystem watcher、multi-Workspace、SQLite / FTS 等按独立 Slice 继续。
 

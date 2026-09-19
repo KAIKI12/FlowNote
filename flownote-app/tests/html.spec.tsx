@@ -5,6 +5,7 @@ import { useNoteStore } from '../src/note/noteStore';
 import { createNativeNotePort } from '../src/note/nativeNotePort';
 import { resolveHtmlResources } from '../src/html/htmlResources';
 import { NodeSelection } from '@milkdown/prose/state';
+import { renderBrowserBundle } from '../src/export/browserBundle';
 
 const ID = '0199a111-0000-7000-8000-000000000001';
 const SECOND_ID = '0199a111-0000-7000-8000-000000000002';
@@ -171,6 +172,54 @@ function noteData() {
       config: { kind: 'html' as const, inputKind: 'fragment' as const, scriptPolicy: 'sandbox' as const, viewport: { heightPx: 480 } } }] };
 }
 
+
+async function browserBundleRendererUsesSemanticVisualDocumentAndCurrentBlocks() {
+  const h = createHarness();
+  note();
+  try {
+    await h.mount(SOURCE);
+    const snapshot = h.api.current!.getBrowserBundleSnapshot();
+    assert.equal(snapshot.protected, false);
+    assert.match(snapshot.bodyHtml, /Markdown A/);
+    assert.match(snapshot.bodyHtml, /data-type="html-block"/);
+
+    const mixed = noteData();
+    mixed.blocks[0].html = '<div>CURRENT EXPORT</div>';
+    mixed.blocks[0].originalHtml = '<div>ORIGINAL MUST STAY PRIVATE</div>';
+    const bundle = await renderBrowserBundle(snapshot, mixed, 'HTML Test');
+    const before = bundle.indexHtml.indexOf('Markdown A');
+    const frame = bundle.indexHtml.indexOf('./blocks/' + ID + '/index.html');
+    const after = bundle.indexHtml.indexOf('Markdown B');
+    assert.ok(before >= 0 && frame > before && after > frame, 'Browser Bundle changed document order');
+    assert.doesNotMatch(bundle.indexHtml, /editor-toolbar|html-visual-toolbar|Open Full Editor/);
+    assert.match(bundle.indexHtml, /sandbox="allow-scripts"/);
+    assert.equal(bundle.blocks.length, 1);
+    assert.equal(bundle.blocks[0].id, ID);
+    assert.match(bundle.blocks[0].html, /CURRENT EXPORT/);
+    assert.doesNotMatch(bundle.blocks[0].html, /ORIGINAL MUST STAY PRIVATE/);
+    assert.match(bundle.blocks[0].html, /connect-src 'none'/);
+  } finally { await h.unmount(); }
+}
+
+async function browserBundleProtectedSourceFallsBackWithoutLosingMarkdown() {
+  const source = '---\ntitle: protected\n---\n\n[[WikiLink]]\n';
+  const h = createHarness();
+  note(source);
+  try {
+    await h.mount(source);
+    const snapshot = h.api.current!.getBrowserBundleSnapshot();
+    assert.equal(snapshot.protected, true);
+    assert.equal(snapshot.markdown, source);
+    const mixed = noteData();
+    mixed.blocks = [];
+    const bundle = await renderBrowserBundle(snapshot, mixed, 'Protected');
+    assert.deepEqual(bundle.blocks, []);
+    assert.match(bundle.indexHtml, /WikiLink/);
+    assert.match(bundle.indexHtml, /protected-source/);
+    assert.doesNotMatch(bundle.indexHtml, /<iframe/);
+  } finally { await h.unmount(); }
+}
+
 async function nativeNotePortUsesRegisteredCommands() {
   const calls: Array<{ command: string; args?: Record<string, unknown> }> = [];
   const snapshot = { id: 'note:capability', path: 'E:\\Notes\\Test.note', name: 'Test.note', content: SOURCE,
@@ -185,6 +234,7 @@ async function nativeNotePortUsesRegisteredCommands() {
       { path: 'assets/image.png', mime: 'image/png', size: 4, editable: false },
     ];
     if (command === 'note_read_asset') return { path: 'assets/style.css', mime: 'text/css', bytes: [98, 111, 100, 121] };
+    if (command === 'note_export_browser_bundle') return { path: 'E:\\Exports\\HTML Test-export', name: 'HTML Test-export' };
     return null;
   });
   const opened = await port.open();
@@ -199,13 +249,21 @@ async function nativeNotePortUsesRegisteredCommands() {
   ]);
   const asset = await port.readAsset(snapshot.id, ID, 'assets/style.css');
   assert.deepEqual(asset, { path: 'assets/style.css', mime: 'text/css', bytes: [98, 111, 100, 121] });
+  const exported = await port.exportBrowserBundle({
+    id: snapshot.id, revision: snapshot.revision, folderName: 'HTML Test-export', title: 'HTML Test',
+    content: SOURCE, indexHtml: '<!doctype html><p>Export</p>', blocks: [{ id: ID, html: '<!doctype html><p>Block</p>' }],
+  });
+  assert.deepEqual(exported, { path: 'E:\\Exports\\HTML Test-export', name: 'HTML Test-export' });
   await port.release(snapshot.id);
   assert.deepEqual(calls.map(value => value.command),
-    ['note_open', 'note_save', 'note_reload', 'note_list_assets', 'note_read_asset', 'note_release']);
+    ['note_open', 'note_save', 'note_reload', 'note_list_assets', 'note_read_asset', 'note_export_browser_bundle', 'note_release']);
   assert.deepEqual(calls[1].args, { request: { id: snapshot.id, revision: snapshot.revision, content: SOURCE, mixed: snapshot.mixed,
     blockAssetEdits: [{ blockId: ID, path: 'assets/app.js', content: 'window.v=2;' }] } });
   assert.deepEqual(calls[3].args, { request: { id: snapshot.id, blockId: ID } });
   assert.deepEqual(calls[4].args, { request: { id: snapshot.id, blockId: ID, path: 'assets/style.css' } });
+  assert.deepEqual(calls[5].args, { request: { id: snapshot.id, revision: snapshot.revision,
+    folderName: 'HTML Test-export', title: 'HTML Test', content: SOURCE, indexHtml: '<!doctype html><p>Export</p>',
+    blocks: [{ id: ID, html: '<!doctype html><p>Block</p>' }] } });
 }
 
 async function invalidNativeNoteSnapshotIsRejected() {
@@ -255,6 +313,8 @@ export async function run(filter: string) {
     { name: 'HTML 保护：无效引用和扩展字段保留原 fence', run: invalidAndMissingAnchorsKeepSource },
     { name: 'HTML 编辑：Current 更新标脏，Original 保持不变', run: editsKeepOriginal },
     { name: 'HTML 全屏：展示当前 Visual 并支持 Esc 退出', run: fullscreenPresentationOpensAndEscCloses },
+    { name: 'Browser Bundle：语义正文与 Current HTML 按文档顺序导出', run: browserBundleRendererUsesSemanticVisualDocumentAndCurrentBlocks },
+    { name: 'Browser Bundle：受保护 Markdown 使用源码保真 fallback', run: browserBundleProtectedSourceFallsBackWithoutLosingMarkdown },
     { name: 'Note 端口：前端使用已注册的原生 .note 命令并保留 Mixed 数据', run: nativeNotePortUsesRegisteredCommands },
     { name: 'Note 端口：拒绝字段不完整的原生快照', run: invalidNativeNoteSnapshotIsRejected },
   ];

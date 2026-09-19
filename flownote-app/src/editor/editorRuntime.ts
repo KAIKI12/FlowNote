@@ -21,6 +21,7 @@ import { parseHtmlReference, validBlockId } from '../note/htmlBlockData';
 import { managedImageContext, managedImageView } from './plugins/managedImageView';
 import type { ManagedImageReader } from './plugins/managedImageView';
 import { NodeSelection } from '@milkdown/prose/state';
+import { DOMSerializer } from 'prosemirror-model';
 
 export const editorSessionCtx = $ctx<EditorSession | null, 'flowNoteSession'>(null, 'flowNoteSession');
 
@@ -78,6 +79,25 @@ export function createFlowEditor(root: HTMLElement, session: EditorSession, html
 export function createEditorApi(session: EditorSession, get: () => Editor | undefined): FlowNoteEditorApi {
   return {
     getMarkdown: () => session.getMarkdown(),
+    getBrowserBundleSnapshot: () => {
+      const state = session.getSnapshot();
+      const markdown = session.getMarkdown();
+      if (state.active === 'source') {
+        return { markdown, protected: true, reasons: [...state.reasons], bodyHtml: '' };
+      }
+      const editor = get();
+      if (!editor) throw new Error('编辑器尚未准备就绪');
+      let bodyHtml = '';
+      editor.action(ctx => {
+        const view = ctx.get(editorViewCtx);
+        const container = document.createElement('div');
+        const fragment = DOMSerializer.fromSchema(view.state.schema)
+          .serializeFragment(view.state.doc.content, { document });
+        container.appendChild(fragment);
+        bodyHtml = container.innerHTML;
+      });
+      return { markdown, protected: false, reasons: [...state.reasons], bodyHtml };
+    },
     setMarkdown: source => session.setMarkdown(source),
     setMode: mode => session.setMode(mode),
     focus: () => session.focus(),

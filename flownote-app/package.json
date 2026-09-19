@@ -15,6 +15,7 @@
     "test:workspace": "node tests/run-stage-one.mjs --workspace",
     "test:workspace:native": "cargo test --offline --manifest-path src-tauri/Cargo.toml --test workspace -- --test-threads=1",
     "test:format-freeze": "node tests/run-format-freeze.mjs",
+    "test:browser-bundle": "node tests/run-browser-bundle-qualification.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",

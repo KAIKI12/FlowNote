@@ -28,6 +28,11 @@ export interface NoteDiagnostic { kind: string; blockId?: string; message: strin
 export interface NoteAssetData { path: string; bytes: number[] }
 export interface NoteSaveAsRequest { name: string; content: string; mixed: MixedNoteData; sourceId?: string; assets?: NoteAssetData[] }
 export interface BlockAsset { path: string; mime: string; bytes: number[] }
+export interface BrowserBundleBlock { id: string; html: string }
+export interface BrowserBundleRequest {
+  id: string; revision: string; folderName: string; title: string; content: string; indexHtml: string; blocks: BrowserBundleBlock[];
+}
+export interface BrowserBundleResult { path: string; name: string }
 
 export interface NativeNotePort {
   readonly mode: 'desktop';
@@ -43,6 +48,7 @@ export interface NativeNotePort {
   listAssets(id: string, blockId: string): Promise<BlockAssetInfo[]>;
   readAsset(id: string, blockId: string, path: string): Promise<BlockAsset>;
   readNoteImage(id: string, path: string): Promise<BlockAsset>;
+  exportBrowserBundle(request: BrowserBundleRequest): Promise<BrowserBundleResult | null>;
   release(id: string): Promise<void>;
 }
 
@@ -112,6 +118,12 @@ function blockAssetInfo(value: unknown): BlockAssetInfo {
 function blockAssetList(value: unknown): BlockAssetInfo[] {
   if (!Array.isArray(value)) protocol('Block asset list 响应字段不完整');
   return value.map(blockAssetInfo);
+}
+
+function browserBundleResult(value: unknown): BrowserBundleResult {
+  const result = object(value, 'Browser Bundle');
+  if (typeof result.path !== 'string' || typeof result.name !== 'string') protocol('Browser Bundle 响应字段不完整');
+  return { path: result.path as string, name: result.name as string };
 }
 
 function noteProbe(value: unknown): NoteProbe {
@@ -185,6 +197,11 @@ export function createNativeNotePort(call: NoteInvoke = invoke): NativeNotePort 
       return blockAsset(await request('note_read_asset', { request: { id, blockId, path } }));
     },
     async readNoteImage(id, path) { return blockAsset(await request('note_read_image', { request: { id, path } })); },
+    async exportBrowserBundle(value) {
+      markdownBytes(value.content);
+      const result = await request('note_export_browser_bundle', { request: value });
+      return result === null ? null : browserBundleResult(result);
+    },
     async release(id) { await request('note_release', { id }); },
   };
 }

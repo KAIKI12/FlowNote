@@ -1,3 +1,4 @@
+use flownote::browser_bundle::BrowserBundleRequest;
 use flownote::file_commands::AssetRequest as MarkdownAssetRequest;
 use flownote::file_error::{FileError, FileResult};
 use flownote::markdown_files::{FileStore, SaveRequest};
@@ -62,6 +63,22 @@ fn dispatch_note(store: &mut NoteStore, input: &Input) -> FileResult<Value> {
             let request: NoteAssetRequest = serde_json::from_value(input.args["request"].clone())
                 .map_err(|error| FileError::io("Invalid Note asset request", error))?;
             store.read_asset(&request.id, &request.block_id, &request.path).map(|asset| json!(asset))
+        }
+        "note_list_assets" => {
+            let request: flownote::note_commands::BlockRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Note block request", error))?;
+            store.list_assets(&request.id, &request.block_id).map(|assets| json!(assets))
+        }
+        "note_read_image" => {
+            let request: flownote::note_commands::NoteImageRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Note image request", error))?;
+            store.read_note_asset(&request.id, &request.path).map(|asset| json!(asset))
+        }
+        "note_export_browser_bundle" => {
+            let Some(parent) = &input.selection else { return Ok(Value::Null); };
+            let request: BrowserBundleRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Browser Bundle request", error))?;
+            store.export_browser_bundle_selected(parent, request).map(|result| json!(result))
         }
         "note_release" => store.close(id(&input.args)?).map(|_| Value::Null),
         _ => Err(FileError::new("protocol", "Unknown Note test command")),

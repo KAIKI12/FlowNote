@@ -125,7 +125,7 @@
 - [x] 文件树：当前 Sidebar 已接入真实 Workspace 文件组织与持久化恢复。
 - [x] 搜索：已接入 filename / title / Markdown body / `.note/content.md` 的基础 native bounded scan；SQLite/FTS 索引属于后续增强。
 - [x] Full HTML Editor：Quick Edit 入口已接通；Full Editor draft 本地隔离，Current + Block 私有文本资源一次原子保存；Original 只读，binary 只读；失败保存与非法资源编辑均不污染 live Note / 磁盘。
-- [ ] Browser Bundle export：Mixed Note 可脱离 FlowNote 打开，保持正文 / 图片 / Block 顺序与隔离语义。
+- [x] Browser Bundle export：Mixed Note 可导出为普通浏览器可直接打开的目录；保留当前 Markdown、managed images、HTML Block 顺序、Current HTML 与 Block 私有资源，默认断网且不修改源 `.note`。
 - [ ] Markdown export：明确 Mixed Note 导出策略，不能静默丢失 HTML 或 managed resources。
 - [ ] 收尾 UI / 系统主题联动 / 错误提示 / 空状态 / bundle 体积 / 最终发布验证。
 
