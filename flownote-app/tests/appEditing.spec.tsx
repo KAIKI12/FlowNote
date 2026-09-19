@@ -805,19 +805,36 @@ async function workspaceModesKeepFocusEditableAndReadOnlyWhenRequested() {
     const read = document.querySelector<HTMLButtonElement>('[aria-label="阅读模式"]');
     const focus = document.querySelector<HTMLButtonElement>('[aria-label="专注模式"]');
     const edit = document.querySelector<HTMLButtonElement>('[aria-label="编辑模式"]');
-    assert.ok(read && focus && edit, 'Workspace mode controls are missing');
+    const inspectorToggle = document.querySelector<HTMLButtonElement>('[aria-label="切换 Inspector"]');
+    assert.ok(read && focus && edit && inspectorToggle, 'Workspace mode controls are missing');
+
+    await act(async () => inspectorToggle.click());
+    assert.ok(document.querySelector('[aria-label="Files"]'));
+    assert.ok(document.querySelector('[aria-label="Inspector"]'));
 
     await act(async () => read.click());
     await waitFor(() => document.querySelector('.flownote-editor')?.getAttribute('data-mode') === 'read');
     assert.equal(document.querySelector('.writing-app')?.getAttribute('data-view-mode'), 'read');
+    assert.equal(getComputedStyle(document.querySelector('.editor-toolbar')!).display, 'none',
+      'Read mode must remove the formatting toolbar');
+    assert.equal(getComputedStyle(document.querySelector('.editor-mode-bar')!).display, 'none',
+      'Read mode must remove editor mode chrome');
 
     await act(async () => focus.click());
     await waitFor(() => document.querySelector('.writing-app')?.getAttribute('data-view-mode') === 'focus');
     assert.equal(document.querySelector('.flownote-editor')?.getAttribute('data-mode'), 'edit',
       'Focus must remain an editable Markdown mode');
+    assert.equal(document.querySelector('[aria-label="Files"]'), null, 'Focus must hide the Files sidebar');
+    assert.equal(document.querySelector('[aria-label="Inspector"]'), null, 'Focus must hide the Inspector');
+    const hasSidebarToggle = !!document.querySelector('[aria-label="收起文件侧栏"]')
+      || !!document.querySelector('[aria-label="展开文件侧栏"]');
+    assert.equal(hasSidebarToggle, false,
+      'Focus must not expose a hidden sidebar toggle that mutates the restored layout');
 
     await act(async () => edit.click());
     await waitFor(() => document.querySelector('.writing-app')?.getAttribute('data-view-mode') === 'edit');
+    assert.ok(document.querySelector('[aria-label="Files"]'), 'Files sidebar state was not restored after Focus');
+    assert.ok(document.querySelector('[aria-label="Inspector"]'), 'Inspector state was not restored after Focus');
   });
 }
 

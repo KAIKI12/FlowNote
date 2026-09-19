@@ -86,9 +86,22 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 - **生命周期回归修复**：冻结 Gate 发现 Deep Copy 保存后存在低概率 hydration echo 重新标 Dirty；根因定位为 Milkdown `markdownUpdated` 对 external snapshot 的规范化回声被误当成本地编辑。`EditorSession.receiveExternal()` 现在记录已安装可视化序列化作为 clean baseline；对应最小回归测试由 RED 转 GREEN，真实磁盘场景随后连续 10 / 10 通过。
 - **文档状态**：`FlowNote Note Format v1.2` 已由 Freeze Candidate 升级为 **Final**；未来不兼容的磁盘语义必须使用新的 `formatVersion`。
 
+## 2.8 Read / Focus / Fullscreen Hardening — completed
+
+2026-09-19 已完成第一轮 V1 阅读 / 专注 / HTML 全屏硬化，不改变 Markdown / `.note` 持久化语义：
+
+- **Read**：继续使用同一文档实例，只读时隐藏格式工具栏与编辑模式 chrome；Markdown 不生成第二套 Preview。
+- **Focus**：保持 Markdown 可直接编辑；Files Sidebar 与 Inspector 暂时隐藏但原开关状态不被改写，退出 Focus 后恢复进入前的布局；Focus 内不再暴露会偷偷改变恢复状态的 Sidebar toggle。
+- **HTML Fullscreen**：进入后焦点转移到退出按钮，背景应用 `inert` 并锁定 body scroll；Esc / Close 退出后恢复背景交互、原滚动状态与触发按钮焦点。
+- **长文档**：App 保持 `100vh`，中央 workspace 与 editor shell 不外溢，滚动收敛在 Milkdown 内容 root，避免长文档把整个桌面壳撑高。
+- **窄窗口**：对小宽度 / 小高度的 HTML Fullscreen 缩小顶部栏与画布边距，隐藏次要 Esc 文案，保留明确退出入口。
+- **回归**：新增 Focus 状态恢复、Read chrome、Fullscreen lifecycle、长文档滚动与窄窗口规则；本轮 Stage One **60 / 60**、HTML **12 / 12**、production build PASS。
+
+系统主题自动联动、最终视觉一致性和 bundle code-splitting 仍属于最终 UI / release 收尾，不并入本次 mode hardening 完成结论。
+
 ## 3. 最新验证基线
 
-2026-09-19 Note Format v1 Freeze 完成后的新鲜验证结果：
+2026-09-19 Read / Focus / Fullscreen hardening 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
@@ -96,7 +109,7 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 | Workspace Native | **11 / 11** |
 | Format Freeze Gate | **PASS** |
 | HTML | **12 / 12** |
-| Stage One | **58 / 58** |
+| Stage One | **60 / 60** |
 | Protection | **38 / 38** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |
@@ -108,7 +121,7 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 | Frontend build | **PASS** |
 | Tauri release build | **PASS** |
 
-本轮前端 production build **PASS**，主 JS bundle 约 **842.74 kB**（gzip 约 **265.72 kB**）；Vite 仍提示 >500 kB 的 code-splitting 警告，继续作为 V1 收尾项。Tauri release build 已重新产出 MSI 与 NSIS bundle。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。
+本轮前端 production build **PASS**，主 JS bundle 约 **843.35 kB**（gzip 约 **265.93 kB**）；Vite 仍提示 >500 kB 的 code-splitting 警告，继续作为 V1 收尾项。Tauri release build 已重新产出 MSI 与 NSIS bundle。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。
 
 ## 4. 当前基线文档
 
@@ -127,10 +140,9 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 
 Format Freeze 已完成，接下来不再修改 Format v1 的既有磁盘语义，而是围绕 V1 可交付性收尾：
 
-1. **Read / Focus / Fullscreen 硬化**：第一波交互已可用，继续补键盘焦点、窗口尺寸、长内容、系统主题和生命周期边界的最终验收。
-2. **HTML Full Editor**：在不破坏 Quick Edit 简洁性的前提下，为复杂 HTML / CSS / JS 与资源管理提供高级编辑路径。
-3. **导出**：完成 Browser Bundle / Markdown export 的 V1 明确语义，尤其保证 Mixed Note 导出不会静默丢失 HTML 或 managed resources。
-4. **Workspace 后续增强（非当前阻塞）**：真实 Favorites、Trash/delete/recovery、filesystem watcher、multi-Workspace、SQLite/FTS 等按后续独立 Slice 处理。
-5. **最终收尾**：处理 bundle 体积、UI 一致性、错误提示、空状态及最终发布验证。
+1. **HTML Full Editor**：在不破坏 Quick Edit 简洁性的前提下，为复杂 HTML / CSS / JS 与资源管理提供高级编辑路径。
+2. **导出**：完成 Browser Bundle / Markdown export 的 V1 明确语义，尤其保证 Mixed Note 导出不会静默丢失 HTML 或 managed resources。
+3. **Workspace 后续增强（非当前阻塞）**：真实 Favorites、Trash/delete/recovery、filesystem watcher、multi-Workspace、SQLite/FTS 等按后续独立 Slice 处理。
+4. **最终收尾**：处理系统主题联动、bundle 体积、UI 一致性、错误提示、空状态及最终发布验证。
 
 V1 收尾过程中不得通过删除 Requirements Matrix 中的未实现条目来缩小产品定义。超出 V1 当前收尾范围的 Shared Localized Resource、CDN Localization、cross-note dependency copy 等继续保持 Planned / Partial，后续按 Matrix 单独进入实现切片。

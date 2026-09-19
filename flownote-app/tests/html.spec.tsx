@@ -208,12 +208,25 @@ async function fullscreenPresentationOpensAndEscCloses() {
     await h.mount(SOURCE);
     const fullscreen = document.querySelector<HTMLButtonElement>('[aria-label="全屏 HTML Block"]');
     assert.ok(fullscreen, 'Fullscreen HTML action is missing');
+    fullscreen.focus();
+    assert.equal(document.activeElement, fullscreen);
     await act(async () => fullscreen.click());
     const overlay = document.querySelector<HTMLElement>('[role="dialog"][aria-label="HTML 全屏展示"]');
     assert.ok(overlay, 'Fullscreen presentation overlay did not open');
     assert.ok(overlay.querySelector('iframe'), 'Fullscreen presentation did not render the HTML visual');
+    const close = overlay.querySelector<HTMLButtonElement>('[aria-label="退出 HTML 全屏"]');
+    assert.ok(close, 'Fullscreen exit action is missing');
+    assert.equal(document.activeElement === close, true, 'Fullscreen must move keyboard focus to its exit action');
+    assert.equal(document.body.style.overflow, 'hidden', 'Fullscreen must lock background scrolling');
+    assert.equal(document.getElementById('harness')?.hasAttribute('inert'), true,
+      'Fullscreen must make the background editor inert');
+
     await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
     assert.equal(document.querySelector('[role="dialog"][aria-label="HTML 全屏展示"]'), null);
+    assert.equal(document.body.style.overflow, '', 'Fullscreen exit did not restore background scrolling');
+    assert.equal(document.getElementById('harness')?.hasAttribute('inert'), false,
+      'Fullscreen exit did not restore background interaction');
+    assert.equal(document.activeElement === fullscreen, true, 'Fullscreen exit did not restore the invoking control focus');
   } finally { await h.unmount(); }
 }
 

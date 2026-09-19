@@ -429,6 +429,13 @@
   .html-quick-edit-source { display: none; }
 }
 
+@media (max-width: 640px), (max-height: 520px) {
+  .html-fullscreen-exit { height: 38px; padding: 0 10px; }
+  .html-fullscreen-exit > span:nth-child(2) { display: none; }
+  .html-fullscreen-canvas { padding: 4px 6px 6px; }
+  .html-fullscreen-canvas .html-sandbox { border-radius: 8px; }
+}
+
 /* jsdom and browser-safe explicit quote rule. */
 .flownote-editor .ProseMirror blockquote { border-left-width: 2px; border-left-style: solid; border-left-color: #d9dde5; }
 [data-theme='dark'] .flownote-editor .ProseMirror blockquote { border-left-color: #3d4655; }

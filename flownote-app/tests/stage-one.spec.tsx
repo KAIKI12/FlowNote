@@ -36,6 +36,19 @@ function foundationChecks(h: ReturnType<typeof createHarness>): Check[] {
       assert.equal(/\.writing-app\s+:focus-visible\s*\{/.test(css), false,
         'Do not apply one global focus ring to every descendant of the writing workspace');
     } },
+    { name: '长文档布局：滚动限制在中央编辑区而不是撑高整个 App', run: async () => {
+      const globalCss = readFileSync(path.join(process.cwd(), 'src/styles/global.css'), 'utf8');
+      const editorCss = readFileSync(path.join(process.cwd(), 'src/styles/editor.css'), 'utf8');
+      assert.match(globalCss, /\.writing-app\s*\{[^}]*height:\s*100vh/s);
+      assert.match(globalCss, /\.writing-workspace\s*\{[^}]*overflow:\s*hidden/s);
+      assert.match(editorCss, /\.flownote-editor\s*\{[^}]*height:\s*100%[^}]*overflow:\s*hidden/s);
+      assert.match(editorCss, /\.editor-visual-surface\s*>\s*\[data-milkdown-root\]\s*\{[^}]*overflow:\s*auto/s);
+    } },
+    { name: '窄窗口布局：HTML 全屏保持紧凑边距和可退出画布', run: async () => {
+      const css = readFileSync(path.join(process.cwd(), 'src/styles/editor.css'), 'utf8');
+      assert.match(css, /@media\s*\(max-width:\s*640px\),\s*\(max-height:\s*520px\)[\s\S]*?\.html-fullscreen-canvas\s*\{[^}]*padding:\s*4px\s+6px\s+6px/s);
+      assert.match(css, /@media\s*\(max-width:\s*640px\),\s*\(max-height:\s*520px\)[\s\S]*?\.html-fullscreen-canvas\s+\.html-sandbox\s*\{[^}]*border-radius:\s*8px/s);
+    } },
     { name: '代码高亮：关键字和字符串着色，源码不变', run: async () => {
       await h.mount(SAMPLE);
       const keyword = document.querySelector('pre .token.keyword');

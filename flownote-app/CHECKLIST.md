@@ -97,7 +97,7 @@
 - [x] Workspace Native：**11 / 11**
 - [x] Format Freeze Gate：PASS
 - [x] HTML：**12 / 12**
-- [x] Stage One：**58 / 58**
+- [x] Stage One：**60 / 60**
 - [x] Protection：**38 / 38**
 - [x] Qualification：**36 / 36**
 - [x] Files：**18 / 18**
@@ -108,7 +108,7 @@
 - [x] Rust Clippy：PASS
 - [x] Frontend build：PASS
 - [x] Tauri release build：PASS
-- [x] 2026-09-19 production build 主 JS 约 **842.74 kB**（gzip **265.72 kB**）；>500 kB code-splitting warning 继续列入 V1 收尾。
+- [x] 2026-09-19 production build 主 JS 约 **843.35 kB**（gzip **265.93 kB**）；>500 kB code-splitting warning 继续列入 V1 收尾。
 ## Format Freeze — completed
 
 - [x] 冻结 `formatVersion: 1` 当前持久化语义；Note Format v1.2 已升级为 Final。
@@ -121,13 +121,13 @@
 - [x] Crash / Failure：partial Block、遗留 `.flownote-*.tmp` 与 atomic-save recovery 都保留可恢复数据。
 ## V1 产品收尾 — pending
 
-- [ ] Read / Focus / Fullscreen 最终硬化：第一波原型已可用，继续完成焦点、长内容、窗口尺寸和生命周期最终验收。
+- [x] Read / Focus / Fullscreen 硬化：Read 去编辑 chrome；Focus 隐藏并恢复左右栏状态；HTML Fullscreen 管理焦点、背景 inert、滚动锁定与 Esc 恢复；长文档 / 窄窗口回归已覆盖。
 - [x] 文件树：当前 Sidebar 已接入真实 Workspace 文件组织与持久化恢复。
 - [x] 搜索：已接入 filename / title / Markdown body / `.note/content.md` 的基础 native bounded scan；SQLite/FTS 索引属于后续增强。
 - [ ] Full HTML Editor：补复杂 HTML / CSS / JS 与资源管理路径。
 - [ ] Browser Bundle export：Mixed Note 可脱离 FlowNote 打开，保持正文 / 图片 / Block 顺序与隔离语义。
 - [ ] Markdown export：明确 Mixed Note 导出策略，不能静默丢失 HTML 或 managed resources。
-- [ ] 收尾 UI / 错误提示 / 空状态 / bundle 体积 / 最终发布验证。
+- [ ] 收尾 UI / 系统主题联动 / 错误提示 / 空状态 / bundle 体积 / 最终发布验证。
 
 ## 需求保留规则
 

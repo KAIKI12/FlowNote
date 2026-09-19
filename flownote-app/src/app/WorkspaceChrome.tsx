@@ -24,8 +24,9 @@ export function WorkspaceTopbar({
 }: TopbarProps) {
   return <header className="workspace-topbar">
     <div className="workspace-brand">
-      <button type="button" className="workspace-icon-button" aria-label={sidebarOpen ? '收起文件侧栏' : '展开文件侧栏'}
-        onClick={onToggleSidebar}>{sidebarOpen ? '‹' : '›'}</button>
+      {mode !== 'focus' && <button type="button" className="workspace-icon-button"
+        aria-label={sidebarOpen ? '收起文件侧栏' : '展开文件侧栏'}
+        onClick={onToggleSidebar}>{sidebarOpen ? '‹' : '›'}</button>}
       <span className="workspace-logo" aria-hidden="true" />
       <span className="workspace-brand-name">FlowNote</span>
       <span className="workspace-current-title">{title}</span>

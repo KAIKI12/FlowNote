@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { HtmlSandbox } from '../../../html/HtmlSandbox';
 import { resolveHtmlResources } from '../../../html/htmlResources';
@@ -28,6 +28,8 @@ export function HtmlBlockView({ blockId, width, host }: HtmlBlockViewProps) {
   const [editBase, setEditBase] = useState(block?.html ?? '');
   const [preview, setPreview] = useState(block?.html ?? '');
   const [resourceError, setResourceError] = useState('');
+  const fullscreenCloseRef = useRef<HTMLButtonElement>(null);
+  const fullscreenReturnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => setLayout(width), [width]);
   useEffect(() => {
@@ -51,9 +53,30 @@ export function HtmlBlockView({ blockId, width, host }: HtmlBlockViewProps) {
   }, [block, blockId, host]);
   useEffect(() => {
     if (!fullscreen) return;
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setFullscreen(false); };
+    const previousOverflow = document.body.style.overflow;
+    const overlay = document.querySelector<HTMLElement>('.html-fullscreen');
+    const background = [...document.body.children]
+      .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== overlay)
+      .map(element => ({ element, inert: element.hasAttribute('inert') }));
+    document.body.style.overflow = 'hidden';
+    for (const item of background) item.element.setAttribute('inert', '');
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setFullscreen(false);
+    };
     window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
+    fullscreenCloseRef.current?.focus();
+    return () => {
+      window.removeEventListener('keydown', close);
+      document.body.style.overflow = previousOverflow;
+      for (const item of background) {
+        if (!item.inert) item.element.removeAttribute('inert');
+      }
+      const target = fullscreenReturnFocusRef.current;
+      fullscreenReturnFocusRef.current = null;
+      if (target?.isConnected) target.focus();
+    };
   }, [fullscreen]);
 
   const select = () => {
@@ -87,7 +110,12 @@ export function HtmlBlockView({ blockId, width, host }: HtmlBlockViewProps) {
         <button type="button" aria-label="切换 HTML Block 宽度" title="Width" onClick={event => { event.stopPropagation(); cycleLayout(); }}>
           {layout === 'normal' ? 'Normal' : layout === 'wide' ? 'Wide' : 'Full'}
         </button>
-        <button type="button" aria-label="全屏 HTML Block" title="Fullscreen" onClick={event => { event.stopPropagation(); select(); setFullscreen(true); }}>Fullscreen</button>
+        <button type="button" aria-label="全屏 HTML Block" title="Fullscreen" onClick={event => {
+          event.stopPropagation();
+          select();
+          fullscreenReturnFocusRef.current = event.currentTarget;
+          setFullscreen(true);
+        }}>Fullscreen</button>
         <button type="button" aria-label="更多 HTML Block 操作" title="More" onClick={event => event.stopPropagation()}>More</button>
         <button type="button" className="html-visual-duplicate" aria-label="复制 HTML Block" title="Duplicate"
           disabled={!block || !host?.duplicate}
@@ -136,7 +164,7 @@ export function HtmlBlockView({ blockId, width, host }: HtmlBlockViewProps) {
         <div className="html-fullscreen" role="dialog" aria-modal="true" aria-label="HTML 全屏展示">
           <div className="html-fullscreen-exit">
             <span>HTML Visual</span><span>Esc to exit</span>
-            <button type="button" aria-label="退出 HTML 全屏" onClick={() => setFullscreen(false)}>Close</button>
+            <button ref={fullscreenCloseRef} type="button" aria-label="退出 HTML 全屏" onClick={() => setFullscreen(false)}>Close</button>
           </div>
           <div className="html-fullscreen-canvas"><HtmlSandbox content={preview} config={block.config} /></div>
         </div>, document.body)}
