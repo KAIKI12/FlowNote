@@ -23,8 +23,10 @@ function localizedResource(value: unknown): LocalizedResource | null {
   if (!item || typeof item.source !== 'string' || typeof item.path !== 'string'
     || !['script', 'stylesheet', 'image', 'style-asset'].includes(String(item.type))
     || typeof item.mime !== 'string' || typeof item.sha256 !== 'string') return null;
+  if (item.resolvedSource !== undefined && typeof item.resolvedSource !== 'string') return null;
   return {
     source: item.source,
+    ...(typeof item.resolvedSource === 'string' ? { resolvedSource: item.resolvedSource } : {}),
     path: item.path,
     type: item.type as LocalizedResourceType,
     mime: item.mime,

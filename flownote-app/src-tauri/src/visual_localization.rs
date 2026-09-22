@@ -45,6 +45,8 @@ pub trait RemoteFetcher {
 #[serde(rename_all = "camelCase")]
 struct LocalizedResource {
     source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resolved_source: Option<String>,
     path: String,
     #[serde(rename = "type")]
     kind: String,
@@ -484,6 +486,7 @@ pub fn localize_with_fetcher<F: RemoteFetcher>(
             source.clone(),
             LocalizedResource {
                 source: source.clone(),
+                resolved_source: (final_url.as_str() != source).then(|| final_url.to_string()),
                 path,
                 kind: kind.clone(),
                 mime: mime.clone(),

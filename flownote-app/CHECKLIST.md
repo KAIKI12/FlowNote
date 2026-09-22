@@ -96,7 +96,7 @@
 - [x] Workspace Frontend：**8 / 8**
 - [x] Workspace Native：**11 / 11**
 - [x] Format Freeze Gate：PASS
-- [x] HTML：**19 / 19**
+- [x] HTML：**20 / 20**
 - [x] Stage One：**70 / 70**
 - [x] Protection：**42 / 42**
 - [x] Qualification：**36 / 36**
@@ -104,7 +104,7 @@
 - [x] 真实磁盘：**20 / 20**
 - [x] Desktop UI：**12 / 12**
 - [x] Desktop IPC / Rust desktop commands：**12 / 12**
-- [x] Rust 全套：**102 passed / 1 ignored**
+- [x] Rust 全套：**103 passed / 1 ignored**
 - [x] Rust Clippy：PASS
 - [x] Frontend build：PASS
 - [x] Tauri release build：PASS

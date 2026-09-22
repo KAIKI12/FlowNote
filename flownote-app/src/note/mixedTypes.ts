@@ -2,6 +2,7 @@ export type LocalizedResourceType = 'script' | 'stylesheet' | 'image' | 'style-a
 
 export interface LocalizedResource {
   source: string;
+  resolvedSource?: string;
   path: string;
   type: LocalizedResourceType;
   mime: string;

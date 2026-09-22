@@ -34,7 +34,7 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 - Workspace Frontend：**8 / 8**
 - Workspace Native：**11 / 11**
 - Format Freeze Gate：**PASS**
-- HTML：**19 / 19**
+- HTML：**20 / 20**
 - Stage One：**70 / 70**
 - Protection：**42 / 42**
 - Qualification：**36 / 36**
@@ -44,7 +44,7 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 - Markdown Export `file://` qualification：**PASS**
 - Desktop UI：**12 / 12**
 - Desktop IPC：**12 / 12**
-- Rust 全套：**102 passed / 1 ignored**
+- Rust 全套：**103 passed / 1 ignored**
 - Rust Clippy：**PASS**
 - Frontend build：**PASS**
 - Tauri release build：**PASS**

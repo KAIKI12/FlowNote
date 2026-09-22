@@ -34,6 +34,11 @@ impl FakeFetcher {
         self
     }
 
+    fn final_url(mut self, source: &str, final_url: &str) -> Self {
+        self.responses.get_mut(source).unwrap().final_url = final_url.into();
+        self
+    }
+
     fn calls(&self) -> Vec<String> { self.calls.lock().unwrap().clone() }
 }
 
@@ -96,6 +101,28 @@ fn localization_preserves_current_original_and_maps_css_nested_assets() {
     }
     assert_eq!(fetcher.calls().len(), 3);
     assert!(!store.probe(&source_id).unwrap().changed);
+}
+
+#[test]
+fn redirected_stylesheet_persists_final_url_for_nested_runtime_resolution() {
+    let root = folder();
+    let items = root.join("visual-library/items");
+    let trash = root.join("visual-library/trash");
+    let html = r#"<link rel="stylesheet" href="https://cdn.example/theme.css">"#;
+    let (_store, _source_id, item) = collect_remote_visual(&root, html);
+
+    let fetcher = FakeFetcher::new(vec![
+        ("https://cdn.example/theme.css", "text/css", br#".x{src:url("./fonts/font.woff2")}"#.to_vec()),
+        ("https://static.example/v2/fonts/font.woff2", "font/woff2", vec![1, 2, 3]),
+    ]).final_url("https://cdn.example/theme.css", "https://static.example/v2/theme.css");
+    let updated = visual_localization::localize_with_fetcher(&items, &trash, &item.id, vec![
+        LocalizationDependency { source: "https://cdn.example/theme.css".into(), kind: "stylesheet".into() },
+    ], &fetcher).unwrap();
+
+    let localized = updated.config["resources"]["localized"].as_array().unwrap();
+    let stylesheet = localized.iter().find(|entry| entry["source"] == "https://cdn.example/theme.css").unwrap();
+    assert_eq!(stylesheet["resolvedSource"], "https://static.example/v2/theme.css");
+    assert!(localized.iter().any(|entry| entry["source"] == "https://static.example/v2/fonts/font.woff2"));
 }
 
 #[test]

@@ -199,6 +199,28 @@ async function localizedRemoteResourcesResolveWithoutMutatingSource() {
   assert.equal(summary.status, 'local');
 }
 
+async function redirectedStylesheetUsesFinalUrlAsRelativeResourceBase() {
+  const source = '<link rel="stylesheet" href="https://cdn.example/theme.css">';
+  const config = {
+    kind: 'html' as const, inputKind: 'fragment' as const, scriptPolicy: 'sandbox' as const, viewport: { heightPx: 480 },
+    resources: { localized: [
+      { source: 'https://cdn.example/theme.css', resolvedSource: 'https://static.example/v2/theme.css',
+        path: 'assets/localized/theme.css', type: 'stylesheet', mime: 'text/css', sha256: 'a' },
+      { source: 'https://static.example/v2/fonts/font.woff2', path: 'assets/localized/font.woff2',
+        type: 'style-asset', mime: 'font/woff2', sha256: 'b' },
+    ] },
+  };
+  const assets: Record<string, { path: string; mime: string; bytes: number[] }> = {
+    'assets/localized/theme.css': { path: 'assets/localized/theme.css', mime: 'text/css',
+      bytes: [...Buffer.from('@font-face{src:url("./fonts/font.woff2")}')] },
+    'assets/localized/font.woff2': { path: 'assets/localized/font.woff2', mime: 'font/woff2', bytes: [1, 2, 3] },
+  };
+  const resolved = await resolveHtmlResources(source, async path => assets[path], config);
+  const css = resolved.match(/href="data:text\/css;base64,([^"]+)"/);
+  assert.ok(css);
+  assert.match(Buffer.from(css[1], 'base64').toString('utf8'), /data:font\/woff2;base64,/);
+}
+
 async function inlineHtmlView() {
   const h = createHarness(); note();
   try {
@@ -493,6 +515,7 @@ export async function run(filter: string) {
     { name: 'HTML 资源：Block 私有 CSS / JS / 图片相对路径转换为 sandbox 内部资源', run: localResourcesResolveInsideSandbox },
     { name: 'HTML 远程资源：仅检查静态依赖并报告动态/模块未解析项，不触发下载', run: remoteResourcesAreInspectedWithoutDownloading },
     { name: 'HTML 远程资源：localized mapping 离线解析且不改写 Current Source', run: localizedRemoteResourcesResolveWithoutMutatingSource },
+    { name: 'HTML 远程资源：stylesheet redirect 后相对 url() 使用最终 URL 作为 base', run: redirectedStylesheetUsesFinalUrlAsRelativeResourceBase },
     { name: 'HTML 展示：真正的隔离 iframe 位于 Markdown 中间，默认断网', run: inlineHtmlView },
     { name: 'HTML 保护：重复 Anchor 保留源码并提示', run: duplicateAnchorsAreProtected },
     { name: 'HTML 保护：无效引用和扩展字段保留原 fence', run: invalidAndMissingAnchorsKeepSource },

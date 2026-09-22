@@ -104,7 +104,7 @@ export async function resolveHtmlResources(
     const mapped = mappingFor(reference, mappings);
     if (!mapped || mapped.type !== 'stylesheet') continue;
     const asset = await load(mapped.path);
-    const css = await rewriteCss(utf8(asset), mapped.path, load, mappings, mapped.source);
+    const css = await rewriteCss(utf8(asset), mapped.path, load, mappings, mapped.resolvedSource ?? mapped.source);
     link.href = dataUrl({ path: mapped.path, mime: 'text/css', bytes: [...new TextEncoder().encode(css)] });
   }
 
