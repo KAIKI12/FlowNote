@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Build Windows installers
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: flownote-app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: flownote-app/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: flownote-app/src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Frontend production build
+        run: npm run build
+
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1
+
+      - name: Build MSI and NSIS installers
+        run: npm run tauri:build
+
+      - name: Generate SHA256 checksums
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $PWD "src-tauri/target/release/bundle"
+          $files = @(
+            Get-ChildItem (Join-Path $bundle "msi") -Filter *.msi -File
+            Get-ChildItem (Join-Path $bundle "nsis") -Filter *-setup.exe -File
+          )
+          if ($files.Count -lt 2) {
+            throw "Expected MSI and NSIS installers, found $($files.Count)"
+          }
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $lines | Set-Content -Path (Join-Path $bundle "SHA256SUMS.txt") -Encoding ascii
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: FlowNote ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            flownote-app/src-tauri/target/release/bundle/msi/*.msi
+            flownote-app/src-tauri/target/release/bundle/nsis/*-setup.exe
+            flownote-app/src-tauri/target/release/bundle/SHA256SUMS.txt

@@ -1,5 +1,7 @@
 # FlowNote 技术验证 Demo
 
+> Windows 安装包会发布到 [GitHub Releases](https://github.com/KAIKI12/FlowNote/releases/latest)：推荐下载 NSIS `FlowNote_*_x64-setup.exe`，也提供 MSI 和 `SHA256SUMS.txt`。
+
 FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、Source Protection Narrowing、Reference UI Alignment、Raw HTML Visual Compatibility / Seamless Focus、Link / Outline / Chrome Readability，以及 V1.1 Visual Library Slice 1–2；当前 V1 发布侧只剩安装 / 卸载 / 升级级验证，V1.1 继续推进 reusable visual 的 Local First 资源能力。
 
 当前主能力包括：
