@@ -260,6 +260,7 @@ async function visualLibraryPortUsesRegisteredCommands() {
   const visualId = '0199a222-0000-7000-8000-000000000010';
   const item = {
     id: visualId, title: 'Reusable Visual', createdAtMs: 1800000000000, updatedAtMs: 1800000000000,
+    favorite: false, tags: [], trashed: false,
     html: '<div>Current</div>',
     config: { kind: 'html', inputKind: 'fragment', scriptPolicy: 'sandbox', viewport: { heightPx: 480 } },
     assetCount: 1,
@@ -271,6 +272,9 @@ async function visualLibraryPortUsesRegisteredCommands() {
     if (command === 'visual_library_package') return { item, originalHtml: '<div>Original</div>',
       assets: [{ path: 'assets/style.css', mime: 'text/css', bytes: [98, 111, 100, 121] }] };
     if (command === 'visual_library_read_asset') return { path: 'assets/style.css', mime: 'text/css', bytes: [98, 111, 100, 121] };
+    if (command === 'visual_library_update') return { ...item, title: 'Renamed', favorite: true, tags: ['report'] };
+    if (command === 'visual_library_trash') return { ...item, trashed: true };
+    if (command === 'visual_library_restore') return item;
     throw new Error('unexpected command');
   });
 
@@ -280,12 +284,22 @@ async function visualLibraryPortUsesRegisteredCommands() {
   assert.equal(loaded.originalHtml, '<div>Original</div>');
   assert.equal(loaded.assets[0].path, 'assets/style.css');
   assert.equal((await port.readAsset(visualId, 'assets/style.css')).mime, 'text/css');
-  assert.deepEqual(calls.map(call => call.command),
-    ['visual_library_list', 'visual_library_collect', 'visual_library_package', 'visual_library_read_asset']);
+  const updated = await port.update({ id: visualId, title: 'Renamed', favorite: true, tags: ['report'] });
+  assert.equal(updated.title, 'Renamed');
+  assert.equal(updated.favorite, true);
+  assert.deepEqual(updated.tags, ['report']);
+  assert.equal((await port.trash(visualId)).trashed, true);
+  assert.equal((await port.restore(visualId)).trashed, false);
+  assert.deepEqual(calls.map(call => call.command), [
+    'visual_library_list', 'visual_library_collect', 'visual_library_package', 'visual_library_read_asset',
+    'visual_library_update', 'visual_library_trash', 'visual_library_restore',
+  ]);
   assert.deepEqual(calls[1].args, { request: {
     noteId: 'note:capability', revision: 'r1', blockId: ID, title: 'Reusable Visual',
   } });
   assert.deepEqual(calls[2].args, { request: { id: visualId } });
+  assert.deepEqual(calls[4].args, { request: { id: visualId, title: 'Renamed', favorite: true, tags: ['report'] } });
+  assert.deepEqual(calls[5].args, { request: { id: visualId } });
 }
 
 async function nativeNotePortUsesRegisteredCommands() {

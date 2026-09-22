@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { fileError, type MarkdownFileError } from '../files/fileTypes';
 import { defaultVisualLibraryPort } from './defaultVisualLibraryPort';
-import type { VisualLibraryItem, VisualLibraryPackage, VisualLibraryPort } from './types';
+import type { VisualLibraryItem, VisualLibraryPackage, VisualLibraryPort, VisualMetadataUpdate } from './types';
 
 interface Options { port?: VisualLibraryPort | null }
 
 export function useVisualLibrary(options: Options = {}) {
   const portRef = useRef<VisualLibraryPort | null>(options.port === undefined ? defaultVisualLibraryPort() : options.port);
   const [items, setItems] = useState<VisualLibraryItem[]>([]);
-  const [busy, setBusy] = useState<'list' | 'collect' | 'load' | null>(null);
+  const [busy, setBusy] = useState<'list' | 'collect' | 'load' | 'update' | 'trash' | 'restore' | null>(null);
   const [error, setError] = useState<MarkdownFileError | null>(null);
   const [notice, setNotice] = useState('');
 
@@ -52,10 +52,59 @@ export function useVisualLibrary(options: Options = {}) {
     finally { setBusy(null); }
   };
 
+  const replace = (item: VisualLibraryItem) => {
+    setItems(previous => previous.map(value => value.id === item.id ? item : value));
+  };
+
+  const updateMetadata = async (value: VisualMetadataUpdate) => {
+    const port = portRef.current;
+    if (!port) return null;
+    setBusy('update'); setError(null); setNotice('');
+    try {
+      const item = await port.update(value);
+      replace(item);
+      setNotice(`已更新 Visual：${item.title}`);
+      return item;
+    } catch (cause) {
+      setError(fileError(cause));
+      return null;
+    } finally { setBusy(null); }
+  };
+
+  const trash = async (id: string) => {
+    const port = portRef.current;
+    if (!port) return null;
+    setBusy('trash'); setError(null); setNotice('');
+    try {
+      const item = await port.trash(id);
+      replace(item);
+      setNotice(`已移到 Trash：${item.title}`);
+      return item;
+    } catch (cause) {
+      setError(fileError(cause));
+      return null;
+    } finally { setBusy(null); }
+  };
+
+  const restore = async (id: string) => {
+    const port = portRef.current;
+    if (!port) return null;
+    setBusy('restore'); setError(null); setNotice('');
+    try {
+      const item = await port.restore(id);
+      replace(item);
+      setNotice(`已恢复 Visual：${item.title}`);
+      return item;
+    } catch (cause) {
+      setError(fileError(cause));
+      return null;
+    } finally { setBusy(null); }
+  };
+
   return {
     available: !!portRef.current,
     items, busy, error, notice,
-    refresh, collect, load,
+    refresh, collect, load, updateMetadata, trash, restore,
     readAsset: async (id: string, path: string) => {
       const port = portRef.current;
       if (!port) throw new Error('Visual Library 仅在桌面版可用');

@@ -168,7 +168,7 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 | VLIB-03 | Visual Library can be browsed with sandboxed preview, title and basic metadata | Library UI + resource resolver | Completed | V1.1 Slice 1 |
 | VLIB-04 | Inserting a library item creates a new independent Block ID and copies owned assets into the target Note | Cross-owner import transaction | Completed | V1.1 Slice 1 |
 | VLIB-05 | Library storage is outside Note Format v1 and does not become a second canonical source for note body/order | Storage boundary invariant | Implemented by architecture | Ongoing invariant |
-| VLIB-06 | Future rename/delete/favorites/tags/search for visuals operate on library metadata, not Note content | Library metadata layer | Planned | V1.1+ |
+| VLIB-06 | Rename/delete/favorites/tags/search for visuals operate on library metadata, not Note content; delete is recoverable through app-owned Trash | Library metadata layer + recoverable trash | Completed | V1.1 Slice 2 |
 
 ## L. Export
 

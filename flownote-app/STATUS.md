@@ -2,7 +2,7 @@
 
 **更新时间：2026-09-22**
 
-**当前阶段：V1 基线能力与发布收尾保持稳定；V1.1 已开始开发。V1.1 Slice 1「Visual Library / reusable visuals」已完成：可从已保存 HTML Visual 收藏 Current / Original / config / 私有资源，在 Sidebar 浏览 sandbox preview，并以全新 Block ID 和独立资源副本插回任意可写 Mixed Note。下一步进入 V1.1 Visual Library 的 metadata management（rename / delete / favorite / tags / search），不改变 Note Format v1。**
+**当前阶段：V1 基线能力与发布收尾保持稳定；V1.1 Visual Library 已完成 Slice 1–2。除收藏 / 复用外，Visuals Sidebar 现已支持 rename、tags、favorite、title/tag search、Favorites 过滤，以及可恢复的 app-owned Trash / Restore；这些状态全部属于 Library metadata，不写入 Note Format v1，也不会联动修改来源 Note 或已经插入的 Block 副本。下一步进入 V1.1 的资源本地化 / reusable visual 资产增强。**
 
 **范围原则：Slice 完成只表示当前切片定义的实现与验证范围完成，不删除最终需求。Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等尚未实现的能力继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留。**
 
@@ -227,9 +227,24 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 
 本 Slice 明确未包含 Library rename/delete/favorite/tags/search；这些进入 V1.1 后续 metadata-management Slice，不通过修改 Note 内容实现。
 
+## 2.18 V1.1 Visual Library Slice 2 — metadata management completed
+
+2026-09-22 在 Slice 1 的 reusable Visual package 基础上完成 Library metadata 与恢复能力，仍保持 Note Format v1 冻结：
+
+- **Rename / Tags / Favorite**：Visual card 可直接编辑标题与 tags，并可切换 Favorite；metadata 更新只写 app-owned `visual.json`。
+- **Search / Filter**：Visuals Sidebar 支持按 title / tags 即时搜索，并提供 All / Favorites / Trash 过滤；不扫描 Note 正文，也不引入 SQLite/FTS。
+- **Recoverable Trash**：删除操作不递归销毁 package，而是把整个 Visual 目录从 `items/` 原子移动到 `trash/`；Trash 中可预览、读取资源并 Restore，但不能 Insert。
+- **Ownership 不联动**：Trash / Restore 不修改来源 Note，也不删除已插入其他 Note 的独立 Block 副本。
+- **向后兼容**：Slice 1 旧 `visual.json` 没有 `favorite` / `tags` 字段时通过默认值读取，无需迁移或修改 Note Format。
+- **metadata recovery**：metadata replacement 使用 candidate + backup；如果上次更新在 `visual.json → backup` 后中断，下一次更新会先恢复 backup，再继续提交。
+- **并发边界**：Tauri 端新增 Visual Library mutex，list / collect / package / asset / update / trash / restore 在同一 Library 状态边界内串行化。
+- **验证覆盖**：新增 native legacy metadata / Trash / Restore / backup recovery、前端 rename / tags / favorite / search / filter、真实磁盘 metadata + Trash + Restore + Insert 隔离测试。
+
+VLIB-06 已完成；Library metadata 仍与 `.note` 的 `note.json` / `block.json` 解耦。
+
 ## 3. 最新验证基线
 
-2026-09-22 V1.1 Visual Library Slice 1 完成后的新鲜验证结果：
+2026-09-22 V1.1 Visual Library Slice 2 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
@@ -237,7 +252,7 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 | Workspace Native | **11 / 11** |
 | Format Freeze Gate | **PASS** |
 | HTML | **17 / 17** |
-| Stage One | **68 / 68** |
+| Stage One | **69 / 69** |
 | Protection | **42 / 42** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |
@@ -246,7 +261,7 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 | Markdown Export `file://` qualification | **PASS** |
 | Desktop UI | **12 / 12** |
 | Desktop IPC / Rust desktop commands | **12 / 12** |
-| Rust 全套 | **96 passed / 1 ignored** |
+| Rust 全套 | **98 passed / 1 ignored** |
 | Rust Clippy | **PASS** |
 | Frontend build | **PASS** |
 | Tauri release build | **PASS** |
@@ -267,13 +282,13 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 
 格式文档当前为 **v1.2 Final**；磁盘字段仍为 `formatVersion: 1`。本次冻结没有改变磁盘版本号；未来不兼容格式变更必须显式升级 `formatVersion`。
 
-## 5. 下一阶段：V1.1 Visual Library metadata management
+## 5. 下一阶段：V1.1 reusable visual assets / localization
 
-V1 基线与 Note Format v1 继续保持冻结；V1.1 接下来只扩展 app-owned Library metadata 与 UI，不改写既有 Note 磁盘语义：
+Visual Library 的收藏、复用和 metadata management 已完成；下一步转向真正影响 Local First 的资源边界：
 
-1. **Library metadata management**：增加 rename、delete、favorite 与 tags；操作对象是 Library item metadata，不修改源 Note 或已插入 Block。
-2. **Library search/filter**：在 Visuals Tab 内按 title / tags 进行即时搜索与 favorite 过滤；先做有界本地 metadata 扫描，不引入 SQLite/FTS。
-3. **删除与恢复边界**：删除 Library item 时先明确采用 app-owned trash / tombstone 语义，避免直接递归删除后无法恢复；不会联动删除任何 Note 中已经复制出去的 Block。
-4. **后续增强**：Shared Localized Resource、CDN Localization、cross-note dependency copy、Presentation / AI 与 Workspace 高阶能力继续按 Requirements Matrix 分期实现。
+1. **Remote dependency inventory**：对收藏 Visual 中的 remote CSS / JS / image / font URL 做只读扫描并显示 unresolved dependency，不静默联网下载。
+2. **Explicit localization transaction**：用户明确触发后，将可支持的 remote resource 下载 / 复制到 Library item 自有 `assets/**`，重写 Current 的 runtime candidate，同时保持 Original 可恢复。
+3. **Insert ownership**：已 localized 的 Library item 插入 Note 时继续复制为目标 Block 私有资源；Library、来源 Note、目标 Note 三方 ownership 独立。
+4. **Resolver 扩展边界**：先覆盖静态 `src` / `href` / CSS `url()`；`@import`、动态 `fetch()`、module import、Worker / WASM 等继续保留为后续需求，不伪装成已支持。
 
-真实安装 / 卸载 / 升级路径验证仍属于发布侧收尾，但不阻塞 V1.1 Visual Library 的独立迭代。V1.1 开发不得通过修改冻结的 Note Format v1 来偷渡 Library metadata。
+真实安装 / 卸载 / 升级路径验证仍属于发布侧收尾；V1.1 后续功能不得修改冻结的 Note Format v1 来承载 Library 专属 metadata。

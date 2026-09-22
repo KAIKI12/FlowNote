@@ -34,6 +34,7 @@ pub fn configure_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
         .plugin(tauri_plugin_dialog::init())
         .manage(file_commands::ManagedFiles::default())
         .manage(note_commands::ManagedNotes::default())
+        .manage(visual_library::ManagedVisualLibrary::default())
         .manage(workspace::ManagedWorkspace::default())
         .invoke_handler(tauri::generate_handler![
             file_commands::markdown_open,
@@ -61,6 +62,9 @@ pub fn configure_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
             visual_library::visual_library_collect,
             visual_library::visual_library_package,
             visual_library::visual_library_read_asset,
+            visual_library::visual_library_update,
+            visual_library::visual_library_trash,
+            visual_library::visual_library_restore,
             workspace::workspace_pick,
             workspace::workspace_restore,
             workspace::workspace_scan,

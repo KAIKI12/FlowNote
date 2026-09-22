@@ -40,7 +40,9 @@ function visual(value: unknown): VisualLibraryItem {
   const item = object(value, 'item');
   if (!validBlockId(item.id) || typeof item.title !== 'string' || !item.title.trim()
     || !Number.isInteger(item.createdAtMs) || !Number.isInteger(item.updatedAtMs)
-    || typeof item.html !== 'string' || !Number.isInteger(item.assetCount) || Number(item.assetCount) < 0) {
+    || typeof item.favorite !== 'boolean' || !Array.isArray(item.tags) || !item.tags.every(tag => typeof tag === 'string')
+    || typeof item.trashed !== 'boolean' || typeof item.html !== 'string'
+    || !Number.isInteger(item.assetCount) || Number(item.assetCount) < 0) {
     protocol('Visual Library item 字段不完整');
   }
   validateHtmlSource(item.html);
@@ -49,6 +51,9 @@ function visual(value: unknown): VisualLibraryItem {
     title: item.title as string,
     createdAtMs: Number(item.createdAtMs),
     updatedAtMs: Number(item.updatedAtMs),
+    favorite: item.favorite as boolean,
+    tags: [...item.tags] as string[],
+    trashed: item.trashed as boolean,
     html: item.html as string,
     config: config(item.config),
     assetCount: Number(item.assetCount),
@@ -83,6 +88,18 @@ export function createNativeVisualLibraryPort(call: VisualInvoke = invoke): Visu
     async readAsset(id, path) {
       if (!validBlockId(id)) protocol('Visual Library item ID 无效');
       return asset(await request('visual_library_read_asset', { request: { id, path } }));
+    },
+    async update(value) {
+      if (!validBlockId(value.id)) protocol('Visual Library item ID 无效');
+      return visual(await request('visual_library_update', { request: value }));
+    },
+    async trash(id) {
+      if (!validBlockId(id)) protocol('Visual Library item ID 无效');
+      return visual(await request('visual_library_trash', { request: { id } }));
+    },
+    async restore(id) {
+      if (!validBlockId(id)) protocol('Visual Library item ID 无效');
+      return visual(await request('visual_library_restore', { request: { id } }));
     },
   };
 }

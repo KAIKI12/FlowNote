@@ -426,7 +426,9 @@ function App({ filePort, notePort, workspacePort, visualLibraryPort }: {
             notice={visualLibrary.notice} readAsset={visualLibrary.readAsset}
             insertDisabled={note.currentNote?.metadata.type !== 'mixed' || !mixed.state.file || mixed.state.file.readOnly
               || !!mixed.state.busy || !!mixed.state.externalConflict || note.isComposing || !files.editorReady}
-            onRefresh={() => void visualLibrary.refresh()} onInsert={id => void insertVisual(id)} />
+            onRefresh={() => void visualLibrary.refresh()} onInsert={id => void insertVisual(id)}
+            onUpdate={value => void visualLibrary.updateMetadata(value)}
+            onTrash={id => void visualLibrary.trash(id)} onRestore={id => void visualLibrary.restore(id)} />
         : <WorkspaceNavigation snapshot={workspace.snapshot} busy={workspace.busy} error={workspace.error}
             query={workspace.query} view={sidebarView} results={workspace.results} recent={workspace.recent}
             activeRelativePath={workspace.activeRelativePath} selectedFolder={workspace.selectedFolder}

@@ -4,7 +4,7 @@ use flownote::file_error::{FileError, FileResult};
 use flownote::markdown_files::{FileStore, SaveRequest};
 use flownote::note_commands::{AssetRequest as NoteAssetRequest, RepairRequest as NoteRepairRequest};
 use flownote::note_files::{NoteSaveAsRequest, NoteSaveRequest, NoteStore};
-use flownote::visual_library::{self, VisualAssetRequest, VisualCollectRequest, VisualIdRequest};
+use flownote::visual_library::{self, VisualAssetRequest, VisualCollectRequest, VisualIdRequest, VisualMetadataUpdateRequest};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Write};
@@ -94,23 +94,40 @@ fn dispatch_note(store: &mut NoteStore, input: &Input) -> FileResult<Value> {
 
 fn dispatch_visual(notes: &mut NoteStore, input: &Input) -> FileResult<Value> {
     let root = input.selection.as_ref().ok_or_else(|| FileError::new("protocol", "Test driver requires a Visual Library root"))?;
+    let items = root.join("items");
+    let trash = root.join("trash");
     match input.command.as_str() {
-        "visual_library_list" => visual_library::list(root).map(|items| json!(items)),
+        "visual_library_list" => visual_library::list_with_trash(&items, &trash).map(|items| json!(items)),
         "visual_library_collect" => {
             let request: VisualCollectRequest = serde_json::from_value(input.args["request"].clone())
                 .map_err(|error| FileError::io("Invalid Visual collect request", error))?;
             let source = notes.block_package(&request.note_id, &request.revision, &request.block_id)?;
-            visual_library::collect(root, &request.title, source).map(|item| json!(item))
+            visual_library::collect(&items, &request.title, source).map(|item| json!(item))
         }
         "visual_library_package" => {
             let request: VisualIdRequest = serde_json::from_value(input.args["request"].clone())
                 .map_err(|error| FileError::io("Invalid Visual package request", error))?;
-            visual_library::package(root, &request.id).map(|package| json!(package))
+            visual_library::package(&items, &request.id).map(|package| json!(package))
         }
         "visual_library_read_asset" => {
             let request: VisualAssetRequest = serde_json::from_value(input.args["request"].clone())
                 .map_err(|error| FileError::io("Invalid Visual asset request", error))?;
-            visual_library::read_asset(root, &request.id, &request.path).map(|asset| json!(asset))
+            visual_library::read_asset_with_trash(&items, &trash, &request.id, &request.path).map(|asset| json!(asset))
+        }
+        "visual_library_update" => {
+            let request: VisualMetadataUpdateRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Visual metadata request", error))?;
+            visual_library::update_metadata(&items, &trash, request).map(|item| json!(item))
+        }
+        "visual_library_trash" => {
+            let request: VisualIdRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Visual trash request", error))?;
+            visual_library::move_to_trash(&items, &trash, &request.id).map(|item| json!(item))
+        }
+        "visual_library_restore" => {
+            let request: VisualIdRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Visual restore request", error))?;
+            visual_library::restore_from_trash(&items, &trash, &request.id).map(|item| json!(item))
         }
         _ => Err(FileError::new("protocol", "Unknown Visual Library test command")),
     }

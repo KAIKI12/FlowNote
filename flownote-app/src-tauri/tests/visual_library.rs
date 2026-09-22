@@ -3,7 +3,7 @@
 mod note_support;
 
 use flownote::note_files::{BlockAssetImport, HtmlBlockData, NoteSaveRequest, NoteStore};
-use flownote::visual_library;
+use flownote::visual_library::{self, VisualMetadataUpdateRequest};
 use note_support::{anchor, draft, folder, FIRST, SECOND};
 use std::fs;
 
@@ -93,6 +93,95 @@ fn visual_library_package_can_be_inserted_as_independent_block_with_owned_assets
     assert_eq!(fs::read_to_string(target_path.join("blocks").join(SECOND).join("assets/theme.css")).unwrap(),
         "body{background:#fff}");
     assert_ne!(FIRST, SECOND);
+}
+
+#[test]
+fn legacy_metadata_updates_tags_favorites_and_survives_trash_restore() {
+    let root = folder();
+    let note_path = root.join("source.note");
+    let items = root.join("visual-library/items");
+    let trash = root.join("visual-library/trash");
+    let mut store = NoteStore::default();
+    let source = store.save_as_selected(&note_path, draft()).unwrap();
+    let assets = note_path.join("blocks").join(FIRST).join("assets");
+    fs::create_dir_all(&assets).unwrap();
+    fs::write(assets.join("style.css"), ".card{color:purple}").unwrap();
+    let source = store.reload(&source.id).unwrap();
+    let item = visual_library::collect(&items, "Legacy Visual",
+        store.block_package(&source.id, &source.revision, FIRST).unwrap()).unwrap();
+
+    let metadata_path = items.join(&item.id).join("visual.json");
+    fs::write(&metadata_path, serde_json::to_vec_pretty(&serde_json::json!({
+        "formatVersion": 1,
+        "id": item.id,
+        "title": "Legacy Visual",
+        "createdAtMs": item.created_at_ms,
+        "updatedAtMs": item.updated_at_ms
+    })).unwrap()).unwrap();
+
+    let legacy = visual_library::list(&items).unwrap().pop().unwrap();
+    assert!(!legacy.favorite);
+    assert!(legacy.tags.is_empty());
+    assert!(!legacy.trashed);
+
+    let updated = visual_library::update_metadata(&items, &trash, VisualMetadataUpdateRequest {
+        id: legacy.id.clone(),
+        title: "Renamed Visual".into(),
+        favorite: true,
+        tags: vec!["Report".into(), "report".into(), " dark ".into()],
+    }).unwrap();
+    assert_eq!(updated.title, "Renamed Visual");
+    assert!(updated.favorite);
+    assert_eq!(updated.tags, vec!["Report", "dark"]);
+
+    let deleted = visual_library::move_to_trash(&items, &trash, &updated.id).unwrap();
+    assert!(deleted.trashed);
+    assert!(!items.join(&updated.id).exists());
+    assert!(trash.join(&updated.id).is_dir());
+    assert!(visual_library::package(&items, &updated.id).is_err());
+    assert_eq!(visual_library::read_asset_with_trash(&items, &trash, &updated.id, "assets/style.css").unwrap().bytes,
+        b".card{color:purple}");
+    let all = visual_library::list_with_trash(&items, &trash).unwrap();
+    assert_eq!(all.len(), 1);
+    assert!(all[0].trashed);
+    assert!(all[0].favorite);
+    assert_eq!(all[0].tags, vec!["Report", "dark"]);
+
+    let restored = visual_library::restore_from_trash(&items, &trash, &updated.id).unwrap();
+    assert!(!restored.trashed);
+    assert!(items.join(&updated.id).is_dir());
+    assert!(!trash.join(&updated.id).exists());
+    assert_eq!(restored.title, "Renamed Visual");
+    assert!(restored.favorite);
+    assert_eq!(restored.tags, vec!["Report", "dark"]);
+    assert!(!store.probe(&source.id).unwrap().changed);
+}
+
+#[test]
+fn metadata_update_recovers_an_interrupted_backup_only_state() {
+    let root = folder();
+    let note_path = root.join("source.note");
+    let items = root.join("visual-library/items");
+    let trash = root.join("visual-library/trash");
+    let mut store = NoteStore::default();
+    let source = store.save_as_selected(&note_path, draft()).unwrap();
+    let item = visual_library::collect(&items, "Recoverable",
+        store.block_package(&source.id, &source.revision, FIRST).unwrap()).unwrap();
+
+    let directory = items.join(&item.id);
+    fs::rename(directory.join("visual.json"), directory.join(".visual.json.flownote-backup")).unwrap();
+    let listed = visual_library::list(&items).unwrap();
+    assert_eq!(listed[0].title, "Recoverable");
+
+    let updated = visual_library::update_metadata(&items, &trash, VisualMetadataUpdateRequest {
+        id: item.id.clone(),
+        title: "Recovered".into(),
+        favorite: true,
+        tags: vec!["recovery".into()],
+    }).unwrap();
+    assert_eq!(updated.title, "Recovered");
+    assert!(directory.join("visual.json").is_file());
+    assert!(!directory.join(".visual.json.flownote-backup").exists());
 }
 
 #[test]

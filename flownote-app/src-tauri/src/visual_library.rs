@@ -4,8 +4,10 @@ use crate::note_files::{asset_mime, validate_asset_path, BlockAsset, BlockPackag
 use crate::note_format;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 use uuid::Uuid;
@@ -13,8 +15,11 @@ use uuid::Uuid;
 const VISUAL_LIBRARY_VERSION: u64 = 1;
 const MAX_LIBRARY_ITEMS: usize = 512;
 const MAX_TITLE_CHARS: usize = 160;
+const MAX_TAGS: usize = 16;
+const MAX_TAG_CHARS: usize = 32;
 const MAX_VISUAL_BYTES: usize = 16 * 1024 * 1024;
 const MAX_VISUAL_FILES: usize = 256;
+const METADATA_BACKUP: &str = ".visual.json.flownote-backup";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -24,6 +29,10 @@ struct VisualMetadata {
     title: String,
     created_at_ms: u64,
     updated_at_ms: u64,
+    #[serde(default)]
+    favorite: bool,
+    #[serde(default)]
+    tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -33,6 +42,9 @@ pub struct VisualLibraryItem {
     pub title: String,
     pub created_at_ms: u64,
     pub updated_at_ms: u64,
+    pub favorite: bool,
+    pub tags: Vec<String>,
+    pub trashed: bool,
     pub html: String,
     pub config: Value,
     pub asset_count: usize,
@@ -68,6 +80,24 @@ pub struct VisualAssetRequest {
     pub path: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VisualMetadataUpdateRequest {
+    pub id: String,
+    pub title: String,
+    pub favorite: bool,
+    pub tags: Vec<String>,
+}
+
+#[derive(Default)]
+pub struct ManagedVisualLibrary(pub Mutex<()>);
+
+#[derive(Debug, Clone)]
+struct LibraryRoots {
+    items: PathBuf,
+    trash: PathBuf,
+}
+
 fn require_main<R: Runtime>(window: &WebviewWindow<R>) -> FileResult<()> {
     if window.label() != "main" {
         return Err(FileError::new("permission", "此窗口无权操作 Visual Library"));
@@ -75,12 +105,11 @@ fn require_main<R: Runtime>(window: &WebviewWindow<R>) -> FileResult<()> {
     Ok(())
 }
 
-fn library_root<R: Runtime>(app: &AppHandle<R>) -> FileResult<PathBuf> {
+fn library_roots<R: Runtime>(app: &AppHandle<R>) -> FileResult<LibraryRoots> {
     let root = app.path().app_data_dir()
         .map_err(|error| FileError::io("无法定位 FlowNote Visual Library 目录", error))?
-        .join("visual-library")
-        .join("items");
-    Ok(root)
+        .join("visual-library");
+    Ok(LibraryRoots { items: root.join("items"), trash: root.join("trash") })
 }
 
 fn now_ms() -> FileResult<u64> {
@@ -101,6 +130,23 @@ fn title(value: &str) -> FileResult<String> {
     Ok(trimmed.to_string())
 }
 
+fn normalize_tags(values: Vec<String>) -> FileResult<Vec<String>> {
+    if values.len() > MAX_TAGS {
+        return Err(FileError::new("invalidFormat", "Visual tags 最多 16 个"));
+    }
+    let mut seen = BTreeSet::new();
+    let mut result = Vec::new();
+    for value in values {
+        let trimmed = value.trim();
+        if trimmed.is_empty() || trimmed.chars().count() > MAX_TAG_CHARS || trimmed.chars().any(|ch| ch.is_control()) {
+            return Err(FileError::new("invalidFormat", "Visual tag 不能为空、超过 32 字符或包含控制字符"));
+        }
+        let key = trimmed.to_lowercase();
+        if seen.insert(key) { result.push(trimmed.to_string()); }
+    }
+    Ok(result)
+}
+
 fn validate_visual_id(id: &str) -> FileResult<()> {
     note_format::validate_id(id)
 }
@@ -117,6 +163,34 @@ fn write_new(path: &Path, bytes: &[u8]) -> FileResult<()> {
         fs::create_dir_all(parent).map_err(|error| FileError::io("无法创建 Visual Library 目录", error))?;
     }
     fs::write(path, bytes).map_err(|error| FileError::io("无法写入 Visual Library", error))
+}
+
+fn replace_metadata(item: &Path, metadata: &VisualMetadata) -> FileResult<()> {
+    ensure_directory(item)?;
+    let current = item.join("visual.json");
+    let backup = item.join(METADATA_BACKUP);
+    if !current.exists() && backup.exists() {
+        ensure_regular_file(&backup)?;
+        fs::rename(&backup, &current).map_err(|error| FileError::io("无法恢复 Visual metadata 备份", error))?;
+    }
+    ensure_regular_file(&current)?;
+    if backup.exists() {
+        ensure_regular_file(&backup)?;
+        fs::remove_file(&backup).map_err(|error| FileError::io("无法清理 Visual metadata 备份", error))?;
+    }
+    let candidate = item.join(format!(".visual.json.{}.tmp", Uuid::new_v4()));
+    write_new(&candidate, &json_bytes(metadata)?)?;
+    fs::rename(&current, &backup).map_err(|error| {
+        let _ = fs::remove_file(&candidate);
+        FileError::io("无法暂存 Visual metadata", error)
+    })?;
+    if let Err(error) = fs::rename(&candidate, &current) {
+        let _ = fs::rename(&backup, &current);
+        let _ = fs::remove_file(&candidate);
+        return Err(FileError::io("无法提交 Visual metadata", error));
+    }
+    let _ = fs::remove_file(&backup);
+    Ok(())
 }
 
 fn ensure_regular_file(path: &Path) -> FileResult<()> {
@@ -213,14 +287,18 @@ fn asset_paths(item: &Path) -> FileResult<Vec<String>> {
 }
 
 fn load_metadata(item: &Path) -> FileResult<VisualMetadata> {
-    let bytes = read_bounded(&item.join("visual.json"), crate::file_data::MAX_MARKDOWN_BYTES)?;
-    let metadata: VisualMetadata = serde_json::from_slice(&bytes)
+    let current = item.join("visual.json");
+    let backup = item.join(METADATA_BACKUP);
+    let path = if current.exists() { current } else if backup.exists() { backup } else { current };
+    let bytes = read_bounded(&path, crate::file_data::MAX_MARKDOWN_BYTES)?;
+    let mut metadata: VisualMetadata = serde_json::from_slice(&bytes)
         .map_err(|error| FileError::new("invalidFormat", format!("Visual metadata 无效：{error}")))?;
     if metadata.format_version != VISUAL_LIBRARY_VERSION {
         return Err(FileError::new("unsupportedVersion", "Visual Library 项目格式版本不受支持"));
     }
     validate_visual_id(&metadata.id)?;
-    title(&metadata.title)?;
+    metadata.title = title(&metadata.title)?;
+    metadata.tags = normalize_tags(metadata.tags)?;
     Ok(metadata)
 }
 
@@ -232,7 +310,7 @@ fn load_config(item: &Path) -> FileResult<Value> {
     Ok(config)
 }
 
-fn load_item(root: &Path, id: &str) -> FileResult<(VisualLibraryItem, String, Vec<String>)> {
+fn load_item(root: &Path, id: &str, trashed: bool) -> FileResult<(VisualLibraryItem, String, Vec<String>)> {
     let item = item_dir(root, id)?;
     ensure_directory(&item)?;
     let metadata = load_metadata(&item)?;
@@ -248,6 +326,9 @@ fn load_item(root: &Path, id: &str) -> FileResult<(VisualLibraryItem, String, Ve
         title: metadata.title,
         created_at_ms: metadata.created_at_ms,
         updated_at_ms: metadata.updated_at_ms,
+        favorite: metadata.favorite,
+        tags: metadata.tags,
+        trashed,
         html,
         config,
         asset_count: assets.len(),
@@ -267,6 +348,8 @@ pub fn collect(root: &Path, requested_title: &str, source: BlockPackage) -> File
         title: title(requested_title)?,
         created_at_ms: timestamp,
         updated_at_ms: timestamp,
+        favorite: false,
+        tags: Vec::new(),
     };
     note_format::validate_config(&source.block.config)?;
     crate::file_data::validate_content(&source.block.html)?;
@@ -300,11 +383,11 @@ pub fn collect(root: &Path, requested_title: &str, source: BlockPackage) -> File
         let _ = fs::remove_dir_all(&candidate);
         FileError::io("无法发布 Visual Library 项目", error)
     })?;
-    let (item, _, _) = load_item(root, &id)?;
+    let (item, _, _) = load_item(root, &id, false)?;
     Ok(item)
 }
 
-pub fn list(root: &Path) -> FileResult<Vec<VisualLibraryItem>> {
+fn list_at(root: &Path, trashed: bool) -> FileResult<Vec<VisualLibraryItem>> {
     match fs::symlink_metadata(root) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(error) => return Err(FileError::io("无法读取 Visual Library", error)),
@@ -317,18 +400,31 @@ pub fn list(root: &Path) -> FileResult<Vec<VisualLibraryItem>> {
         let entry = entry.map_err(|error| FileError::io("无法读取 Visual Library 项目", error))?;
         let name = match entry.file_name().into_string() { Ok(value) => value, Err(_) => continue };
         if name.starts_with('.') || validate_visual_id(&name).is_err() { continue; }
-        let (item, _, _) = load_item(root, &name)?;
+        let (item, _, _) = load_item(root, &name, trashed)?;
         result.push(item);
         if result.len() > MAX_LIBRARY_ITEMS {
             return Err(FileError::new("tooLarge", "Visual Library 项目数量超过上限"));
         }
     }
-    result.sort_by(|left, right| right.created_at_ms.cmp(&left.created_at_ms).then_with(|| left.title.cmp(&right.title)));
+    result.sort_by(|left, right| right.updated_at_ms.cmp(&left.updated_at_ms)
+        .then_with(|| right.created_at_ms.cmp(&left.created_at_ms))
+        .then_with(|| left.title.cmp(&right.title)));
     Ok(result)
 }
 
+pub fn list(root: &Path) -> FileResult<Vec<VisualLibraryItem>> {
+    list_at(root, false)
+}
+
+pub fn list_with_trash(items: &Path, trash: &Path) -> FileResult<Vec<VisualLibraryItem>> {
+    let mut active = list_at(items, false)?;
+    let mut deleted = list_at(trash, true)?;
+    active.append(&mut deleted);
+    Ok(active)
+}
+
 pub fn package(root: &Path, id: &str) -> FileResult<VisualLibraryPackage> {
-    let (item, original_html, paths) = load_item(root, id)?;
+    let (item, original_html, paths) = load_item(root, id, false)?;
     let directory = item_dir(root, id)?;
     let mut assets = Vec::new();
     let mut total = item.html.len() + original_html.len();
@@ -351,12 +447,84 @@ pub fn read_asset(root: &Path, id: &str, relative: &str) -> FileResult<BlockAsse
     Ok(BlockAsset { path: relative.into(), mime: asset_mime(relative).into(), bytes })
 }
 
+fn located_root<'a>(items: &'a Path, trash: &'a Path, id: &str) -> FileResult<(&'a Path, bool)> {
+    validate_visual_id(id)?;
+    let active = item_dir(items, id)?;
+    match fs::symlink_metadata(&active) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() =>
+            return Err(FileError::new("invalidPath", "Visual Library 项目目录无效")),
+        Ok(_) => return Ok((items, false)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(FileError::io("无法检查 Visual Library 项目", error)),
+    }
+    let deleted = item_dir(trash, id)?;
+    match fs::symlink_metadata(&deleted) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() =>
+            Err(FileError::new("invalidPath", "Visual Library Trash 项目目录无效")),
+        Ok(_) => Ok((trash, true)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound =>
+            Err(FileError::new("notFound", "Visual Library 项目不存在")),
+        Err(error) => Err(FileError::io("无法检查 Visual Library Trash", error)),
+    }
+}
+
+pub fn update_metadata(items: &Path, trash: &Path, request: VisualMetadataUpdateRequest) -> FileResult<VisualLibraryItem> {
+    let (root, trashed) = located_root(items, trash, &request.id)?;
+    let directory = item_dir(root, &request.id)?;
+    let mut metadata = load_metadata(&directory)?;
+    metadata.title = title(&request.title)?;
+    metadata.favorite = request.favorite;
+    metadata.tags = normalize_tags(request.tags)?;
+    metadata.updated_at_ms = now_ms()?;
+    replace_metadata(&directory, &metadata)?;
+    load_item(root, &request.id, trashed).map(|(item, _, _)| item)
+}
+
+pub fn move_to_trash(items: &Path, trash: &Path, id: &str) -> FileResult<VisualLibraryItem> {
+    validate_visual_id(id)?;
+    let source = item_dir(items, id)?;
+    ensure_directory(&source)?;
+    fs::create_dir_all(trash).map_err(|error| FileError::io("无法创建 Visual Library Trash", error))?;
+    let target = item_dir(trash, id)?;
+    if fs::symlink_metadata(&target).is_ok() {
+        return Err(FileError::new("conflict", "Visual Library Trash 中已存在同 ID 项目"));
+    }
+    let mut metadata = load_metadata(&source)?;
+    metadata.updated_at_ms = now_ms()?;
+    replace_metadata(&source, &metadata)?;
+    fs::rename(&source, &target).map_err(|error| FileError::io("无法移动 Visual 到 Trash", error))?;
+    load_item(trash, id, true).map(|(item, _, _)| item)
+}
+
+pub fn restore_from_trash(items: &Path, trash: &Path, id: &str) -> FileResult<VisualLibraryItem> {
+    validate_visual_id(id)?;
+    let source = item_dir(trash, id)?;
+    ensure_directory(&source)?;
+    fs::create_dir_all(items).map_err(|error| FileError::io("无法创建 Visual Library", error))?;
+    let target = item_dir(items, id)?;
+    if fs::symlink_metadata(&target).is_ok() {
+        return Err(FileError::new("conflict", "Visual Library 中已存在同 ID 项目"));
+    }
+    let mut metadata = load_metadata(&source)?;
+    metadata.updated_at_ms = now_ms()?;
+    replace_metadata(&source, &metadata)?;
+    fs::rename(&source, &target).map_err(|error| FileError::io("无法从 Trash 恢复 Visual", error))?;
+    load_item(items, id, false).map(|(item, _, _)| item)
+}
+
+pub fn read_asset_with_trash(items: &Path, trash: &Path, id: &str, relative: &str) -> FileResult<BlockAsset> {
+    let (root, _) = located_root(items, trash, id)?;
+    read_asset(root, id, relative)
+}
 #[tauri::command]
 pub async fn visual_library_list<R: Runtime>(app: AppHandle<R>, window: WebviewWindow<R>) -> FileResult<Vec<VisualLibraryItem>> {
     require_main(&window)?;
-    let root = library_root(&app)?;
-    tauri::async_runtime::spawn_blocking(move || list(&root))
-        .await.map_err(|error| FileError::io("Visual Library 列表操作被中断", error))?
+    let roots = library_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<ManagedVisualLibrary>();
+        let _guard = state.0.lock().map_err(|error| FileError::io("Visual Library 状态异常", error))?;
+        list_with_trash(&roots.items, &roots.trash)
+    }).await.map_err(|error| FileError::io("Visual Library 列表操作被中断", error))?
 }
 
 #[tauri::command]
@@ -366,14 +534,16 @@ pub async fn visual_library_collect<R: Runtime>(
     request: VisualCollectRequest,
 ) -> FileResult<VisualLibraryItem> {
     require_main(&window)?;
-    let root = library_root(&app)?;
+    let roots = library_roots(&app)?;
     tauri::async_runtime::spawn_blocking(move || {
+        let library = app.state::<ManagedVisualLibrary>();
+        let _guard = library.0.lock().map_err(|error| FileError::io("Visual Library 状态异常", error))?;
         let source = {
             let state = app.state::<ManagedNotes>();
             let notes = state.0.lock().map_err(|error| FileError::io("Note 服务状态异常", error))?;
             notes.block_package(&request.note_id, &request.revision, &request.block_id)?
         };
-        collect(&root, &request.title, source)
+        collect(&roots.items, &request.title, source)
     }).await.map_err(|error| FileError::io("Visual 收藏操作被中断", error))?
 }
 
@@ -384,9 +554,12 @@ pub async fn visual_library_package<R: Runtime>(
     request: VisualIdRequest,
 ) -> FileResult<VisualLibraryPackage> {
     require_main(&window)?;
-    let root = library_root(&app)?;
-    tauri::async_runtime::spawn_blocking(move || package(&root, &request.id))
-        .await.map_err(|error| FileError::io("Visual Library 读取操作被中断", error))?
+    let roots = library_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<ManagedVisualLibrary>();
+        let _guard = state.0.lock().map_err(|error| FileError::io("Visual Library 状态异常", error))?;
+        package(&roots.items, &request.id)
+    }).await.map_err(|error| FileError::io("Visual Library 读取操作被中断", error))?
 }
 
 #[tauri::command]
@@ -396,7 +569,55 @@ pub async fn visual_library_read_asset<R: Runtime>(
     request: VisualAssetRequest,
 ) -> FileResult<BlockAsset> {
     require_main(&window)?;
-    let root = library_root(&app)?;
-    tauri::async_runtime::spawn_blocking(move || read_asset(&root, &request.id, &request.path))
-        .await.map_err(|error| FileError::io("Visual Library 资源读取被中断", error))?
+    let roots = library_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<ManagedVisualLibrary>();
+        let _guard = state.0.lock().map_err(|error| FileError::io("Visual Library 状态异常", error))?;
+        read_asset_with_trash(&roots.items, &roots.trash, &request.id, &request.path)
+    }).await.map_err(|error| FileError::io("Visual Library 资源读取被中断", error))?
+}
+
+#[tauri::command]
+pub async fn visual_library_update<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    request: VisualMetadataUpdateRequest,
+) -> FileResult<VisualLibraryItem> {
+    require_main(&window)?;
+    let roots = library_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<ManagedVisualLibrary>();
+        let _guard = state.0.lock().map_err(|error| FileError::io("Visual Library 状态异常", error))?;
+        update_metadata(&roots.items, &roots.trash, request)
+    }).await.map_err(|error| FileError::io("Visual metadata 更新被中断", error))?
+}
+
+#[tauri::command]
+pub async fn visual_library_trash<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    request: VisualIdRequest,
+) -> FileResult<VisualLibraryItem> {
+    require_main(&window)?;
+    let roots = library_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<ManagedVisualLibrary>();
+        let _guard = state.0.lock().map_err(|error| FileError::io("Visual Library 状态异常", error))?;
+        move_to_trash(&roots.items, &roots.trash, &request.id)
+    }).await.map_err(|error| FileError::io("Visual Trash 操作被中断", error))?
+}
+
+#[tauri::command]
+pub async fn visual_library_restore<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    request: VisualIdRequest,
+) -> FileResult<VisualLibraryItem> {
+    require_main(&window)?;
+    let roots = library_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<ManagedVisualLibrary>();
+        let _guard = state.0.lock().map_err(|error| FileError::io("Visual Library 状态异常", error))?;
+        restore_from_trash(&roots.items, &roots.trash, &request.id)
+    }).await.map_err(|error| FileError::io("Visual Restore 操作被中断", error))?
 }

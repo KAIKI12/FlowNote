@@ -1165,6 +1165,9 @@ async function visualLibraryCollectsAndReinsertsIndependentBlock() {
     title: 'External · Visual 1',
     createdAtMs: 1_800_000_000_000,
     updatedAtMs: 1_800_000_000_000,
+    favorite: false,
+    tags: [],
+    trashed: false,
     html: '<section>Library Current</section>',
     config: { kind: 'html' as const, inputKind: 'fragment' as const, scriptPolicy: 'sandbox' as const,
       viewport: { heightPx: 480 } },
@@ -1181,6 +1184,9 @@ async function visualLibraryCollectsAndReinsertsIndependentBlock() {
         assets: [{ path: 'assets/style.css', mime: 'text/css', bytes: [...new TextEncoder().encode('section{color:purple}')] }] };
     },
     readAsset: async (_id, path) => ({ path, mime: 'text/css', bytes: [...new TextEncoder().encode('section{}')] }),
+    update: async request => ({ ...item, ...request }),
+    trash: async () => ({ ...item, trashed: true }),
+    restore: async () => item,
   };
   const notePort = {
     mode: 'desktop', canWrite: true,
@@ -1229,9 +1235,110 @@ async function visualLibraryCollectsAndReinsertsIndependentBlock() {
   }, { notePort, visualLibraryPort });
 }
 
+async function visualLibraryMetadataManagementWorksInSidebar() {
+  const visualId = '0199a222-0000-7000-8000-000000000020';
+  let state = {
+    id: visualId,
+    title: 'Reusable Diagram',
+    createdAtMs: 1_800_000_000_000,
+    updatedAtMs: 1_800_000_000_000,
+    favorite: false,
+    tags: ['diagram'],
+    trashed: false,
+    html: '<section>Reusable</section>',
+    config: { kind: 'html' as const, inputKind: 'fragment' as const, scriptPolicy: 'sandbox' as const,
+      viewport: { heightPx: 480 } },
+    assetCount: 0,
+  };
+  const updates: Array<Parameters<VisualLibraryPort['update']>[0]> = [];
+  const visualLibraryPort: VisualLibraryPort = {
+    list: async () => [state],
+    collect: async () => state,
+    load: async () => ({ item: state, originalHtml: state.html, assets: [] }),
+    readAsset: async (_id, path) => ({ path, mime: 'text/plain', bytes: [] }),
+    update: async request => {
+      updates.push(request);
+      state = { ...state, ...request, updatedAtMs: state.updatedAtMs + 1 };
+      return state;
+    },
+    trash: async id => {
+      assert.equal(id, visualId);
+      state = { ...state, trashed: true, updatedAtMs: state.updatedAtMs + 1 };
+      return state;
+    },
+    restore: async id => {
+      assert.equal(id, visualId);
+      state = { ...state, trashed: false, updatedAtMs: state.updatedAtMs + 1 };
+      return state;
+    },
+  };
+
+  await withApp(async () => {
+    const visuals = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .find(button => button.textContent?.includes('Visuals'));
+    assert.ok(visuals);
+    await act(async () => visuals.click());
+    await waitFor(() => !!document.querySelector('[aria-label="Visual Library"]'));
+    await waitFor(() => !!document.querySelector('[aria-label="Favorite Visual：Reusable Diagram"]'));
+
+    const search = document.querySelector<HTMLInputElement>('[aria-label="搜索 Visual Library"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search, 'diagram');
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    assert.ok(document.querySelector('.visual-library-card'), 'tag search should keep matching Visual visible');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search, 'missing');
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await waitFor(() => !document.querySelector('.visual-library-card'));
+    assert.match(document.querySelector('.visual-library-empty')?.textContent ?? '', /没有匹配/);
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="清除 Visual 搜索"]')!.click());
+    await waitFor(() => !!document.querySelector('.visual-library-card'));
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Favorite Visual：Reusable Diagram"]')!.click());
+    await waitFor(() => !!document.querySelector('[aria-label="取消 Favorite：Reusable Diagram"]'));
+    assert.equal(updates.at(-1)?.favorite, true);
+    const favorites = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .find(button => button.textContent?.includes('Favorites'))!;
+    await act(async () => favorites.click());
+    assert.ok(document.querySelector('.visual-library-card'), 'favorite filter should include favorited Visual');
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="编辑 Visual：Reusable Diagram"]')!.click());
+    const editor = document.querySelector('[aria-label="编辑 Visual metadata：Reusable Diagram"]')!;
+    const fields = editor.querySelectorAll<HTMLInputElement>('input');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(fields[0], 'Renamed Widget');
+      fields[0].dispatchEvent(new Event('input', { bubbles: true }));
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(fields[1], 'widget, report');
+      fields[1].dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => [...editor.querySelectorAll<HTMLButtonElement>('button')]
+      .find(button => button.textContent?.includes('Save'))!.click());
+    await waitFor(() => !!document.querySelector('[aria-label="编辑 Visual：Renamed Widget"]'));
+    assert.deepEqual(updates.at(-1)?.tags, ['widget', 'report']);
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="移到 Trash：Renamed Widget"]')!.click());
+    await waitFor(() => !document.querySelector('.visual-library-card'));
+    const trash = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .find(button => button.textContent?.includes('Trash'))!;
+    await act(async () => trash.click());
+    await waitFor(() => !!document.querySelector('[aria-label="恢复 Visual：Renamed Widget"]'));
+    assert.equal(document.querySelector('[aria-label^="插入 Visual："]'), null, 'trashed Visual must not be insertable');
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="恢复 Visual：Renamed Widget"]')!.click());
+    await waitFor(() => !document.querySelector('.visual-library-card'));
+    const all = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .find(button => button.textContent === 'All')!;
+    await act(async () => all.click());
+    await waitFor(() => !!document.querySelector('[aria-label="插入 Visual：Renamed Widget"]'));
+  }, { visualLibraryPort });
+}
+
 export const appChecks = [
   { name: '默认首页：打开即为可编辑的普通 Markdown 笔记', run: welcome },
   { name: 'V1.1 Visual Library：收藏已保存 HTML Visual 并以独立身份重新插入', run: visualLibraryCollectsAndReinsertsIndependentBlock },
+  { name: 'V1.1 Visual Library：rename / tags / favorite / search / Trash / Restore', run: visualLibraryMetadataManagementWorksInSidebar },
   { name: '主题：Auto 跟随系统且可显式切换 Light / Dark', run: themeFollowsSystemAndCyclesPreferences },
   { name: 'HTML Full Editor：draft 不污染 live Note，Current + asset 原子提交', run: fullHtmlEditorKeepsDraftLocalAndSavesCurrentWithAssets },
   { name: 'HTML Full Editor：保存失败保留 draft 且不污染 live Note', run: fullHtmlEditorFailedSaveKeepsLiveNoteAndDraftOpen },

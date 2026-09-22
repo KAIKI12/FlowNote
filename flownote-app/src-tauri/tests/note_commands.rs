@@ -85,6 +85,10 @@ fn every_note_command_denies_non_main_windows_before_dialog_or_disk_access() {
             "blockId": note_support::FIRST, "title": "Visual" } })),
         ("visual_library_package", json!({ "request": { "id": note_support::FIRST } })),
         ("visual_library_read_asset", json!({ "request": { "id": note_support::FIRST, "path": "assets/style.css" } })),
+        ("visual_library_update", json!({ "request": { "id": note_support::FIRST, "title": "Visual",
+            "favorite": true, "tags": ["report"] } })),
+        ("visual_library_trash", json!({ "request": { "id": note_support::FIRST } })),
+        ("visual_library_restore", json!({ "request": { "id": note_support::FIRST } })),
     ];
     for (command, args) in calls {
         assert_eq!(desktop.call(command, args).unwrap_err()["code"], "permission", "{command}");

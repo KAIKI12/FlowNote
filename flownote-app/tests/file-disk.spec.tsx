@@ -702,15 +702,60 @@ async function visualLibraryCollectInsertSurvivesDisk() {
     await waitFor(() => !!document.querySelector('[aria-label="插入 Visual：Slice 3 Disk · Visual 1"]'));
 
     const libraryRoot = path.join(h.directory, 'visual-library');
-    const visualIds = (await fs.readdir(libraryRoot)).filter(name => !name.startsWith('.'));
+    const itemsRoot = path.join(libraryRoot, 'items');
+    const trashRoot = path.join(libraryRoot, 'trash');
+    const visualIds = (await fs.readdir(itemsRoot)).filter(name => !name.startsWith('.'));
     assert.equal(visualIds.length, 1);
-    const visualDir = path.join(libraryRoot, visualIds[0]);
+    const visualDir = path.join(itemsRoot, visualIds[0]);
     assert.equal(await fs.readFile(path.join(visualDir, 'index.html'), 'utf8'), '<section>Reusable Disk Visual</section>');
     assert.equal(await fs.readFile(path.join(visualDir, 'original.html'), 'utf8'), '<section>Reusable Disk Visual</section>');
     assert.equal(await fs.readFile(path.join(visualDir, 'assets/style.css'), 'utf8'), '.source{color:red}');
     assert.deepEqual(await fs.readFile(path.join(visualDir, 'assets/image.png')), Buffer.from([1, 2, 3, 4]));
 
-    await click('插入 Visual：Slice 3 Disk · Visual 1');
+    const sourceBeforeManagement = await fs.readFile(path.join(notePath, 'content.md'), 'utf8');
+    await click('编辑 Visual：Slice 3 Disk · Visual 1');
+    const metadataEditor = document.querySelector('[aria-label="编辑 Visual metadata：Slice 3 Disk · Visual 1"]')!;
+    const metadataFields = metadataEditor.querySelectorAll<HTMLInputElement>('input');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(metadataFields[0], 'Disk Renamed Visual');
+      metadataFields[0].dispatchEvent(new Event('input', { bubbles: true }));
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(metadataFields[1], 'disk, reusable');
+      metadataFields[1].dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => [...metadataEditor.querySelectorAll<HTMLButtonElement>('button')]
+      .find(button => button.textContent?.includes('Save'))!.click());
+    await waitFor(() => !!document.querySelector('[aria-label="Favorite Visual：Disk Renamed Visual"]'));
+
+    await click('Favorite Visual：Disk Renamed Visual');
+    await waitFor(() => !!document.querySelector('[aria-label="取消 Favorite：Disk Renamed Visual"]'));
+    const metadata = JSON.parse(await fs.readFile(path.join(visualDir, 'visual.json'), 'utf8'));
+    assert.equal(metadata.title, 'Disk Renamed Visual');
+    assert.equal(metadata.favorite, true);
+    assert.deepEqual(metadata.tags, ['disk', 'reusable']);
+
+    await click('移到 Trash：Disk Renamed Visual');
+    await waitFor(() => !document.querySelector('.visual-library-card'));
+    assert.equal(await fs.stat(visualDir).then(() => true).catch(() => false), false);
+    const trashedDir = path.join(trashRoot, visualIds[0]);
+    assert.equal((await fs.stat(trashedDir)).isDirectory(), true);
+    assert.equal(await fs.readFile(path.join(notePath, 'content.md'), 'utf8'), sourceBeforeManagement,
+      'Library Trash must not mutate source Note');
+
+    const trashTab = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .find(button => button.textContent?.includes('Trash'))!;
+    await act(async () => trashTab.click());
+    await waitFor(() => !!document.querySelector('[aria-label="恢复 Visual：Disk Renamed Visual"]'));
+    assert.equal(document.querySelector('[aria-label^="插入 Visual："]'), null, 'trashed Visual must not be insertable');
+    await click('恢复 Visual：Disk Renamed Visual');
+    await waitFor(() => !document.querySelector('.visual-library-card'));
+    const allTab = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .find(button => button.textContent === 'All')!;
+    await act(async () => allTab.click());
+    await waitFor(() => !!document.querySelector('[aria-label="插入 Visual：Disk Renamed Visual"]'));
+    assert.equal((await fs.stat(visualDir)).isDirectory(), true);
+    assert.equal(await fs.stat(trashedDir).then(() => true).catch(() => false), false);
+
+    await click('插入 Visual：Disk Renamed Visual');
     await waitFor(() => useNoteStore.getState().currentNote?.mixed?.blocks.length === 2);
     const importedId = useNoteStore.getState().currentNote!.mixed!.blocks[1].id;
     assert.notEqual(importedId, BLOCK_A);
