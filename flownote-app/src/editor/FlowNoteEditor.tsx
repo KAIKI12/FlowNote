@@ -17,6 +17,7 @@ function createHtmlHost(
   listAssets?: (blockId: string) => Promise<BlockAssetInfo[]>,
   commitFullEditor?: (blockId: string, html: string, edits: BlockAssetEdit[]) => Promise<boolean>,
   duplicate?: (blockId: string) => void | Promise<unknown>,
+  collect?: (blockId: string) => void | Promise<unknown>,
   select?: (blockId: string) => void,
 ): HtmlBlockHost {
   const current = () => useNoteStore.getState().currentNote;
@@ -36,6 +37,7 @@ function createHtmlHost(
     listAssets,
     commitFullEditor,
     duplicate,
+    collect,
     select,
     update: block => useNoteStore.getState().setHtmlBlock(block),
     subscribe: listener => useNoteStore.subscribe(listener),
@@ -53,16 +55,17 @@ interface FlowNoteEditorProps {
   commitHtmlFullEditor?: (blockId: string, html: string, edits: BlockAssetEdit[]) => Promise<boolean>;
   readManagedImage?: ManagedImageReader;
   onDuplicateHtmlBlock?: (blockId: string) => void | Promise<unknown>;
+  onCollectHtmlBlock?: (blockId: string) => void | Promise<unknown>;
   onHtmlBlockSelect?: (blockId: string) => void;
 }
 
 export const FlowNoteEditor = forwardRef<FlowNoteEditorApi, FlowNoteEditorProps>(
   ({ initialContent = '', onContentChange, mode = 'edit', onReadyChange, readLockRef, readHtmlAsset, listHtmlAssets,
-    commitHtmlFullEditor, readManagedImage, onDuplicateHtmlBlock, onHtmlBlockSelect }, ref) => {
+    commitHtmlFullEditor, readManagedImage, onDuplicateHtmlBlock, onCollectHtmlBlock, onHtmlBlockSelect }, ref) => {
     const setComposing = useNoteStore((state) => state.setComposing);
     const setDirty = useNoteStore((state) => state.setDirty);
-    const inputs = useRef({ onContentChange, setComposing, setDirty, onDuplicateHtmlBlock, onHtmlBlockSelect });
-    inputs.current = { onContentChange, setComposing, setDirty, onDuplicateHtmlBlock, onHtmlBlockSelect };
+    const inputs = useRef({ onContentChange, setComposing, setDirty, onDuplicateHtmlBlock, onCollectHtmlBlock, onHtmlBlockSelect });
+    inputs.current = { onContentChange, setComposing, setDirty, onDuplicateHtmlBlock, onCollectHtmlBlock, onHtmlBlockSelect };
     const [session] = useState(() => new EditorSession({ source: initialContent, mode,
       publish: source => inputs.current.onContentChange?.(source),
       dirty: () => inputs.current.setDirty(true),
@@ -78,9 +81,10 @@ export const FlowNoteEditor = forwardRef<FlowNoteEditorApi, FlowNoteEditorProps>
     useEffect(() => onReadyChange?.(state.ready), [onReadyChange, state.ready]);
     const previousMode = useRef(mode);
     const duplicate = (id: string) => inputs.current.onDuplicateHtmlBlock?.(id);
+    const collect = (id: string) => inputs.current.onCollectHtmlBlock?.(id);
     const select = (id: string) => inputs.current.onHtmlBlockSelect?.(id);
     const { loading, get } = useEditor(root => createFlowEditor(root, session,
-      createHtmlHost(readHtmlAsset, listHtmlAssets, commitHtmlFullEditor, duplicate, select), readManagedImage ?? null), []);
+      createHtmlHost(readHtmlAsset, listHtmlAssets, commitHtmlFullEditor, duplicate, collect, select), readManagedImage ?? null), []);
     useImperativeHandle(ref, () => createEditorApi(session, get), [get, session]);
     useEffect(() => session.receiveExternal(initialContent), [initialContent, session]);
     useEffect(() => {

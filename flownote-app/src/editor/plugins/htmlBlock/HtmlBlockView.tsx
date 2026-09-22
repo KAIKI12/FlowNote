@@ -122,6 +122,9 @@ export function HtmlBlockView({ blockId, width, host }: HtmlBlockViewProps) {
         <button type="button" className="html-visual-duplicate" aria-label="复制 HTML Block" title="Duplicate"
           disabled={!block || !host?.duplicate}
           onClick={event => { event.stopPropagation(); if (block && host?.duplicate) void host.duplicate(blockId); }}>Duplicate</button>
+        <button type="button" aria-label="收藏 HTML Visual" title="Collect to Visual Library"
+          disabled={!block || !host?.collect}
+          onClick={event => { event.stopPropagation(); if (block && host?.collect) void host.collect(blockId); }}>Collect</button>
       </div>
 
       {!block && <div className="html-block-placeholder">HTML Visual 缺失</div>}

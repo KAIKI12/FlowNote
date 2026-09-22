@@ -59,11 +59,13 @@ async function withDiskApp(content: string, action: (fixture: DiskFixture) => Pr
   const file = path.join(directory, fileName);
   await fs.writeFile(file, content);
   const driver = createFileDriver();
+  driver.visualLibraryRoot(path.join(directory, 'visual-library'));
   useNoteStore.getState().setCurrentNote(null);
   document.body.innerHTML = '<main id="disk-app"></main>';
   const root = createRoot(document.getElementById('disk-app')!);
   try {
-    await act(async () => root.render(<React.StrictMode><App filePort={driver.port} notePort={driver.notePort} /></React.StrictMode>));
+    await act(async () => root.render(<React.StrictMode><App filePort={driver.port} notePort={driver.notePort}
+      visualLibraryPort={driver.visualPort} /></React.StrictMode>));
     await ready();
     await open({ driver, file, directory });
     await action({ driver, file, directory });
@@ -686,6 +688,55 @@ async function sliceThreeExternalConflictAndDeepCopySurviveDisk() {
   }, 'bootstrap.md');
 }
 
+async function visualLibraryCollectInsertSurvivesDisk() {
+  await withDiskApp('# bootstrap\n', async h => {
+    const notePath = await writeMixedPackage(h.directory, 'VisualLibrary.note', '<section>Reusable Disk Visual</section>');
+    h.driver.noteOpen(notePath);
+    await click('打开 Mixed Note');
+    await waitFor(() => useNoteStore.getState().currentNote?.metadata.type === 'mixed');
+    await ready();
+    assert.equal(useNoteStore.getState().currentNote?.mixed?.blocks.length, 1);
+
+    await click('收藏 HTML Visual');
+    await waitFor(() => !!document.querySelector('[aria-label="Visual Library"]'));
+    await waitFor(() => !!document.querySelector('[aria-label="插入 Visual：Slice 3 Disk · Visual 1"]'));
+
+    const libraryRoot = path.join(h.directory, 'visual-library');
+    const visualIds = (await fs.readdir(libraryRoot)).filter(name => !name.startsWith('.'));
+    assert.equal(visualIds.length, 1);
+    const visualDir = path.join(libraryRoot, visualIds[0]);
+    assert.equal(await fs.readFile(path.join(visualDir, 'index.html'), 'utf8'), '<section>Reusable Disk Visual</section>');
+    assert.equal(await fs.readFile(path.join(visualDir, 'original.html'), 'utf8'), '<section>Reusable Disk Visual</section>');
+    assert.equal(await fs.readFile(path.join(visualDir, 'assets/style.css'), 'utf8'), '.source{color:red}');
+    assert.deepEqual(await fs.readFile(path.join(visualDir, 'assets/image.png')), Buffer.from([1, 2, 3, 4]));
+
+    await click('插入 Visual：Slice 3 Disk · Visual 1');
+    await waitFor(() => useNoteStore.getState().currentNote?.mixed?.blocks.length === 2);
+    const importedId = useNoteStore.getState().currentNote!.mixed!.blocks[1].id;
+    assert.notEqual(importedId, BLOCK_A);
+    const imported = path.join(notePath, 'blocks', importedId);
+    assert.equal(await fs.readFile(path.join(imported, 'index.html'), 'utf8'), '<section>Reusable Disk Visual</section>');
+    assert.equal(await fs.readFile(path.join(imported, 'original.html'), 'utf8'), '<section>Reusable Disk Visual</section>');
+    assert.equal(await fs.readFile(path.join(imported, 'assets/style.css'), 'utf8'), '.source{color:red}');
+    assert.deepEqual(await fs.readFile(path.join(imported, 'assets/image.png')), Buffer.from([1, 2, 3, 4]));
+    assert.match(await fs.readFile(path.join(notePath, 'content.md'), 'utf8'), new RegExp(importedId));
+
+    await fs.writeFile(path.join(imported, 'assets/style.css'), 'TARGET ONLY');
+    assert.equal(await fs.readFile(path.join(visualDir, 'assets/style.css'), 'utf8'), '.source{color:red}',
+      'Target edit mutated the reusable library item');
+    assert.equal(await fs.readFile(path.join(notePath, 'blocks', BLOCK_A, 'assets/style.css'), 'utf8'), '.source{color:red}',
+      'Target edit mutated the original source Block');
+
+    await click('关闭笔记');
+    await waitFor(() => useNoteStore.getState().currentNote === null);
+    h.driver.noteOpen(notePath);
+    await click('打开 Mixed Note');
+    await waitFor(() => useNoteStore.getState().currentNote?.mixed?.blocks.length === 2);
+    await ready();
+    assert.equal(document.querySelectorAll('.ProseMirror iframe').length, 2);
+  }, 'visual-library-bootstrap.md');
+}
+
 async function sliceThreeMissingAndOrphanRepairsSurviveDisk() {
   await withDiskApp('# bootstrap\n', async h => {
     const notePath = await writeMixedPackage(h.directory, 'Repair.note');
@@ -791,6 +842,7 @@ export async function run(filter: string) {
     { name: 'Browser Bundle 真实磁盘：Dirty Markdown / Current 导出且源 Note 不变', run: browserBundleExportsDirtyMixedNoteWithoutMutatingSourceDisk },
     { name: 'Markdown Export 真实磁盘：外部 HTML 链接 / Current / 资源导出且源 Note 不变', run: mixedMarkdownExportMaterializesExternalLinksWithoutMutatingSourceDisk },
     { name: 'Slice 3 真实磁盘：外部冲突另存本地后 Deep Copy 私有资源独立', run: sliceThreeExternalConflictAndDeepCopySurviveDisk },
+    { name: 'V1.1 Visual Library 真实磁盘：收藏 / 预览 / 独立插入并关闭重开', run: visualLibraryCollectInsertSurvivesDisk },
     { name: 'Slice 3 真实磁盘：Missing / Orphan 显式修复后关闭重开有效', run: sliceThreeMissingAndOrphanRepairsSurviveDisk },
     { name: 'R02 真实文件：05 原件局部源码编辑保存并重开保留其他字节', run: originalProtectedFixtureEditSurvivesDisk },
     { name: 'R02 真实文件：08 Raw HTML 文档保持可视化编辑并保存重开', run: rawHtmlFixtureStaysVisualOnDisk },

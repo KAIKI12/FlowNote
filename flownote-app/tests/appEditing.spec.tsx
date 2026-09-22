@@ -5,9 +5,10 @@ import App from '../src/app/App';
 import { useNoteStore } from '../src/note/noteStore';
 import type { NativeNotePort, NoteSnapshot } from '../src/note/nativeNotePort';
 import type { MarkdownFilePort } from '../src/files/fileTypes';
+import type { VisualLibraryPort } from '../src/visualLibrary/types';
 import { settle, waitFor } from './editorHarness';
 
-async function withApp(action: () => Promise<void>, props: { notePort?: NativeNotePort; filePort?: MarkdownFilePort } = {}) {
+async function withApp(action: () => Promise<void>, props: { notePort?: NativeNotePort; filePort?: MarkdownFilePort; visualLibraryPort?: VisualLibraryPort | null } = {}) {
   useNoteStore.getState().setCurrentNote(null);
   useNoteStore.getState().setComposing(false);
   useNoteStore.getState().setDirty(false);
@@ -1156,8 +1157,81 @@ async function workspaceModesKeepFocusEditableAndReadOnlyWhenRequested() {
   });
 }
 
+async function visualLibraryCollectsAndReinsertsIndependentBlock() {
+  const { blockId, initial } = externalMixedFixture();
+  const visualId = '0199a222-0000-7000-8000-000000000010';
+  const item = {
+    id: visualId,
+    title: 'External · Visual 1',
+    createdAtMs: 1_800_000_000_000,
+    updatedAtMs: 1_800_000_000_000,
+    html: '<section>Library Current</section>',
+    config: { kind: 'html' as const, inputKind: 'fragment' as const, scriptPolicy: 'sandbox' as const,
+      viewport: { heightPx: 480 } },
+    assetCount: 1,
+  };
+  let collectRequest: Parameters<VisualLibraryPort['collect']>[0] | undefined;
+  let saveRequest: Parameters<NativeNotePort['save']>[0] | undefined;
+  const visualLibraryPort: VisualLibraryPort = {
+    list: async () => [],
+    collect: async request => { collectRequest = request; return item; },
+    load: async id => {
+      assert.equal(id, visualId);
+      return { item, originalHtml: '<section>Library Original</section>',
+        assets: [{ path: 'assets/style.css', mime: 'text/css', bytes: [...new TextEncoder().encode('section{color:purple}')] }] };
+    },
+    readAsset: async (_id, path) => ({ path, mime: 'text/css', bytes: [...new TextEncoder().encode('section{}')] }),
+  };
+  const notePort = {
+    mode: 'desktop', canWrite: true,
+    open: async () => initial,
+    save: async (request: Parameters<NativeNotePort['save']>[0]) => {
+      saveRequest = request;
+      return { ...initial, revision: 'r2', content: request.content, mixed: request.mixed };
+    },
+    saveAs: async () => null,
+    reload: async () => initial,
+    listAssets: async () => [],
+    readAsset: async () => { throw new Error('source block has no assets'); },
+    readNoteImage: async () => { throw new Error('not used'); },
+    release: async () => undefined,
+  } as unknown as NativeNotePort;
+
+  await withApp(async () => {
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="打开 Mixed Note"]')!.click());
+    await waitFor(() => !!document.querySelector('[aria-label="收藏 HTML Visual"]'));
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="收藏 HTML Visual"]')!.click());
+    await waitFor(() => !!collectRequest);
+    assert.deepEqual(collectRequest, {
+      noteId: initial.id, revision: initial.revision, blockId, title: 'External · Visual 1',
+    });
+    await waitFor(() => !!document.querySelector('[aria-label="Visual Library"]'));
+    const card = document.querySelector('.visual-library-card');
+    assert.ok(card);
+    assert.match(card.textContent ?? '', /External · Visual 1/);
+
+    const insert = document.querySelector<HTMLButtonElement>('[aria-label="插入 Visual：External · Visual 1"]')!;
+    assert.ok(insert);
+    assert.equal(insert.disabled, false);
+    await act(async () => insert.click());
+    await waitFor(() => !!saveRequest);
+
+    assert.equal(saveRequest!.mixed.blocks.length, 2);
+    const imported = saveRequest!.mixed.blocks[1];
+    assert.notEqual(imported.id, blockId);
+    assert.match(saveRequest!.content, new RegExp(imported.id));
+    assert.equal(imported.html, '<section>Library Current</section>');
+    assert.equal(imported.originalHtml, '<section>Library Original</section>');
+    assert.equal(saveRequest!.blockAssetImports?.length, 1);
+    assert.equal(saveRequest!.blockAssetImports?.[0].blockId, imported.id);
+    assert.equal(saveRequest!.blockAssetImports?.[0].path, 'assets/style.css');
+    assert.equal(useNoteStore.getState().currentNote?.mixed?.blocks.length, 2);
+  }, { notePort, visualLibraryPort });
+}
+
 export const appChecks = [
   { name: '默认首页：打开即为可编辑的普通 Markdown 笔记', run: welcome },
+  { name: 'V1.1 Visual Library：收藏已保存 HTML Visual 并以独立身份重新插入', run: visualLibraryCollectsAndReinsertsIndependentBlock },
   { name: '主题：Auto 跟随系统且可显式切换 Light / Dark', run: themeFollowsSystemAndCyclesPreferences },
   { name: 'HTML Full Editor：draft 不污染 live Note，Current + asset 原子提交', run: fullHtmlEditorKeepsDraftLocalAndSavesCurrentWithAssets },
   { name: 'HTML Full Editor：保存失败保留 draft 且不污染 live Note', run: fullHtmlEditorFailedSaveKeepsLiveNoteAndDraftOpen },

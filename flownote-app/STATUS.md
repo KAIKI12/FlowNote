@@ -2,7 +2,7 @@
 
 **更新时间：2026-09-22**
 
-**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read/Focus/Fullscreen、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、V1 UI Polish、Source Protection Narrowing、Reference UI Alignment、Raw HTML Visual Compatibility / Seamless Focus 与 Link / Outline / Chrome Readability 均已完成。当前 `V1 产品收尾` 只剩安装 / 升级级发布验证；Workspace 高阶能力与资源架构扩展继续作为后续独立 Slice。**
+**当前阶段：V1 基线能力与发布收尾保持稳定；V1.1 已开始开发。V1.1 Slice 1「Visual Library / reusable visuals」已完成：可从已保存 HTML Visual 收藏 Current / Original / config / 私有资源，在 Sidebar 浏览 sandbox preview，并以全新 Block ID 和独立资源副本插回任意可写 Mixed Note。下一步进入 V1.1 Visual Library 的 metadata management（rename / delete / favorite / tags / search），不改变 Note Format v1。**
 
 **范围原则：Slice 完成只表示当前切片定义的实现与验证范围完成，不删除最终需求。Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等尚未实现的能力继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留。**
 
@@ -211,26 +211,42 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 - **真实 Chrome QA**：1440×960 页面实测正文仍为 15.5 px，品牌 14 px、breadcrumb 12.5 px、Outline 12.5 px；Outline 共有 6 个可点击 BUTTON，点击第二项后焦点回到 ProseMirror。
 - **回归**：新增链接打开与 Outline 定位测试；Stage One 更新为 **67 / 67**。Format Freeze、Desktop UI / IPC、production build、Tauri MSI / NSIS build 与 release exe smoke 均 PASS。
 
+## 2.17 V1.1 Visual Library Slice 1 — completed
+
+2026-09-22 已完成 V1.1 第一切片，把此前只存在于单个 Note 内的 HTML Visual 提升为可复用的本地 Visual Library，同时保持 Note Format v1 不变：
+
+- **收藏边界**：HTML Visual 工具条新增 Collect；只允许从已保存、revision 一致的可写 Mixed Note 收藏，避免把未提交 draft 或外部冲突状态误当作稳定库条目。
+- **独立 Library Store**：Visual Library 存放在 FlowNote app-data，而不是 `.note` 内部；每项使用独立 UUID 目录，保存 `visual.json`、Current `index.html`、`original.html`、`block.json` 与 `assets/**`，因此不成为 Note 正文 / 顺序的第二事实来源。
+- **完整 Visual Package**：收藏时保留 Current HTML、Original HTML、Block config 与 Block-private managed assets；源 Note 不被修改。
+- **Sidebar 浏览**：Files / Recent 旁新增 Visuals Tab；Library card 使用既有 sandbox + CSP 预览，并通过 library-scoped resource reader 解析 CSS / JS / image 等 managed assets。
+- **独立插入**：Insert 会生成全新 Block UUID，使用编辑器当前选区生成新的 `flownote-html` Anchor，并把 Library-owned assets 作为一次 Note atomic-save transaction 导入到新 Block。
+- **Ownership 隔离**：插入后的 Block、原始源 Block 与 Library item 三者资源互不共享；修改目标副本不会反向污染 Library 或来源 Note。
+- **路径 / capability 安全**：Library item ID、asset relative path、symlink/reparse 与文件大小 / 数量均有边界校验；Visual Library 原生命令仍仅允许主窗口调用。
+- **真实磁盘验证**：新增 end-to-end 测试覆盖 Collect → Library 落盘 → Sidebar browse → Insert → close/reopen，并验证 Current / Original / CSS / binary image 均独立复制。
+- **格式不变量**：没有新增 `note.json` / `block.json` 磁盘字段，也没有提高 `formatVersion`；Library metadata 是 app-owned schema，与冻结的 Note Format v1 解耦。
+
+本 Slice 明确未包含 Library rename/delete/favorite/tags/search；这些进入 V1.1 后续 metadata-management Slice，不通过修改 Note 内容实现。
+
 ## 3. 最新验证基线
 
-2026-09-22 Link / Outline / Chrome Readability 完成后的新鲜验证结果：
+2026-09-22 V1.1 Visual Library Slice 1 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
 | Workspace Frontend | **8 / 8** |
 | Workspace Native | **11 / 11** |
 | Format Freeze Gate | **PASS** |
-| HTML | **16 / 16** |
-| Stage One | **67 / 67** |
+| HTML | **17 / 17** |
+| Stage One | **68 / 68** |
 | Protection | **42 / 42** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |
-| 真实磁盘 | **19 / 19** |
+| 真实磁盘 | **20 / 20** |
 | Browser Bundle `file://` qualification | **PASS** |
 | Markdown Export `file://` qualification | **PASS** |
 | Desktop UI | **12 / 12** |
 | Desktop IPC / Rust desktop commands | **12 / 12** |
-| Rust 全套 | **93 passed / 1 ignored** |
+| Rust 全套 | **96 passed / 1 ignored** |
 | Rust Clippy | **PASS** |
 | Frontend build | **PASS** |
 | Tauri release build | **PASS** |
@@ -251,12 +267,13 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 
 格式文档当前为 **v1.2 Final**；磁盘字段仍为 `formatVersion: 1`。本次冻结没有改变磁盘版本号；未来不兼容格式变更必须显式升级 `formatVersion`。
 
-## 5. 下一阶段：V1 产品收尾
+## 5. 下一阶段：V1.1 Visual Library metadata management
 
-Format Freeze 已完成，接下来不再修改 Format v1 的既有磁盘语义，而是围绕 V1 可交付性收尾：
+V1 基线与 Note Format v1 继续保持冻结；V1.1 接下来只扩展 app-owned Library metadata 与 UI，不改写既有 Note 磁盘语义：
 
-1. **最终发布验证**：release build 与 exe 启动 smoke 已完成；下一步只需做真实安装 / 卸载 / 升级路径验证与版本发布整理。
-2. **Workspace 后续增强（非当前阻塞）**：真实 Favorites、Trash/delete/recovery、filesystem watcher、multi-Workspace、SQLite/FTS 等按后续独立 Slice 处理。
-3. **资源 / 产品后续增强（非当前阻塞）**：Shared Localized Resource、CDN Localization、cross-note dependency copy、Presentation / AI 等继续按 Requirements Matrix 分期实现。
+1. **Library metadata management**：增加 rename、delete、favorite 与 tags；操作对象是 Library item metadata，不修改源 Note 或已插入 Block。
+2. **Library search/filter**：在 Visuals Tab 内按 title / tags 进行即时搜索与 favorite 过滤；先做有界本地 metadata 扫描，不引入 SQLite/FTS。
+3. **删除与恢复边界**：删除 Library item 时先明确采用 app-owned trash / tombstone 语义，避免直接递归删除后无法恢复；不会联动删除任何 Note 中已经复制出去的 Block。
+4. **后续增强**：Shared Localized Resource、CDN Localization、cross-note dependency copy、Presentation / AI 与 Workspace 高阶能力继续按 Requirements Matrix 分期实现。
 
-V1 收尾过程中不得通过删除 Requirements Matrix 中的未实现条目来缩小产品定义。超出 V1 当前收尾范围的 Shared Localized Resource、CDN Localization、cross-note dependency copy 等继续保持 Planned / Partial，后续按 Matrix 单独进入实现切片。
+真实安装 / 卸载 / 升级路径验证仍属于发布侧收尾，但不阻塞 V1.1 Visual Library 的独立迭代。V1.1 开发不得通过修改冻结的 Note Format v1 来偷渡 Library metadata。

@@ -33,6 +33,20 @@ pub struct BlockAssetEdit {
     pub content: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlockAssetImport {
+    pub block_id: String,
+    pub path: String,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BlockPackage {
+    pub block: HtmlBlockData,
+    pub assets: Vec<BlockAsset>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NoteProbe {
@@ -74,6 +88,8 @@ pub struct NoteSaveRequest {
     pub block_copies: Vec<BlockCopyRequest>,
     #[serde(default, rename = "blockAssetEdits")]
     pub block_asset_edits: Vec<BlockAssetEdit>,
+    #[serde(default, rename = "blockAssetImports")]
+    pub block_asset_imports: Vec<BlockAssetImport>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -100,7 +116,7 @@ struct Binding { path: PathBuf, revision: String }
 #[derive(Default)]
 pub struct NoteStore { bindings: HashMap<String, Binding> }
 
-fn asset_mime(path: &str) -> &'static str {
+pub(crate) fn asset_mime(path: &str) -> &'static str {
     match Path::new(path).extension().and_then(|value| value.to_str()).map(|value| value.to_ascii_lowercase()) {
         Some(ext) if ext == "css" => "text/css",
         Some(ext) if ext == "js" || ext == "mjs" => "text/javascript",
@@ -277,6 +293,33 @@ impl NoteStore {
         Ok(result)
     }
 
+    pub fn block_package(&self, id: &str, revision: &str, block_id: &str) -> FileResult<BlockPackage> {
+        crate::note_format::validate_id(block_id)?;
+        let binding = self.binding(id)?;
+        if binding.revision != revision {
+            return Err(FileError::new("conflict", "收藏请求基于过期 Note 版本"));
+        }
+        let _parents = crate::windows_note_io::lock_ancestors(&binding.path)?;
+        let path = selected_path(&binding.path, false)?;
+        let directory = crate::windows_note_io::Directory::open(&path, false)?;
+        let tree = crate::windows_note_tree::NoteTree::read_shared(&directory)?;
+        tree.unchanged(revision)?;
+        let document = tree.document()?;
+        let block = document.mixed.blocks.into_iter().find(|block| block.id == block_id)
+            .ok_or_else(|| FileError::new("notFound", "HTML Block 不存在或未被正文引用"))?;
+        let prefix = format!("blocks/{block_id}/assets/");
+        let mut assets = Vec::new();
+        for (path, bytes) in tree.files() {
+            let Some(suffix) = path.strip_prefix(&prefix) else { continue; };
+            if suffix.is_empty() { continue; }
+            let relative = format!("assets/{suffix}");
+            validate_asset_path(&relative)?;
+            assets.push(BlockAsset { path: relative.clone(), mime: asset_mime(&relative).into(), bytes: bytes.to_vec() });
+        }
+        assets.sort_by(|left, right| left.path.cmp(&right.path));
+        Ok(BlockPackage { block, assets })
+    }
+
     pub fn read_note_asset(&self, id: &str, relative: &str) -> FileResult<BlockAsset> {
         validate_note_image_path(relative)?;
         let binding = self.binding(id)?;
@@ -312,7 +355,7 @@ impl NoteStore {
         drop(directory);
         let receipt = crate::windows_note_save::save(crate::windows_note_save::NoteWrite {
             target: &binding.path, source: Some(&binding.path), expected: Some(expected), content, mixed,
-            assets: Vec::new(), block_copies: Vec::new(), block_asset_edits: Vec::new(), repair_source: true,
+            assets: Vec::new(), block_copies: Vec::new(), block_asset_edits: Vec::new(), block_asset_imports: Vec::new(), repair_source: true,
         })?;
         let file = snapshot(id, &binding.path, (receipt.document, receipt.revision, receipt.notice))?;
         Ok(self.remember(file))
@@ -331,7 +374,7 @@ impl NoteStore {
         let receipt = crate::windows_note_save::save(crate::windows_note_save::NoteWrite {
             target: &binding.path, source: Some(&binding.path), expected: Some(&request.revision),
             content: request.content, mixed: request.mixed, assets: Vec::new(), block_copies: request.block_copies,
-            block_asset_edits: request.block_asset_edits, repair_source: false,
+            block_asset_edits: request.block_asset_edits, block_asset_imports: request.block_asset_imports, repair_source: false,
         })?;
         let file = snapshot(&request.id, &binding.path, (receipt.document, receipt.revision, receipt.notice))?;
         Ok(self.remember(file))
@@ -364,7 +407,7 @@ impl NoteStore {
         let receipt = crate::windows_note_save::save(crate::windows_note_save::NoteWrite {
             target: &path, source: source.as_ref().map(|source| source.path.as_path()),
             expected: source.as_ref().map(|source| source.revision.as_str()), content: request.content, mixed: request.mixed, assets,
-            block_copies: Vec::new(), block_asset_edits: Vec::new(), repair_source: false,
+            block_copies: Vec::new(), block_asset_edits: Vec::new(), block_asset_imports: Vec::new(), repair_source: false,
         })?;
         let id = format!("note:{}", Uuid::new_v4());
         let file = snapshot(&id, &path, (receipt.document, receipt.revision, receipt.notice))?;

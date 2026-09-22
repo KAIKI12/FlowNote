@@ -11,7 +11,7 @@ import { FileErrorView, FileStatus, FileToolbar, UnsavedDialog } from '../files/
 import { MarkdownFileError } from '../files/fileTypes';
 import type { MarkdownFilePort } from '../files/fileTypes';
 import type { DocumentSession } from '../files/documentSession';
-import type { NativeNotePort, NoteAssetData } from '../note/nativeNotePort';
+import type { BlockAssetImport, NativeNotePort, NoteAssetData } from '../note/nativeNotePort';
 import { createHtmlBlock, newMixedNote } from '../note/htmlBlockData';
 import { managedMarkdownImageTarget } from '../note/markdownAssetMigration';
 import { useMixedNoteFiles } from '../note/useMixedNoteFiles';
@@ -21,6 +21,9 @@ import { WorkspaceNavigation } from '../workspace/WorkspaceTree';
 import { useWorkspace } from '../workspace/useWorkspace';
 import type { WorkspaceEntry, WorkspacePort } from '../workspace/workspaceTypes';
 import { nextThemePreference, readThemePreference, resolvedTheme, saveThemePreference, systemPrefersDark } from './themePreference';
+import { VisualLibraryPanel } from '../visualLibrary/VisualLibraryPanel';
+import { useVisualLibrary } from '../visualLibrary/useVisualLibrary';
+import type { VisualLibraryPort } from '../visualLibrary/types';
 
 const QualificationPanel = import.meta.env.DEV
   ? lazy(() => import('../editor/MarkdownQualification')) : null;
@@ -205,9 +208,10 @@ function useFileEvents({ session, mixed, exportNote }: { session: DocumentSessio
   }, [session, mixed, exportNote]);
 }
 
-function WritingWorkspace({ activeView, editorRef, note, files, mixed, workspaceMode, onHtmlBlockSelect }: {
+function WritingWorkspace({ activeView, editorRef, note, files, mixed, workspaceMode, onHtmlBlockSelect, onCollectHtmlBlock }: {
   activeView: AppView; editorRef: RefObject<FlowNoteEditorApi>; note: AppNote; files: AppFiles; mixed: MixedFiles;
   workspaceMode: WorkspaceMode; onHtmlBlockSelect: (blockId: string) => void;
+  onCollectHtmlBlock: (blockId: string) => void | Promise<unknown>;
 }) {
   if (!note.currentNote) return <p className="file-empty-state">尚未打开笔记。使用「新建」开始写作，或「打开」选择 Markdown 文件。</p>;
   const showQualification = import.meta.env.DEV && activeView === 'qualification';
@@ -224,7 +228,8 @@ function WritingWorkspace({ activeView, editorRef, note, files, mixed, workspace
       <FlowNoteEditor ref={editorRef} initialContent={note.currentNote.contentMd} onContentChange={note.onContentChange}
         mode={workspaceMode === 'read' ? 'read' : 'edit'} onReadyChange={files.readyChanged} readLockRef={files.readLockRef}
         readHtmlAsset={mixed.readAsset} listHtmlAssets={mixed.listAssets} commitHtmlFullEditor={mixed.commitFullEditor}
-        readManagedImage={readManagedImage} onDuplicateHtmlBlock={mixed.duplicateBlock} onHtmlBlockSelect={onHtmlBlockSelect} />
+        readManagedImage={readManagedImage} onDuplicateHtmlBlock={mixed.duplicateBlock}
+        onCollectHtmlBlock={onCollectHtmlBlock} onHtmlBlockSelect={onHtmlBlockSelect} />
       {showQualification && QualificationPanel && <Suspense fallback={<p role="status">正在加载测试面板…</p>}>
         <QualificationPanel editorRef={editorRef} />
       </Suspense>}
@@ -236,13 +241,14 @@ function viewSwitchBlocked(files: AppFiles): boolean {
   return files.state.busy === 'closing' || useNoteStore.getState().isComposing;
 }
 
-function App({ filePort, notePort, workspacePort }: {
+function App({ filePort, notePort, workspacePort, visualLibraryPort }: {
   filePort?: MarkdownFilePort; notePort?: NativeNotePort; workspacePort?: WorkspacePort | null;
+  visualLibraryPort?: VisualLibraryPort | null;
 } = {}) {
   const [activeView, setActiveView] = useState<AppView>('editor');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('edit');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sidebarView, setSidebarView] = useState<'files' | 'recent'>('files');
+  const [sidebarView, setSidebarView] = useState<'files' | 'recent' | 'visuals'>('files');
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('outline');
   const [selectedHtmlBlockId, setSelectedHtmlBlockId] = useState<string | null>(null);
@@ -252,6 +258,7 @@ function App({ filePort, notePort, workspacePort }: {
   const note = useAppNote(editorRef);
   const dirty = useNoteStore(state => state.isDirty);
   const mixed = useMixedNoteFiles({ editorRef, port: notePort, showEditor: () => setActiveView('editor') });
+  const visualLibrary = useVisualLibrary({ port: visualLibraryPort });
   const files = useDocumentFiles({ editorRef, port: filePort, showEditor: () => setActiveView('editor'),
     saveAlternate: mixed.save, closeAlternate: mixed.close });
   useFileEvents({ session: files.session, mixed, exportNote: note.exportNote });
@@ -312,6 +319,79 @@ function App({ filePort, notePort, workspacePort }: {
   const title = note.currentNote?.metadata.title ?? 'Untitled';
   const selectedBlock = note.currentNote?.mixed?.metadata.formatVersion === 1
     ? note.currentNote.mixed.blocks.find(block => block.id === selectedHtmlBlockId) : undefined;
+  const collectHtmlBlock = async (blockId: string) => {
+    const current = useNoteStore.getState().currentNote;
+    const file = mixed.state.file;
+    if (!visualLibrary.available) {
+      files.session.notifyError(new MarkdownFileError('unsupported', 'Visual Library 仅在桌面版可用'));
+      return;
+    }
+    if (dirty) {
+      files.session.notifyError(new MarkdownFileError('dirty', '请先保存当前 Mixed Note，再收藏 HTML Visual'));
+      return;
+    }
+    if (mixed.state.externalConflict) {
+      files.session.notifyError(new MarkdownFileError('externalConflict', '磁盘内容已被外部修改，请先处理冲突再收藏 Visual'));
+      return;
+    }
+    if (!current?.mixed || current.mixed.metadata.formatVersion !== 1 || !file || file.readOnly) {
+      files.session.notifyError(new MarkdownFileError('readonly', '当前 HTML Visual 尚未绑定到可写 Mixed Note'));
+      return;
+    }
+    const index = current.mixed.blocks.findIndex(block => block.id === blockId);
+    if (index < 0) {
+      files.session.notifyError(new MarkdownFileError('notFound', '当前 Mixed Note 中找不到要收藏的 HTML Visual'));
+      return;
+    }
+    const item = await visualLibrary.collect({
+      noteId: file.id,
+      revision: file.revision,
+      blockId,
+      title: `${current.metadata.title} · Visual ${index + 1}`,
+    });
+    if (item) {
+      setSidebarOpen(true);
+      setSidebarView('visuals');
+    }
+  };
+  const insertVisual = async (visualId: string) => {
+    const current = useNoteStore.getState().currentNote;
+    const file = mixed.state.file;
+    const api = editorRef.current;
+    if (!current?.mixed || current.mixed.metadata.formatVersion !== 1 || !file || file.readOnly || !api || !files.editorReady) {
+      files.session.notifyError(new MarkdownFileError('readonly', '请先打开一个可写的 Mixed Note，再插入收藏的 Visual'));
+      return;
+    }
+    if (note.isComposing || mixed.state.busy || mixed.state.externalConflict) {
+      files.session.notifyError(new MarkdownFileError('busy', '当前 Mixed Note 暂时不能插入 Visual'));
+      return;
+    }
+    const packageValue = await visualLibrary.load(visualId);
+    if (!packageValue) return;
+    const targetId = crypto.randomUUID();
+    const block = {
+      id: targetId,
+      html: packageValue.item.html,
+      originalHtml: packageValue.originalHtml,
+      config: JSON.parse(JSON.stringify(packageValue.item.config)),
+    };
+    let content = '';
+    try { content = api.previewHtmlBlock(targetId, 'normal'); }
+    catch (cause) { files.session.notifyError(cause); return; }
+    const candidate = {
+      metadata: { ...current.mixed.metadata, updatedAt: new Date().toISOString() },
+      blocks: [...current.mixed.blocks, block],
+    };
+    const imports: BlockAssetImport[] = packageValue.assets.map(asset => ({
+      blockId: targetId,
+      path: asset.path,
+      bytes: asset.bytes,
+    }));
+    if (await mixed.commit(content, candidate, imports)) {
+      setActiveView('editor');
+      selectHtmlBlock(targetId);
+    }
+  };
   const showSidebar = sidebarOpen && workspaceMode !== 'focus';
   const showInspector = inspectorOpen && workspaceMode !== 'focus';
   const fileActions = <WritingHeader activeView={activeView} note={note} files={files} mixed={mixed} editorRef={editorRef} />;
@@ -341,12 +421,18 @@ function App({ filePort, notePort, workspacePort }: {
     {showSidebar && <WorkspaceSidebar activeView={activeView} fileActions={fileActions}
       searchQuery={workspace.query} searchDisabled={!workspace.snapshot} view={sidebarView}
       onSearchQueryChange={workspace.setQuery} onViewChange={setSidebarView}
-      workspaceContent={<WorkspaceNavigation snapshot={workspace.snapshot} busy={workspace.busy} error={workspace.error}
-        query={workspace.query} view={sidebarView} results={workspace.results} recent={workspace.recent}
-        activeRelativePath={workspace.activeRelativePath} selectedFolder={workspace.selectedFolder}
-        expanded={workspace.expanded} renameDisabled={dirty || note.isComposing || !!files.state.busy || !!mixed.state.busy}
-        onPick={() => void workspace.pick()} onRefresh={() => void workspace.refresh()}
-        onOpen={entry => void workspace.open(entry)} onRename={(entry, name) => void workspace.rename(entry, name)} />}
+      workspaceContent={sidebarView === 'visuals'
+        ? <VisualLibraryPanel items={visualLibrary.items} busy={visualLibrary.busy} error={visualLibrary.error}
+            notice={visualLibrary.notice} readAsset={visualLibrary.readAsset}
+            insertDisabled={note.currentNote?.metadata.type !== 'mixed' || !mixed.state.file || mixed.state.file.readOnly
+              || !!mixed.state.busy || !!mixed.state.externalConflict || note.isComposing || !files.editorReady}
+            onRefresh={() => void visualLibrary.refresh()} onInsert={id => void insertVisual(id)} />
+        : <WorkspaceNavigation snapshot={workspace.snapshot} busy={workspace.busy} error={workspace.error}
+            query={workspace.query} view={sidebarView} results={workspace.results} recent={workspace.recent}
+            activeRelativePath={workspace.activeRelativePath} selectedFolder={workspace.selectedFolder}
+            expanded={workspace.expanded} renameDisabled={dirty || note.isComposing || !!files.state.busy || !!mixed.state.busy}
+            onPick={() => void workspace.pick()} onRefresh={() => void workspace.refresh()}
+            onOpen={entry => void workspace.open(entry)} onRename={(entry, name) => void workspace.rename(entry, name)} />}
       fileActionsDisabled={!!files.state.busy || !!files.state.pending || note.isComposing || !!workspace.busy}
       onNew={() => void workspace.createNote()}
       onOpen={() => void files.session.open().catch(cause => files.session.notifyError(cause))}
@@ -375,7 +461,7 @@ function App({ filePort, notePort, workspacePort }: {
         </div>}
       </div>
       <WritingWorkspace activeView={activeView} editorRef={editorRef} note={note} files={files} mixed={mixed}
-        workspaceMode={workspaceMode} onHtmlBlockSelect={selectHtmlBlock} />
+        workspaceMode={workspaceMode} onHtmlBlockSelect={selectHtmlBlock} onCollectHtmlBlock={collectHtmlBlock} />
       <DebugPanel activeView={activeView} />
     </main>
     {showInspector && <WorkspaceInspector tab={inspectorTab} markdown={note.currentNote?.contentMd ?? ''} title={title}

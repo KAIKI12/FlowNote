@@ -7,6 +7,7 @@ pub mod markdown_files;
 pub mod note_commands;
 pub mod note_files;
 pub mod workspace;
+pub mod visual_library;
 mod note_format;
 mod note_path;
 mod note_repair;
@@ -56,6 +57,10 @@ pub fn configure_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
             note_commands::note_export_browser_bundle,
             note_commands::note_export_markdown,
             note_commands::note_release,
+            visual_library::visual_library_list,
+            visual_library::visual_library_collect,
+            visual_library::visual_library_package,
+            visual_library::visual_library_read_asset,
             workspace::workspace_pick,
             workspace::workspace_restore,
             workspace::workspace_scan,

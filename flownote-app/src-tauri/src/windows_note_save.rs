@@ -1,8 +1,8 @@
 use crate::file_error::{FileError, FileResult};
-use crate::note_files::{BlockAssetEdit, BlockCopyRequest};
+use crate::note_files::{BlockAssetEdit, BlockAssetImport, BlockCopyRequest};
 use crate::note_format::{MixedNoteData, NoteDocument};
 use crate::windows_note_io::{lock_ancestors, Directory};
-use crate::windows_note_stage::Draft;
+use crate::windows_note_stage::{Draft, DraftInput};
 use crate::windows_note_tree::NoteTree;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -16,6 +16,7 @@ pub(crate) struct NoteWrite<'a> {
     pub assets: Vec<(String, Vec<u8>)>,
     pub block_copies: Vec<BlockCopyRequest>,
     pub block_asset_edits: Vec<BlockAssetEdit>,
+    pub block_asset_imports: Vec<BlockAssetImport>,
     pub repair_source: bool,
 }
 
@@ -100,8 +101,16 @@ where F: FnMut(SaveStage, &Path) {
     let mut source = prepare_source(&request)?;
     let commit = Commit { target: request.target, expected: request.expected.unwrap_or_default(), replacing };
     let source_tree = source.as_ref().and_then(|source| source.tree.as_ref());
-    let draft = Draft::prepare(request.content, request.mixed, request.assets, request.block_copies,
-        request.block_asset_edits, source_tree, request.repair_source)?;
+    let draft = Draft::prepare(DraftInput {
+        content: request.content,
+        mixed: request.mixed,
+        assets: request.assets,
+        block_copies: request.block_copies,
+        block_asset_edits: request.block_asset_edits,
+        block_asset_imports: request.block_asset_imports,
+        source: source_tree,
+        repair_source: request.repair_source,
+    })?;
     if replacing && source_tree.is_some_and(|tree| draft.unchanged(tree)) {
         let tree = source_tree.ok_or_else(|| FileError::new("conflict", "Note 源状态缺失"))?;
         return Ok(NoteReceipt { document: tree.document()?, revision: tree.revision.clone(), notice: None });

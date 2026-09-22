@@ -4,6 +4,7 @@ use flownote::file_error::{FileError, FileResult};
 use flownote::markdown_files::{FileStore, SaveRequest};
 use flownote::note_commands::{AssetRequest as NoteAssetRequest, RepairRequest as NoteRepairRequest};
 use flownote::note_files::{NoteSaveAsRequest, NoteSaveRequest, NoteStore};
+use flownote::visual_library::{self, VisualAssetRequest, VisualCollectRequest, VisualIdRequest};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Write};
@@ -91,7 +92,32 @@ fn dispatch_note(store: &mut NoteStore, input: &Input) -> FileResult<Value> {
     }
 }
 
+fn dispatch_visual(notes: &mut NoteStore, input: &Input) -> FileResult<Value> {
+    let root = input.selection.as_ref().ok_or_else(|| FileError::new("protocol", "Test driver requires a Visual Library root"))?;
+    match input.command.as_str() {
+        "visual_library_list" => visual_library::list(root).map(|items| json!(items)),
+        "visual_library_collect" => {
+            let request: VisualCollectRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Visual collect request", error))?;
+            let source = notes.block_package(&request.note_id, &request.revision, &request.block_id)?;
+            visual_library::collect(root, &request.title, source).map(|item| json!(item))
+        }
+        "visual_library_package" => {
+            let request: VisualIdRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Visual package request", error))?;
+            visual_library::package(root, &request.id).map(|package| json!(package))
+        }
+        "visual_library_read_asset" => {
+            let request: VisualAssetRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Visual asset request", error))?;
+            visual_library::read_asset(root, &request.id, &request.path).map(|asset| json!(asset))
+        }
+        _ => Err(FileError::new("protocol", "Unknown Visual Library test command")),
+    }
+}
+
 fn dispatch(store: &mut FileStore, notes: &mut NoteStore, input: &Input) -> FileResult<Value> {
+    if input.command.starts_with("visual_library_") { return dispatch_visual(notes, input); }
     if input.command.starts_with("note_") { return dispatch_note(notes, input); }
     match input.command.as_str() {
         "markdown_open" | "markdown_save_as" => selected(store, input),

@@ -7,7 +7,7 @@ import { fileError, MarkdownFileError } from '../files/fileTypes';
 import { mixedFingerprint, validateHtmlSource } from './htmlBlockData';
 import type { MixedNoteData, MixedNoteMetadata } from './mixedTypes';
 import { createNativeNotePort } from './nativeNotePort';
-import type { BlockAssetEdit, BlockAssetInfo, NativeNotePort, NoteAssetData, NoteProbe, NoteSnapshot } from './nativeNotePort';
+import type { BlockAssetEdit, BlockAssetImport, BlockAssetInfo, NativeNotePort, NoteAssetData, NoteProbe, NoteSnapshot } from './nativeNotePort';
 import { useNoteStore } from './noteStore';
 import type { NoteStructure } from './noteTypes';
 
@@ -209,7 +209,7 @@ export function useMixedNoteFiles(options: Options) {
     } catch (cause) { report(cause); return false; }
   };
 
-  const commit = async (content: string, mixed: MixedNoteData): Promise<boolean> => {
+  const commit = async (content: string, mixed: MixedNoteData, blockAssetImports: BlockAssetImport[] = []): Promise<boolean> => {
     const store = useNoteStore.getState();
     const file = stateRef.current.file;
     if (stateRef.current.busy) { report(new MarkdownFileError('busy', '请等待当前 Note 操作完成')); return false; }
@@ -217,7 +217,7 @@ export function useMixedNoteFiles(options: Options) {
     if (!file || file.readOnly) { report(new MarkdownFileError('readonly', '当前 Mixed Note 不可直接写入')); return false; }
     update({ busy: 'save', error: null, notice: '' });
     try {
-      apply(await port.save({ id: file.id, revision: file.revision, content, mixed: cloneMixed(mixed) }));
+      apply(await port.save({ id: file.id, revision: file.revision, content, mixed: cloneMixed(mixed), blockAssetImports }));
       return true;
     } catch (cause) { report(cause); return false; }
   };

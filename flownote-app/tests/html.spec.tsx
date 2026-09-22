@@ -7,6 +7,7 @@ import { resolveHtmlResources } from '../src/html/htmlResources';
 import { NodeSelection } from '@milkdown/prose/state';
 import { renderBrowserBundle } from '../src/export/browserBundle';
 import { renderMarkdownExport } from '../src/export/markdownExport';
+import { createNativeVisualLibraryPort } from '../src/visualLibrary/nativeVisualLibraryPort';
 
 const ID = '0199a111-0000-7000-8000-000000000001';
 const SECOND_ID = '0199a111-0000-7000-8000-000000000002';
@@ -254,6 +255,39 @@ async function markdownExportUsesExternalLinksAndCurrentBlocks() {
   assert.match(draft.blocks[0].html, /connect-src 'none'/);
 }
 
+async function visualLibraryPortUsesRegisteredCommands() {
+  const calls: Array<{ command: string; args?: Record<string, unknown> }> = [];
+  const visualId = '0199a222-0000-7000-8000-000000000010';
+  const item = {
+    id: visualId, title: 'Reusable Visual', createdAtMs: 1800000000000, updatedAtMs: 1800000000000,
+    html: '<div>Current</div>',
+    config: { kind: 'html', inputKind: 'fragment', scriptPolicy: 'sandbox', viewport: { heightPx: 480 } },
+    assetCount: 1,
+  };
+  const port = createNativeVisualLibraryPort(async (command, args) => {
+    calls.push({ command, args });
+    if (command === 'visual_library_list') return [item];
+    if (command === 'visual_library_collect') return item;
+    if (command === 'visual_library_package') return { item, originalHtml: '<div>Original</div>',
+      assets: [{ path: 'assets/style.css', mime: 'text/css', bytes: [98, 111, 100, 121] }] };
+    if (command === 'visual_library_read_asset') return { path: 'assets/style.css', mime: 'text/css', bytes: [98, 111, 100, 121] };
+    throw new Error('unexpected command');
+  });
+
+  assert.equal((await port.list())[0].title, 'Reusable Visual');
+  await port.collect({ noteId: 'note:capability', revision: 'r1', blockId: ID, title: 'Reusable Visual' });
+  const loaded = await port.load(visualId);
+  assert.equal(loaded.originalHtml, '<div>Original</div>');
+  assert.equal(loaded.assets[0].path, 'assets/style.css');
+  assert.equal((await port.readAsset(visualId, 'assets/style.css')).mime, 'text/css');
+  assert.deepEqual(calls.map(call => call.command),
+    ['visual_library_list', 'visual_library_collect', 'visual_library_package', 'visual_library_read_asset']);
+  assert.deepEqual(calls[1].args, { request: {
+    noteId: 'note:capability', revision: 'r1', blockId: ID, title: 'Reusable Visual',
+  } });
+  assert.deepEqual(calls[2].args, { request: { id: visualId } });
+}
+
 async function nativeNotePortUsesRegisteredCommands() {
   const calls: Array<{ command: string; args?: Record<string, unknown> }> = [];
   const snapshot = { id: 'note:capability', path: 'E:\\Notes\\Test.note', name: 'Test.note', content: SOURCE,
@@ -362,6 +396,7 @@ export async function run(filter: string) {
     { name: 'Browser Bundle：语义正文与 Current HTML 按文档顺序导出', run: browserBundleRendererUsesSemanticVisualDocumentAndCurrentBlocks },
     { name: 'Browser Bundle：受保护 Markdown 使用源码保真 fallback', run: browserBundleProtectedSourceFallsBackWithoutLosingMarkdown },
     { name: 'Markdown Export：HTML Anchor 变为外部链接并导出 Current HTML', run: markdownExportUsesExternalLinksAndCurrentBlocks },
+    { name: 'Visual Library 端口：使用已注册原生命令并严格解析 package / assets', run: visualLibraryPortUsesRegisteredCommands },
     { name: 'Note 端口：前端使用已注册的原生 .note 命令并保留 Mixed 数据', run: nativeNotePortUsesRegisteredCommands },
     { name: 'Note 端口：拒绝字段不完整的原生快照', run: invalidNativeNoteSnapshotIsRejected },
   ];

@@ -80,6 +80,11 @@ fn every_note_command_denies_non_main_windows_before_dialog_or_disk_access() {
         ("note_export_markdown", json!({ "request": { "id": "note:unknown", "revision": "x",
             "folderName": "Markdown Export", "markdownName": "Export.md", "content": "text", "blocks": [] } })),
         ("note_release", json!({ "id": "note:unknown" })),
+        ("visual_library_list", json!({})),
+        ("visual_library_collect", json!({ "request": { "noteId": "note:unknown", "revision": "x",
+            "blockId": note_support::FIRST, "title": "Visual" } })),
+        ("visual_library_package", json!({ "request": { "id": note_support::FIRST } })),
+        ("visual_library_read_asset", json!({ "request": { "id": note_support::FIRST, "path": "assets/style.css" } })),
     ];
     for (command, args) in calls {
         assert_eq!(desktop.call(command, args).unwrap_err()["code"], "permission", "{command}");

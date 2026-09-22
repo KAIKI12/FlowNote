@@ -10,6 +10,7 @@ export interface HtmlBlockHost {
   listAssets?(id: string): Promise<BlockAssetInfo[]>;
   commitFullEditor?(id: string, html: string, edits: BlockAssetEdit[]): Promise<boolean>;
   duplicate?(id: string): void | Promise<unknown>;
+  collect?(id: string): void | Promise<unknown>;
   select?(id: string): void;
   update(block: HtmlBlockData): void;
   subscribe(listener: () => void): () => void;

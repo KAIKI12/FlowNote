@@ -1,5 +1,5 @@
 use crate::file_error::{FileError, FileResult};
-use crate::note_files::{editable_asset_path, BlockAssetEdit, BlockCopyRequest};
+use crate::note_files::{editable_asset_path, validate_asset_path, BlockAssetEdit, BlockAssetImport, BlockCopyRequest};
 use crate::note_format::{merge_compatible, validate_mixed, MixedNoteData};
 use crate::windows_note_io::{create_file, Directory, NoteMetadata};
 use crate::windows_note_tree::{NoteTree, MAX_PACKAGE_BYTES, MAX_PACKAGE_FILES};
@@ -134,10 +134,49 @@ fn apply_block_asset_edits(source: &NoteTree, files: &mut BTreeMap<String, Vec<u
     Ok(())
 }
 
+fn apply_block_asset_imports(source: &NoteTree, files: &mut BTreeMap<String, Vec<u8>>, directories: &mut BTreeSet<String>,
+    mixed: &MixedNoteData, imports: Vec<BlockAssetImport>) -> FileResult<()> {
+    if imports.is_empty() { return Ok(()); }
+    let previous = source.document()?;
+    let previous_ids: BTreeSet<_> = previous.mixed.blocks.iter().map(|block| block.id.as_str()).collect();
+    let mut targets = BTreeSet::new();
+    for import in imports {
+        crate::note_format::validate_id(&import.block_id)?;
+        validate_asset_path(&import.path)?;
+        if previous_ids.contains(import.block_id.as_str()) {
+            return Err(format_error("Visual Library 资源只能导入到新 HTML Block"));
+        }
+        if !mixed.blocks.iter().any(|block| block.id == import.block_id) {
+            return Err(format_error("Visual Library 资源目标 Block 未出现在候选 Mixed Note"));
+        }
+        let full = format!("blocks/{}/{}", import.block_id, import.path);
+        if !targets.insert(full.clone()) || files.contains_key(&full) {
+            return Err(format_error("Visual Library 导入资源路径重复或与现有文件冲突"));
+        }
+        let parts: Vec<_> = full.split('/').collect();
+        for end in 1..parts.len() { directories.insert(parts[..end].join("/")); }
+        files.insert(full, import.bytes);
+    }
+    Ok(())
+}
+
+
+pub struct DraftInput<'a> {
+    pub content: String,
+    pub mixed: MixedNoteData,
+    pub assets: Vec<(String, Vec<u8>)>,
+    pub block_copies: Vec<BlockCopyRequest>,
+    pub block_asset_edits: Vec<BlockAssetEdit>,
+    pub block_asset_imports: Vec<BlockAssetImport>,
+    pub source: Option<&'a NoteTree>,
+    pub repair_source: bool,
+}
 
 impl Draft {
-    pub fn prepare(content: String, mut mixed: MixedNoteData, assets: Vec<(String, Vec<u8>)>, block_copies: Vec<BlockCopyRequest>,
-        block_asset_edits: Vec<BlockAssetEdit>, source: Option<&NoteTree>, repair_source: bool) -> FileResult<Self> {
+    pub fn prepare(input: DraftInput<'_>) -> FileResult<Self> {
+        let DraftInput {
+            content, mut mixed, assets, block_copies, block_asset_edits, block_asset_imports, source, repair_source,
+        } = input;
         let mut files = BTreeMap::new();
         let mut directories = BTreeSet::from(["blocks".to_string()]);
         if let Some(source) = source {
@@ -156,8 +195,9 @@ impl Draft {
             }
             copy_private_assets(source, &mut files, &mut directories, &mixed, &block_copies)?;
             apply_block_asset_edits(source, &mut files, &mut directories, &mixed, block_asset_edits)?;
-        } else if !block_copies.is_empty() || !block_asset_edits.is_empty() {
-            return Err(format_error("Deep Copy / Block asset edit 需要已绑定的源 Note"));
+            apply_block_asset_imports(source, &mut files, &mut directories, &mixed, block_asset_imports)?;
+        } else if !block_copies.is_empty() || !block_asset_edits.is_empty() || !block_asset_imports.is_empty() {
+            return Err(format_error("Deep Copy / Block asset edit / Visual Library import 需要已绑定的源 Note"));
         }
         for (path, bytes) in assets { add_asset(&mut files, &mut directories, path, bytes)?; }
         validate_mixed(&content, &mixed)?;

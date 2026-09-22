@@ -207,7 +207,7 @@ fn validate_metadata(metadata: &Value) -> FileResult<()> {
     forbidden_fields(metadata)
 }
 
-fn validate_config(config: &Value) -> FileResult<()> {
+pub(crate) fn validate_config(config: &Value) -> FileResult<()> {
     let object = config.as_object().ok_or_else(|| format_error("block.json 必须是对象"))?;
     if config["kind"] != "html" { return Err(format_error("Block kind 必须是 html")); }
     if ![Some("fragment"), Some("document")].contains(&config["inputKind"].as_str()) {

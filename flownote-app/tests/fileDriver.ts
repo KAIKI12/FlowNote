@@ -3,6 +3,7 @@ import { createInterface } from 'node:readline';
 import { createNativeFilePort } from '../src/files/nativeFilePort';
 import type { FileInvoke } from '../src/files/nativeFilePort';
 import { createNativeNotePort } from '../src/note/nativeNotePort';
+import { createNativeVisualLibraryPort } from '../src/visualLibrary/nativeVisualLibraryPort';
 
 const RESPONSE_PREFIX = 'FLOWNOTE_FILE_RESULT ';
 const REQUEST_TIMEOUT_MS = 5000;
@@ -51,6 +52,7 @@ export function createFileDriver() {
   const noteSaves: (string | null)[] = [];
   const bundleExports: (string | null)[] = [];
   const markdownExports: (string | null)[] = [];
+  let visualRoot: string | null = null;
   const calls: string[] = [];
   const invoke: FileInvoke = (command, args = {}) => {
     calls.push(command);
@@ -59,11 +61,15 @@ export function createFileDriver() {
         : command === 'note_export_browser_bundle' ? bundleExports
           : command === 'note_export_markdown' ? markdownExports : undefined;
     if (choices && !choices.length) throw new Error(`No test picker selection queued for ${command}`);
-    return transport.send({ command, args, selection: choices?.shift() ?? null });
+    const selection = command.startsWith('visual_library_') ? visualRoot : choices?.shift() ?? null;
+    if (command.startsWith('visual_library_') && !selection) throw new Error('No Visual Library test root configured');
+    return transport.send({ command, args, selection });
   };
-  return { port: createNativeFilePort(invoke), notePort: createNativeNotePort(invoke), invoke, calls, close: transport.close,
+  return { port: createNativeFilePort(invoke), notePort: createNativeNotePort(invoke),
+    visualPort: createNativeVisualLibraryPort(invoke), invoke, calls, close: transport.close,
     open: (path: string | null) => { opens.push(path); }, saveAs: (path: string | null) => { saves.push(path); },
     noteOpen: (path: string | null) => { noteOpens.push(path); }, noteSaveAs: (path: string | null) => { noteSaves.push(path); },
     browserExport: (path: string | null) => { bundleExports.push(path); },
-    markdownExport: (path: string | null) => { markdownExports.push(path); } };
+    markdownExport: (path: string | null) => { markdownExports.push(path); },
+    visualLibraryRoot: (path: string) => { visualRoot = path; } };
 }

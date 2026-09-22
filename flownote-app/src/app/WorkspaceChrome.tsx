@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   BookOpen, CheckCircle2, ChevronRight, Clock3, Download, Edit3, FilePlus2, Files, FolderOpen, Info,
-  ListTree, Maximize2, Moon, MoreHorizontal, PanelLeft, PanelLeftClose, PanelRight, PanelRightClose,
+  LibraryBig, ListTree, Maximize2, Moon, MoreHorizontal, PanelLeft, PanelLeftClose, PanelRight, PanelRightClose,
   Search, SlidersHorizontal, Sun, X,
 } from 'lucide-react';
 import type { ThemePreference } from './themePreference';
@@ -134,9 +134,9 @@ interface SidebarProps {
   fileActionsDisabled: boolean;
   searchQuery: string;
   searchDisabled?: boolean;
-  view: 'files' | 'recent';
+  view: 'files' | 'recent' | 'visuals';
   onSearchQueryChange(value: string): void;
-  onViewChange(view: 'files' | 'recent'): void;
+  onViewChange(view: 'files' | 'recent' | 'visuals'): void;
   onNew(): void;
   onOpen(): void;
   onSelectView(view: 'editor' | 'demo' | 'qualification'): void;
@@ -148,11 +148,11 @@ export function WorkspaceSidebar({
 }: SidebarProps) {
   return <aside className="workspace-sidebar" aria-label="Files">
     <div className="workspace-sidebar-head">
-      <label className="workspace-sidebar-search">
+      {view !== 'visuals' && <label className="workspace-sidebar-search">
         <Search size={13} aria-hidden="true" />
         <input aria-label="侧栏搜索笔记" placeholder={searchDisabled ? 'Choose a workspace first' : '搜索笔记…'}
           value={searchQuery} disabled={searchDisabled} onChange={event => onSearchQueryChange(event.target.value)} />
-      </label>
+      </label>}
       <div className="workspace-quick-file-actions">
         <button type="button" disabled={fileActionsDisabled} onClick={onNew}>
           <FilePlus2 size={13} /><span>New Note</span>
@@ -171,6 +171,9 @@ export function WorkspaceSidebar({
         </button>
         <button type="button" role="tab" aria-selected={view === 'recent'} onClick={() => onViewChange('recent')}>
           <Clock3 size={12} />Recent
+        </button>
+        <button type="button" role="tab" aria-selected={view === 'visuals'} onClick={() => onViewChange('visuals')}>
+          <LibraryBig size={12} />Visuals
         </button>
       </div>
     </div>

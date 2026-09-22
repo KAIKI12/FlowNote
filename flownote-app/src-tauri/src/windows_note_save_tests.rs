@@ -19,7 +19,7 @@ fn target() -> (PathBuf, crate::note_files::NoteSnapshot) {
 
 fn request<'a>(path: &'a Path, note: &'a crate::note_files::NoteSnapshot) -> NoteWrite<'a> {
     NoteWrite { target: path, source: Some(path), expected: Some(&note.revision), content: "LOCAL\n".into(), mixed: note.mixed.clone(),
-        assets: Vec::new(), block_copies: Vec::new(), block_asset_edits: Vec::new(), repair_source: false }
+        assets: Vec::new(), block_copies: Vec::new(), block_asset_edits: Vec::new(), block_asset_imports: Vec::new(), repair_source: false }
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn first_save_refuses_a_directory_created_after_staging() {
     let path = parent.join("new.note");
     let draft = draft();
     let write = NoteWrite { target: &path, source: None, expected: None, content: draft.content, mixed: draft.mixed,
-        assets: Vec::new(), block_copies: Vec::new(), block_asset_edits: Vec::new(), repair_source: false };
+        assets: Vec::new(), block_copies: Vec::new(), block_asset_edits: Vec::new(), block_asset_imports: Vec::new(), repair_source: false };
     let error = execute(write, |stage, target| {
         if stage == SaveStage::Staged { fs::create_dir(target).unwrap(); }
     }).err().unwrap();

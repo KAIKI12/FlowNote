@@ -20,9 +20,10 @@ export interface NoteSnapshot {
 
 export interface BlockCopyRequest { sourceId: string; targetId: string }
 export interface BlockAssetEdit { blockId: string; path: string; content: string }
+export interface BlockAssetImport { blockId: string; path: string; bytes: number[] }
 export interface BlockAssetInfo { path: string; mime: string; size: number; editable: boolean }
 export interface NoteSaveRequest { id: string; revision: string; content: string; mixed: MixedNoteData;
-  blockCopies?: BlockCopyRequest[]; blockAssetEdits?: BlockAssetEdit[] }
+  blockCopies?: BlockCopyRequest[]; blockAssetEdits?: BlockAssetEdit[]; blockAssetImports?: BlockAssetImport[] }
 export interface NoteProbe { revision: string; changed: boolean }
 export interface NoteDiagnostic { kind: string; blockId?: string; message: string }
 export interface NoteAssetData { path: string; bytes: number[] }

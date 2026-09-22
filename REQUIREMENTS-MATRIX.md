@@ -159,7 +159,18 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 | THEME-02 | External/common fonts can map to FlowNote-local font roles such as body/heading/code while Original source remains recoverable | Theme token layer | Planned | V2.5 |
 | THEME-03 | Rule-based CSS parser + design-token mapping is the default normalization path; AI may assist only where semantic classification is needed | Theme adaptation architecture | Planned | V2.5 |
 
-## K. Export
+## K. Visual Library and reusable visuals
+
+| ID | Final Requirement | Reservation | Current Status | Target |
+|---|---|---|---|---|
+| VLIB-01 | Existing HTML Block can be collected into a local reusable Visual Library without modifying the source Note | App-owned library store, source capability read | Completed | V1.1 Slice 1 |
+| VLIB-02 | Library item preserves Current HTML, Original HTML, Block config and Block-private managed assets | Visual package ownership | Completed | V1.1 Slice 1 |
+| VLIB-03 | Visual Library can be browsed with sandboxed preview, title and basic metadata | Library UI + resource resolver | Completed | V1.1 Slice 1 |
+| VLIB-04 | Inserting a library item creates a new independent Block ID and copies owned assets into the target Note | Cross-owner import transaction | Completed | V1.1 Slice 1 |
+| VLIB-05 | Library storage is outside Note Format v1 and does not become a second canonical source for note body/order | Storage boundary invariant | Implemented by architecture | Ongoing invariant |
+| VLIB-06 | Future rename/delete/favorites/tags/search for visuals operate on library metadata, not Note content | Library metadata layer | Planned | V1.1+ |
+
+## L. Export
 
 | ID | Final Requirement | Reservation | Current Status | Target |
 |---|---|---|---|---|
@@ -169,7 +180,7 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 | EXP-04 | Browser Bundle does not falsely promise single-file or fully-offline unresolved remote deps | Product contract | Completed | V1 |
 | EXP-05 | Export uses same resource ownership/resolver semantics, not a separate ad-hoc model | Resource architecture | Completed | V1 |
 
-## L. AI and future visual workflows
+## M. AI and future visual workflows
 
 | ID | Final Requirement | Reservation | Current Status | Target |
 |---|---|---|---|---|
@@ -180,7 +191,7 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 | AI-05 | Theme adaptation is runtime/candidate transformation, not silent Original rewrite | Source/runtime separation | Planned | V2.5 |
 | AI-06 | Note → Presentation generation operates on same source content | Projection model | Planned | V2.5 |
 
-## M. Reliability and performance
+## N. Reliability and performance
 
 | ID | Final Requirement | Reservation | Current Status | Target |
 |---|---|---|---|---|
@@ -191,7 +202,7 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 | REL-05 | Multiple complex HTML Blocks remain usable without severe degradation | Runtime lifecycle/perf budget | Planned | V2 perf qualification |
 | REL-06 | Large JS bundle/code splitting does not become product blocker | Build architecture | Partial | Current main bundle ~819.62 kB warning |
 
-## N. Explicit non-goals / boundaries
+## O. Explicit non-goals / boundaries
 
 | ID | Final Requirement | Current Status |
 |---|---|---|
@@ -202,7 +213,7 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 | NG-05 | No requirement that third-party Markdown editors reproduce FlowNote visual effects | Non-goal |
 | NG-06 | No silent auto-downgrade `.note → .md` | Non-goal |
 
-## O. Governance rule for future development
+## P. Governance rule for future development
 
 Before starting any implementation Slice:
 
