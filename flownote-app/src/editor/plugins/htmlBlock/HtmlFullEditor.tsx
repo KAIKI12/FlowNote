@@ -91,7 +91,7 @@ export function HtmlFullEditor({ block, host, onCancel, onSaved }: HtmlFullEdito
           bytes: [...new TextEncoder().encode(assetDrafts[path])] };
       }
       return host.readAsset!(block.id, path);
-    }).then(html => {
+    }, block.config).then(html => {
       if (active) setPreview(html);
     }).catch(cause => {
       if (active) {

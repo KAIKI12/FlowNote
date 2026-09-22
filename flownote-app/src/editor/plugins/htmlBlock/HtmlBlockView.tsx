@@ -46,7 +46,7 @@ export function HtmlBlockView({ blockId, width, host }: HtmlBlockViewProps) {
     let active = true;
     setPreview(block.html);
     setResourceError('');
-    void resolveHtmlResources(block.html, path => host.readAsset!(blockId, path)).then(html => {
+    void resolveHtmlResources(block.html, path => host.readAsset!(blockId, path), block.config).then(html => {
       if (active) setPreview(html);
     }).catch(cause => {
       if (active) setResourceError(cause instanceof Error ? cause.message : String(cause));

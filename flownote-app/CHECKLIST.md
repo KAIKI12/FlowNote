@@ -51,7 +51,7 @@
 
 - [ ] **cross-note managed dependency copy**：跨 Note 复制时携带完整 managed shared dependencies，仍是后续需求。
 - [ ] Shared Localized Resource（`assets/shared/**`）完整产品路径。
-- [ ] CDN Localization 与 remote → local shared mapping。
+- [ ] Note-shared CDN Localization 与 remote → `assets/shared/**` mapping；V1.1 Visual Library / Block-private Make Local 已完成。
 - [ ] `@import`、动态 `fetch()`、module import、Worker / WASM 等更广资源 resolver 支持。
 - [ ] 完整 FlowNote Trash / 删除资源恢复 UX。
 
@@ -96,15 +96,15 @@
 - [x] Workspace Frontend：**8 / 8**
 - [x] Workspace Native：**11 / 11**
 - [x] Format Freeze Gate：PASS
-- [x] HTML：**12 / 12**
-- [x] Stage One：**62 / 62**
-- [x] Protection：**38 / 38**
+- [x] HTML：**19 / 19**
+- [x] Stage One：**70 / 70**
+- [x] Protection：**42 / 42**
 - [x] Qualification：**36 / 36**
 - [x] Files：**18 / 18**
-- [x] 真实磁盘：**16 / 16**
+- [x] 真实磁盘：**20 / 20**
 - [x] Desktop UI：**12 / 12**
 - [x] Desktop IPC / Rust desktop commands：**12 / 12**
-- [x] Rust 全套：**87 passed / 1 ignored**
+- [x] Rust 全套：**102 passed / 1 ignored**
 - [x] Rust Clippy：PASS
 - [x] Frontend build：PASS
 - [x] Tauri release build：PASS
@@ -135,11 +135,12 @@
 - [x] Link / Outline / Chrome Readability：Markdown 外部链接支持 Ctrl/Cmd+点击系统打开；右侧 Outline 可点击跳转 H1–H3；Topbar / Sidebar / 文件树 / Inspector / 状态区字号提升且正文 15.5 px 保持不变。
 - [x] V1.1 Visual Library Slice 1：HTML Visual 可收藏 Current / Original / config / private assets，在 Visuals Sidebar 预览，并以新 Block ID + 独立资源插入 Mixed Note。
 - [x] V1.1 Visual Library Slice 2：rename / tags / favorite / title+tag search / Favorites / recoverable Trash+Restore；metadata 属于 app-owned Library，不修改 Note Format v1。
+- [x] V1.1 Visual Library Slice 3：Remote / Partially Local / Local 检测与显式 Make Local；静态 HTTPS CSS / JS / image / CSS `url()` 事务式本地化到 Library-owned `assets/localized/**`，以 `block.json.resources.localized` 做映射而不改写 Current / Original；Insert 深复制 mapping + localized assets 到新 Block，来源 Note / Library / 目标 Note ownership 独立。
 - [x] Release build / exe smoke：production build、MSI、NSIS 均 PASS；release exe 启动后保持运行，无启动即崩。
 - [ ] 最终安装级发布验证：真实 MSI / NSIS 安装、卸载、升级路径与发布版本整理。
 
 ## 需求保留规则
 
 - [x] Slice 状态与最终需求分离：Slice 的 `completed` 不代表 Requirements Matrix 对应所有 Planned / Partial 项都完成。
-- [x] Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等继续保留。
+- [x] Note-shared Localized Resource、shared CDN dedup、cross-note managed dependency copy、`@import` / module / dynamic fetch / Worker / WASM 等继续保留；已完成的 Library / Block-private Make Local 不等于 shared localization 完成。
 - [ ] 任何需求若确实决定取消，必须显式修改 PRD + Requirements Matrix，并记录原因；不得通过状态文档静默删除。

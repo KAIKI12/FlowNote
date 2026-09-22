@@ -690,7 +690,10 @@ async function sliceThreeExternalConflictAndDeepCopySurviveDisk() {
 
 async function visualLibraryCollectInsertSurvivesDisk() {
   await withDiskApp('# bootstrap\n', async h => {
-    const notePath = await writeMixedPackage(h.directory, 'VisualLibrary.note', '<section>Reusable Disk Visual</section>');
+    const remoteVisualHtml = '<link rel="stylesheet" href="https://fixture.flownote.test/theme.css">'
+      + '<section class="remote">Reusable Disk Visual<img src="https://fixture.flownote.test/bg.png"></section>'
+      + '<script src="https://fixture.flownote.test/app.js"></script>';
+    const notePath = await writeMixedPackage(h.directory, 'VisualLibrary.note', remoteVisualHtml);
     h.driver.noteOpen(notePath);
     await click('打开 Mixed Note');
     await waitFor(() => useNoteStore.getState().currentNote?.metadata.type === 'mixed');
@@ -707,10 +710,47 @@ async function visualLibraryCollectInsertSurvivesDisk() {
     const visualIds = (await fs.readdir(itemsRoot)).filter(name => !name.startsWith('.'));
     assert.equal(visualIds.length, 1);
     const visualDir = path.join(itemsRoot, visualIds[0]);
-    assert.equal(await fs.readFile(path.join(visualDir, 'index.html'), 'utf8'), '<section>Reusable Disk Visual</section>');
-    assert.equal(await fs.readFile(path.join(visualDir, 'original.html'), 'utf8'), '<section>Reusable Disk Visual</section>');
+    assert.equal(await fs.readFile(path.join(visualDir, 'index.html'), 'utf8'), remoteVisualHtml);
+    assert.equal(await fs.readFile(path.join(visualDir, 'original.html'), 'utf8'), remoteVisualHtml);
     assert.equal(await fs.readFile(path.join(visualDir, 'assets/style.css'), 'utf8'), '.source{color:red}');
     assert.deepEqual(await fs.readFile(path.join(visualDir, 'assets/image.png')), Buffer.from([1, 2, 3, 4]));
+
+    const sourceBlockJsonBeforeLocalize = await fs.readFile(path.join(notePath, 'blocks', BLOCK_A, 'block.json'), 'utf8');
+    const sourceIndexBeforeLocalize = await fs.readFile(path.join(notePath, 'blocks', BLOCK_A, 'index.html'), 'utf8');
+    const sourceOriginalBeforeLocalize = await fs.readFile(path.join(notePath, 'blocks', BLOCK_A, 'original.html'), 'utf8');
+    const visualIndexBeforeLocalize = await fs.readFile(path.join(visualDir, 'index.html'), 'utf8');
+    const visualOriginalBeforeLocalize = await fs.readFile(path.join(visualDir, 'original.html'), 'utf8');
+
+    await waitFor(() => !!document.querySelector('[aria-label="Make Local：Slice 3 Disk · Visual 1"]'));
+    await click('Make Local：Slice 3 Disk · Visual 1');
+    await waitFor(() => !!document.querySelector('[aria-label="资源状态：Local"]'));
+    assert.equal(document.querySelector('[aria-label="Make Local：Slice 3 Disk · Visual 1"]'), null);
+
+    const localizedConfig = JSON.parse(await fs.readFile(path.join(visualDir, 'block.json'), 'utf8'));
+    const localized = localizedConfig.resources?.localized as Array<{ source: string; path: string; type: string }>;
+    assert.ok(Array.isArray(localized));
+    assert.deepEqual(localized.map(item => item.source).sort(), [
+      'https://fixture.flownote.test/app.js',
+      'https://fixture.flownote.test/bg.png',
+      'https://fixture.flownote.test/theme.css',
+    ]);
+    assert.equal(await fs.readFile(path.join(visualDir, 'index.html'), 'utf8'), visualIndexBeforeLocalize,
+      'Make Local rewrote Visual Current source');
+    assert.equal(await fs.readFile(path.join(visualDir, 'original.html'), 'utf8'), visualOriginalBeforeLocalize,
+      'Make Local rewrote Visual Original source');
+    assert.equal(await fs.readFile(path.join(notePath, 'blocks', BLOCK_A, 'block.json'), 'utf8'), sourceBlockJsonBeforeLocalize,
+      'Make Local mutated source Note block config');
+    assert.equal(await fs.readFile(path.join(notePath, 'blocks', BLOCK_A, 'index.html'), 'utf8'), sourceIndexBeforeLocalize,
+      'Make Local mutated source Note Current');
+    assert.equal(await fs.readFile(path.join(notePath, 'blocks', BLOCK_A, 'original.html'), 'utf8'), sourceOriginalBeforeLocalize,
+      'Make Local mutated source Note Original');
+    assert.equal(await fs.stat(path.join(notePath, 'blocks', BLOCK_A, 'assets', 'localized')).then(() => true).catch(() => false), false,
+      'Make Local wrote localized payloads into the source Note');
+    for (const resource of localized) {
+      assert.equal((await fs.stat(path.join(visualDir, resource.path))).isFile(), true, `missing localized payload ${resource.path}`);
+    }
+    const localizedCss = localized.find(resource => resource.source.endsWith('/theme.css'))!;
+    const libraryLocalizedCssBefore = await fs.readFile(path.join(visualDir, localizedCss.path));
 
     const sourceBeforeManagement = await fs.readFile(path.join(notePath, 'content.md'), 'utf8');
     await click('编辑 Visual：Slice 3 Disk · Visual 1');
@@ -760,17 +800,29 @@ async function visualLibraryCollectInsertSurvivesDisk() {
     const importedId = useNoteStore.getState().currentNote!.mixed!.blocks[1].id;
     assert.notEqual(importedId, BLOCK_A);
     const imported = path.join(notePath, 'blocks', importedId);
-    assert.equal(await fs.readFile(path.join(imported, 'index.html'), 'utf8'), '<section>Reusable Disk Visual</section>');
-    assert.equal(await fs.readFile(path.join(imported, 'original.html'), 'utf8'), '<section>Reusable Disk Visual</section>');
+    assert.equal(await fs.readFile(path.join(imported, 'index.html'), 'utf8'), remoteVisualHtml);
+    assert.equal(await fs.readFile(path.join(imported, 'original.html'), 'utf8'), remoteVisualHtml);
     assert.equal(await fs.readFile(path.join(imported, 'assets/style.css'), 'utf8'), '.source{color:red}');
     assert.deepEqual(await fs.readFile(path.join(imported, 'assets/image.png')), Buffer.from([1, 2, 3, 4]));
     assert.match(await fs.readFile(path.join(notePath, 'content.md'), 'utf8'), new RegExp(importedId));
+    const importedConfig = JSON.parse(await fs.readFile(path.join(imported, 'block.json'), 'utf8'));
+    assert.deepEqual(importedConfig.resources.localized, localized,
+      'inserted Block did not receive the Library localization mapping');
+    for (const resource of localized) {
+      assert.equal((await fs.stat(path.join(imported, resource.path))).isFile(), true,
+        `inserted Block is missing localized payload ${resource.path}`);
+    }
 
     await fs.writeFile(path.join(imported, 'assets/style.css'), 'TARGET ONLY');
     assert.equal(await fs.readFile(path.join(visualDir, 'assets/style.css'), 'utf8'), '.source{color:red}',
       'Target edit mutated the reusable library item');
     assert.equal(await fs.readFile(path.join(notePath, 'blocks', BLOCK_A, 'assets/style.css'), 'utf8'), '.source{color:red}',
       'Target edit mutated the original source Block');
+    await fs.writeFile(path.join(imported, localizedCss.path), 'TARGET LOCALIZED ONLY');
+    assert.deepEqual(await fs.readFile(path.join(visualDir, localizedCss.path)), libraryLocalizedCssBefore,
+      'Target localized edit mutated the reusable Library payload');
+    assert.equal(await fs.stat(path.join(notePath, 'blocks', BLOCK_A, 'assets', 'localized')).then(() => true).catch(() => false), false,
+      'Target localized edit created a hidden dependency in the source Block');
 
     await click('关闭笔记');
     await waitFor(() => useNoteStore.getState().currentNote === null);
@@ -779,6 +831,14 @@ async function visualLibraryCollectInsertSurvivesDisk() {
     await waitFor(() => useNoteStore.getState().currentNote?.mixed?.blocks.length === 2);
     await ready();
     assert.equal(document.querySelectorAll('.ProseMirror iframe').length, 2);
+    const reopenedImported = useNoteStore.getState().currentNote!.mixed!.blocks.find(block => block.id === importedId)!;
+    assert.deepEqual(reopenedImported.config.resources?.localized, localized,
+      'reopened Block lost localized resource mappings');
+    await waitFor(() => [...document.querySelectorAll<HTMLIFrameElement>('.ProseMirror iframe')]
+      .some(frame => (frame.srcdoc ?? '').includes('data:text/css;base64,')));
+    assert.ok([...document.querySelectorAll<HTMLIFrameElement>('.ProseMirror iframe')]
+      .some(frame => (frame.srcdoc ?? '').includes('data:image/png;base64,')),
+      'reopened localized Visual did not materialize copied image payload into its sandbox');
   }, 'visual-library-bootstrap.md');
 }
 

@@ -80,12 +80,12 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 | RES-07 | Runtime URLs (`blob:`, custom protocol, etc.) never persist as managed paths | Format invariant | Implemented for current data-URL materialization | Disk source remains relative after save/reopen/move |
 | RES-08 | Note movement preserves all managed references | Relative-path model | Implemented | Whole `.note` moved to new parent and reopened with two Blocks/resources in Slice 2 |
 | RES-09 | Note-shared immutable localized resources exist for shared/CDN dependencies | `assets/shared/<resource-id>/` + mapping | Planned | V1.5 |
-| RES-10 | Shared localized resource dependencies are explicit in Block metadata | `block.json.resources.localized` | Planned | V1.5 |
-| RES-11 | CDN localization can map remote source → local shared managed resource without blindly rewriting Current | Runtime resolver + mapping | Planned | V1.5 |
-| RES-12 | Remote resources remain external unless localized | Runtime classification | Partial | Static resolver leaves remote URLs to network policy; localization remains V1.5 |
+| RES-10 | Shared localized resource dependencies are explicit in Block metadata | `block.json.resources.localized` | Partial | V1.1 Make Local now persists explicit remote → Block-private localized mappings; Note-shared `assets/shared/**` ownership remains V1.5 |
+| RES-11 | CDN localization can map remote source → local shared managed resource without blindly rewriting Current | Runtime resolver + mapping | Partial | V1.1 Visual Library supports explicit Make Local into app-owned / destination Block-private assets without rewriting Current/Original; Note-shared immutable localization remains V1.5 |
+| RES-12 | Remote resources remain external unless localized | Runtime classification | Implemented for current static slice | Static HTTPS dependencies remain external/default-blocked until explicit Make Local; unsupported dynamic/module resources remain unresolved rather than auto-downloaded |
 | RES-13 | Missing local resource produces diagnostic/placeholder, not source deletion | Error model | Implemented for current HTML/Markdown managed resource paths | Runtime error state preserves persisted source |
 | RES-14 | Path traversal, symlink escape, cross-Block read and forged capability are rejected | Backend resolver boundary | Implemented for current Note/Markdown managed resource readers | Rust tests include `..`, absolute/backslash, forged capability, cross-Block, external revision and symlink escape |
-| RES-15 | CSS nested `url()` and `@import` use same resolver semantics | Runtime resolver | Partial | CSS `url()` is covered; `@import` remains Planned for V1.5 |
+| RES-15 | CSS nested `url()` and `@import` use same resolver semantics | Runtime resolver | Partial | Static CSS `url()` is recursively localized/resolved against stylesheet origin; `@import` is detected and reported unresolved, not downloaded; full `@import` support remains V1.5 |
 | RES-16 | Dynamic relative `fetch()`, module import, Worker/WASM can eventually use resolver without format rewrite | Resolver architecture | Planned | V1.5/V2 |
 
 ## F. Network and security
@@ -97,8 +97,8 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 | SEC-03 | Network is off by default at runtime, not just source scan | iframe CSP/runtime policy | Implemented current static path | HTML tests |
 | SEC-04 | “Allow this preview session” is session-only, per current Block/preview | Runtime state only | Planned | V1.5 |
 | SEC-05 | Network permission expires on close/restart/source change/preview recreation | Runtime policy | Planned | V1.5 |
-| SEC-06 | Note file cannot grant itself trust/network authority | No trust fields with authority | Architecture invariant | Ongoing |
-| SEC-07 | HTML cannot access FlowNote/Tauri APIs or arbitrary filesystem | sandbox + capabilities | Partial/Implemented core | Extend with resource resolver tests |
+| SEC-06 | Note file cannot grant itself trust/network authority | No trust fields with authority | Architecture invariant + enforced Make Local boundary | Network acquisition is user-triggered only; persisted mappings are content metadata and cannot grant network authority |
+| SEC-07 | HTML cannot access FlowNote/Tauri APIs or arbitrary filesystem | sandbox + capabilities | Partial/Implemented core | V1.1 localization adds HTTPS-only downloader, public-address validation, redirect revalidation, MIME/size/count limits; broader resolver surface remains future work |
 
 ## G. Copy, delete and recovery
 

@@ -126,7 +126,7 @@ export async function renderBrowserBundle(
     section.append(frame);
     placeholder.replaceWith(section);
 
-    const resolved = await resolveHtmlResources(block.html, path => readAsset(block.id, path));
+    const resolved = await resolveHtmlResources(block.html, path => readAsset(block.id, path), block.config);
     blocks.push({ id, html: renderExportBlockDocument({ ...block, html: resolved }) });
   }
 

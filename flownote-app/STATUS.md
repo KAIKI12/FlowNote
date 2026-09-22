@@ -242,17 +242,32 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 
 VLIB-06 已完成；Library metadata 仍与 `.note` 的 `note.json` / `block.json` 解耦。
 
+## 2.19 V1.1 Visual Library Slice 3 — explicit Make Local completed
+
+2026-09-22 已完成 reusable Visual 的第一阶段 Local First 资源本地化，继续保持 Note Format v1 的 `formatVersion: 1`：
+
+- **显式 Make Local**：Remote dependency 可以被只读识别，但只有用户主动点击 **Make Local** 才会发起网络下载；Collect、Library 浏览、普通 Preview、Insert 与 Note reopen 都不会隐式获取网络权限。
+- **静态依赖范围**：当前支持 classic `script[src]`、stylesheet `link[href]`、`img[src]`、inline CSS `url()`，以及 localized stylesheet 内按原 stylesheet URL 解析的嵌套 `url()`。module script、`@import`、动态 `fetch()`、Worker / WASM 等会保留为 unresolved，不伪装为已本地化。
+- **映射而非改写源码**：remote → local 映射持久化在 `block.json.resources.localized`；Make Local 不为了替换 CDN URL 而重写 Current `index.html` 或 Original `original.html`。Runtime Resolver 只在预览 / 导出候选中物化 data URL。
+- **Library-owned transaction**：下载内容先写入 staged Visual package，全部资源验证完成后再原子替换 Library item；任一必需资源失败时旧 item 保持不变。localized payload 存在 Library item 自有 `assets/localized/**`。
+- **下载安全边界**：第一阶段 HTTPS only；URL 不允许嵌入凭据；localhost、loopback、private、link-local、multicast / unspecified 等非公网地址拒绝；DNS 解析后固定已验证公网地址，redirect 每跳重新验证；同时限制 redirect、单资源大小、总大小、资源数与 MIME。
+- **Remote / Partially Local / Local 状态**：Visual card 显示紧凑资源状态；只有仍存在可支持且未本地化的静态依赖时显示 Make Local；Trash item 不提供本地化操作。
+- **独立 Insert ownership**：localized Library item 插入 Mixed Note 时，继续生成新 Block UUID，并把 mapping 与全部 localized private assets 复制到目标 Block。Library、来源 Note、目标 Note 不共享可变文件所有权。
+- **真实磁盘验证**：端到端覆盖 Make Local → Library mapping / payload 落盘 → Current / Original 与来源 Note 原字节不变 → Insert 深复制 → 修改目标 localized payload 不影响 Library / 来源 Note → close/reopen → iframe 从目标 Block 自有资源离线解析。
+- **运行时路径补齐**：Note 内 HtmlBlockView、Full HTML Editor、Visual Library Preview 与 Browser Bundle resolver 均会读取 Block config 的 localized mappings，避免只在 Library card 中能离线预览而 Note reopen 失效。
+- **明确未完成**：Note-shared `assets/shared/**`、跨 Block / 跨 Note immutable dedup、完整 `@import`、module graph、dynamic fetch、Worker / WASM resolver，以及 session-only “Allow network for this preview” 仍保留为 V1.5 / V2 需求。
+
 ## 3. 最新验证基线
 
-2026-09-22 V1.1 Visual Library Slice 2 完成后的新鲜验证结果：
+2026-09-22 V1.1 Visual Library Slice 3 / Make Local 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
 | Workspace Frontend | **8 / 8** |
 | Workspace Native | **11 / 11** |
 | Format Freeze Gate | **PASS** |
-| HTML | **17 / 17** |
-| Stage One | **69 / 69** |
+| HTML | **19 / 19** |
+| Stage One | **70 / 70** |
 | Protection | **42 / 42** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |
@@ -261,7 +276,7 @@ VLIB-06 已完成；Library metadata 仍与 `.note` 的 `note.json` / `block.jso
 | Markdown Export `file://` qualification | **PASS** |
 | Desktop UI | **12 / 12** |
 | Desktop IPC / Rust desktop commands | **12 / 12** |
-| Rust 全套 | **98 passed / 1 ignored** |
+| Rust 全套 | **102 passed / 1 ignored** |
 | Rust Clippy | **PASS** |
 | Frontend build | **PASS** |
 | Tauri release build | **PASS** |
@@ -282,13 +297,14 @@ VLIB-06 已完成；Library metadata 仍与 `.note` 的 `note.json` / `block.jso
 
 格式文档当前为 **v1.2 Final**；磁盘字段仍为 `formatVersion: 1`。本次冻结没有改变磁盘版本号；未来不兼容格式变更必须显式升级 `formatVersion`。
 
-## 5. 下一阶段：V1.1 reusable visual assets / localization
+## 5. 下一阶段：shared localization / release hardening
 
-Visual Library 的收藏、复用和 metadata management 已完成；下一步转向真正影响 Local First 的资源边界：
+V1.1 reusable Visual 的 Collect、metadata management 与显式 Make Local 已形成完整的第一阶段 Local First 闭环。下一步不再重复实现 private localization，而是沿既有 Resource Architecture 往共享与发布边界推进：
 
-1. **Remote dependency inventory**：对收藏 Visual 中的 remote CSS / JS / image / font URL 做只读扫描并显示 unresolved dependency，不静默联网下载。
-2. **Explicit localization transaction**：用户明确触发后，将可支持的 remote resource 下载 / 复制到 Library item 自有 `assets/**`，重写 Current 的 runtime candidate，同时保持 Original 可恢复。
-3. **Insert ownership**：已 localized 的 Library item 插入 Note 时继续复制为目标 Block 私有资源；Library、来源 Note、目标 Note 三方 ownership 独立。
-4. **Resolver 扩展边界**：先覆盖静态 `src` / `href` / CSS `url()`；`@import`、动态 `fetch()`、module import、Worker / WASM 等继续保留为后续需求，不伪装成已支持。
+1. **Note-shared immutable resources**：实现 `assets/shared/<resource-id>/**` 与明确 ownership / reference model，避免多个 Block 对同一不可变 CDN payload 做无意义重复复制。
+2. **Cross-note managed dependency copy**：在不产生隐藏跨 Note 文件依赖的前提下，复制 / 导入所需 shared dependencies。
+3. **Resolver 扩展**：评估 `@import`、ES module graph、dynamic `fetch()`、Worker / WASM 的可证明安全解析；当前 unresolved 项继续显式保留。
+4. **Session-only network permission**：如果加入 “Allow this preview session”，权限必须只存在运行时，并在 close / restart / source change / preview recreation 后失效。
+5. **Release hardening**：继续真实 MSI / NSIS 安装、卸载、升级路径验证，并用现有 GitHub Release tag pipeline 发布后续版本。
 
-真实安装 / 卸载 / 升级路径验证仍属于发布侧收尾；V1.1 后续功能不得修改冻结的 Note Format v1 来承载 Library 专属 metadata。
+后续共享资源能力仍不得通过修改冻结的 Note Format v1 基础语义或把网络权限持久化到 Note 中来实现。

@@ -25,7 +25,7 @@ function VisualPreview({ item, readAsset }: {
       if (active) setError(cause instanceof Error ? cause.message : String(cause));
     });
     return () => { active = false; };
-  }, [item.id, item.html, readAsset]);
+  }, [item.config, item.id, item.html, readAsset]);
   return <div className="visual-library-preview">
     <HtmlSandbox content={html} config={item.config} />
     {error && <span className="visual-library-preview-error">Assets unavailable</span>}
