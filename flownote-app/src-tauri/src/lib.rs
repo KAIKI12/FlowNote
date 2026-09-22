@@ -8,6 +8,7 @@ pub mod note_commands;
 pub mod note_files;
 pub mod workspace;
 pub mod visual_library;
+pub mod visual_localization;
 mod note_format;
 mod note_path;
 mod note_repair;
