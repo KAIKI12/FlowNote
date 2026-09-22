@@ -4,6 +4,7 @@ import { createHarness, settle } from './editorHarness';
 import { useNoteStore } from '../src/note/noteStore';
 import { createNativeNotePort } from '../src/note/nativeNotePort';
 import { resolveHtmlResources } from '../src/html/htmlResources';
+import { inspectRemoteResources } from '../src/html/remoteResources';
 import { NodeSelection } from '@milkdown/prose/state';
 import { renderBrowserBundle } from '../src/export/browserBundle';
 import { renderMarkdownExport } from '../src/export/markdownExport';
@@ -125,6 +126,77 @@ async function localResourcesResolveInsideSandbox() {
   const css = resolved.match(/href="data:text\/css;base64,([^"]+)"/);
   assert.ok(css, 'stylesheet was not converted to a data URL');
   assert.match(Buffer.from(css[1], 'base64').toString('utf8'), /data:image\/png;base64,/);
+}
+
+async function remoteResourcesAreInspectedWithoutDownloading() {
+  const source = `<link rel="stylesheet" href="https://cdn.example/css/theme.css">
+<script src="https://cdn.example/app.js"></script>
+<script type="module" src="https://cdn.example/module.js"></script>
+<img src="https://cdn.example/image.png">
+<style>
+.card{background:url("https://cdn.example/bg.png")}
+@import url("https://cdn.example/import.css");
+</style>
+<script>
+fetch("https://api.example/data");
+new Worker("https://cdn.example/worker.js");
+WebAssembly.instantiateStreaming(fetch("https://cdn.example/app.wasm"));
+</script>`;
+  const result = inspectRemoteResources(source, {
+    kind: 'html', inputKind: 'fragment', scriptPolicy: 'sandbox', viewport: { heightPx: 480 },
+  });
+  assert.deepEqual(result.dependencies.map(item => [item.source, item.type]), [
+    ['https://cdn.example/css/theme.css', 'stylesheet'],
+    ['https://cdn.example/app.js', 'script'],
+    ['https://cdn.example/image.png', 'image'],
+    ['https://cdn.example/bg.png', 'style-asset'],
+  ]);
+  assert.deepEqual([...new Set(result.unresolved.map(item => item.reason))].sort(), [
+    'css-import-not-supported', 'dynamic-fetch-not-supported', 'module-script-not-supported',
+    'wasm-not-supported', 'worker-not-supported',
+  ]);
+  assert.equal(result.localizedCount, 0);
+  assert.equal(result.status, 'remote');
+}
+
+async function localizedRemoteResourcesResolveWithoutMutatingSource() {
+  const source = '<link rel="stylesheet" href="https://cdn.example/css/theme.css"><img src="https://cdn.example/image.png"><script src="https://cdn.example/app.js"></script>';
+  const config = {
+    kind: 'html' as const, inputKind: 'fragment' as const, scriptPolicy: 'sandbox' as const, viewport: { heightPx: 480 },
+    resources: { localized: [
+      { source: 'https://cdn.example/css/theme.css', path: 'assets/localized/theme.css', type: 'stylesheet', mime: 'text/css', sha256: 'a' },
+      { source: 'https://cdn.example/css/fonts/font.woff2', path: 'assets/localized/font.woff2', type: 'style-asset', mime: 'font/woff2', sha256: 'b' },
+      { source: 'https://cdn.example/image.png', path: 'assets/localized/image.png', type: 'image', mime: 'image/png', sha256: 'c' },
+      { source: 'https://cdn.example/app.js', path: 'assets/localized/app.js', type: 'script', mime: 'text/javascript', sha256: 'd' },
+    ] },
+  };
+  const beforeConfig = JSON.stringify(config);
+  const assets: Record<string, { path: string; mime: string; bytes: number[] }> = {
+    'assets/localized/theme.css': { path: 'assets/localized/theme.css', mime: 'text/css',
+      bytes: [...Buffer.from('.card{font-family:Flow;src:url("./fonts/font.woff2")}')] },
+    'assets/localized/font.woff2': { path: 'assets/localized/font.woff2', mime: 'font/woff2', bytes: [1, 2, 3] },
+    'assets/localized/image.png': { path: 'assets/localized/image.png', mime: 'image/png', bytes: [137, 80, 78, 71] },
+    'assets/localized/app.js': { path: 'assets/localized/app.js', mime: 'text/javascript', bytes: [...Buffer.from('window.__local=1')] },
+  };
+  const reads: string[] = [];
+  const resolved = await resolveHtmlResources(source, async path => {
+    reads.push(path);
+    const item = assets[path];
+    if (!item) throw new Error(`missing ${path}`);
+    return item;
+  }, config);
+  assert.deepEqual(reads.sort(), Object.keys(assets).sort());
+  assert.doesNotMatch(resolved, /https:\/\/cdn\.example\/(css\/theme\.css|image\.png|app\.js)/);
+  assert.match(resolved, /data:image\/png;base64,/);
+  assert.match(resolved, /data:text\/javascript;base64,/);
+  const css = resolved.match(/href="data:text\/css;base64,([^"]+)"/);
+  assert.ok(css);
+  assert.match(Buffer.from(css[1], 'base64').toString('utf8'), /data:font\/woff2;base64,/);
+  assert.equal(source, '<link rel="stylesheet" href="https://cdn.example/css/theme.css"><img src="https://cdn.example/image.png"><script src="https://cdn.example/app.js"></script>');
+  assert.equal(JSON.stringify(config), beforeConfig);
+  const summary = inspectRemoteResources(source, config);
+  assert.equal(summary.localizedCount, 3);
+  assert.equal(summary.status, 'local');
 }
 
 async function inlineHtmlView() {
@@ -402,6 +474,8 @@ export async function run(filter: string) {
     { name: 'HTML 导入：新增 Block 不会替换已选中的现有 HTML Block', run: previewInsertionPreservesSelectedHtmlBlock },
     { name: 'HTML Deep Copy：候选副本紧随源 Block 且不修改实时编辑器', run: previewDeepCopyInsertsAfterSourceWithoutMutatingEditor },
     { name: 'HTML 资源：Block 私有 CSS / JS / 图片相对路径转换为 sandbox 内部资源', run: localResourcesResolveInsideSandbox },
+    { name: 'HTML 远程资源：仅检查静态依赖并报告动态/模块未解析项，不触发下载', run: remoteResourcesAreInspectedWithoutDownloading },
+    { name: 'HTML 远程资源：localized mapping 离线解析且不改写 Current Source', run: localizedRemoteResourcesResolveWithoutMutatingSource },
     { name: 'HTML 展示：真正的隔离 iframe 位于 Markdown 中间，默认断网', run: inlineHtmlView },
     { name: 'HTML 保护：重复 Anchor 保留源码并提示', run: duplicateAnchorsAreProtected },
     { name: 'HTML 保护：无效引用和扩展字段保留原 fence', run: invalidAndMissingAnchorsKeepSource },

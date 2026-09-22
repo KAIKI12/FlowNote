@@ -1,8 +1,30 @@
+export type LocalizedResourceType = 'script' | 'stylesheet' | 'image' | 'style-asset';
+
+export interface LocalizedResource {
+  source: string;
+  path: string;
+  type: LocalizedResourceType;
+  mime: string;
+  sha256: string;
+}
+
+export interface LocalizationIssue {
+  source: string;
+  reason: string;
+}
+
+export interface HtmlResourceMetadata {
+  localized?: LocalizedResource[];
+  localizationIssues?: LocalizationIssue[];
+  [key: string]: unknown;
+}
+
 export interface HtmlBlockConfig {
   kind: 'html';
   inputKind: 'fragment' | 'document';
   scriptPolicy: 'off' | 'sandbox';
   viewport: { heightPx: number; [key: string]: unknown };
+  resources?: HtmlResourceMetadata;
   [key: string]: unknown;
 }
 
