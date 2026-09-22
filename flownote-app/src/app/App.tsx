@@ -428,7 +428,8 @@ function App({ filePort, notePort, workspacePort, visualLibraryPort }: {
               || !!mixed.state.busy || !!mixed.state.externalConflict || note.isComposing || !files.editorReady}
             onRefresh={() => void visualLibrary.refresh()} onInsert={id => void insertVisual(id)}
             onUpdate={value => void visualLibrary.updateMetadata(value)}
-            onTrash={id => void visualLibrary.trash(id)} onRestore={id => void visualLibrary.restore(id)} />
+            onTrash={id => void visualLibrary.trash(id)} onRestore={id => void visualLibrary.restore(id)}
+            onLocalize={request => void visualLibrary.localize(request)} />
         : <WorkspaceNavigation snapshot={workspace.snapshot} busy={workspace.busy} error={workspace.error}
             query={workspace.query} view={sidebarView} results={workspace.results} recent={workspace.recent}
             activeRelativePath={workspace.activeRelativePath} selectedFolder={workspace.selectedFolder}

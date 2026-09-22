@@ -5,7 +5,7 @@ import App from '../src/app/App';
 import { useNoteStore } from '../src/note/noteStore';
 import type { NativeNotePort, NoteSnapshot } from '../src/note/nativeNotePort';
 import type { MarkdownFilePort } from '../src/files/fileTypes';
-import type { VisualLibraryPort } from '../src/visualLibrary/types';
+import type { VisualLibraryItem, VisualLibraryPort } from '../src/visualLibrary/types';
 import { settle, waitFor } from './editorHarness';
 
 async function withApp(action: () => Promise<void>, props: { notePort?: NativeNotePort; filePort?: MarkdownFilePort; visualLibraryPort?: VisualLibraryPort | null } = {}) {
@@ -1187,6 +1187,7 @@ async function visualLibraryCollectsAndReinsertsIndependentBlock() {
     update: async request => ({ ...item, ...request }),
     trash: async () => ({ ...item, trashed: true }),
     restore: async () => item,
+    localize: async () => item,
   };
   const notePort = {
     mode: 'desktop', canWrite: true,
@@ -1271,6 +1272,7 @@ async function visualLibraryMetadataManagementWorksInSidebar() {
       state = { ...state, trashed: false, updatedAtMs: state.updatedAtMs + 1 };
       return state;
     },
+    localize: async () => state,
   };
 
   await withApp(async () => {
@@ -1335,10 +1337,119 @@ async function visualLibraryMetadataManagementWorksInSidebar() {
   }, { visualLibraryPort });
 }
 
+
+async function visualLibraryMakeLocalIsExplicitAndUpdatesResourceState() {
+  const remoteId = '0199a222-0000-7000-8000-000000000030';
+  const partialId = '0199a222-0000-7000-8000-000000000031';
+  const trashId = '0199a222-0000-7000-8000-000000000032';
+  const remoteHtml = '<link rel="stylesheet" href="https://fixture.flownote.test/theme.css"><img src="https://fixture.flownote.test/bg.png">';
+  let remote: VisualLibraryItem = {
+    id: remoteId, title: 'Remote Card', createdAtMs: 1_800_000_000_100, updatedAtMs: 1_800_000_000_100,
+    favorite: false, tags: [], trashed: false, html: remoteHtml,
+    config: { kind: 'html', inputKind: 'fragment', scriptPolicy: 'sandbox', viewport: { heightPx: 480 } },
+    assetCount: 0,
+  };
+  const partial: VisualLibraryItem = {
+    id: partialId, title: 'Partial Card', createdAtMs: 1_800_000_000_090, updatedAtMs: 1_800_000_000_090,
+    favorite: false, tags: [], trashed: false,
+    html: '<img src="https://fixture.flownote.test/a.png"><img src="https://fixture.flownote.test/b.png">',
+    config: { kind: 'html', inputKind: 'fragment', scriptPolicy: 'sandbox', viewport: { heightPx: 480 },
+      resources: { localized: [{
+        source: 'https://fixture.flownote.test/a.png', path: 'assets/localized/a.png',
+        type: 'image', mime: 'image/png', sha256: 'a',
+      }] } },
+    assetCount: 1,
+  };
+  const trashed: VisualLibraryItem = {
+    id: trashId, title: 'Trash Remote', createdAtMs: 1_800_000_000_080, updatedAtMs: 1_800_000_000_080,
+    favorite: false, tags: [], trashed: true,
+    html: '<script src="https://fixture.flownote.test/app.js"></script>',
+    config: { kind: 'html', inputKind: 'fragment', scriptPolicy: 'sandbox', viewport: { heightPx: 480 } },
+    assetCount: 0,
+  };
+  const localizeRequests: Array<Parameters<VisualLibraryPort['localize']>[0]> = [];
+  const reads: Array<{ id: string; path: string }> = [];
+  let loadRemoteItems = false;
+  const visualLibraryPort: VisualLibraryPort = {
+    list: async () => loadRemoteItems ? [remote, partial, trashed] : [],
+    collect: async () => remote,
+    load: async id => ({ item: id === remoteId ? remote : partial, originalHtml: remoteHtml, assets: [] }),
+    readAsset: async (id, path) => {
+      reads.push({ id, path });
+      if (path.endsWith('.css')) return {
+        path, mime: 'text/css', bytes: [...new TextEncoder().encode('.remote{background:url("https://fixture.flownote.test/bg.png")}')],
+      };
+      return { path, mime: 'image/png', bytes: [137, 80, 78, 71] };
+    },
+    update: async request => ({ ...remote, ...request }),
+    trash: async () => ({ ...remote, trashed: true }),
+    restore: async () => remote,
+    localize: async request => {
+      localizeRequests.push(request);
+      assert.equal(request.id, remoteId);
+      remote = {
+        ...remote,
+        assetCount: 2,
+        updatedAtMs: remote.updatedAtMs + 1,
+        config: { ...remote.config, resources: { localized: [
+          { source: 'https://fixture.flownote.test/theme.css', path: 'assets/localized/theme.css',
+            type: 'stylesheet', mime: 'text/css', sha256: 'theme' },
+          { source: 'https://fixture.flownote.test/bg.png', path: 'assets/localized/bg.png',
+            type: 'image', mime: 'image/png', sha256: 'bg' },
+        ] } },
+      };
+      return remote;
+    },
+  };
+
+  await withApp(async () => {
+    const visuals = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .find(button => button.textContent?.includes('Visuals'));
+    assert.ok(visuals);
+    await act(async () => visuals.click());
+    await waitFor(() => !!document.querySelector('[aria-label="Visual Library"]'));
+    loadRemoteItems = true;
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="刷新 Visual Library"]')!.click());
+    await waitFor(() => !!document.querySelector('.visual-library-card'));
+    await waitFor(() => !!document.querySelector('[aria-label="Make Local：Remote Card"]'));
+
+    assert.ok(document.querySelector('[aria-label="资源状态：Remote"]'), 'remote badge missing');
+    assert.ok(document.querySelector('[aria-label="资源状态：Partially Local"]'), 'partial badge missing');
+    assert.equal(reads.filter(read => read.id === remoteId).length, 0,
+      'Remote Visual must not read localized payloads before Make Local');
+    assert.equal(localizeRequests.length, 0, 'opening the Library must not trigger localization');
+
+    const makeLocal = document.querySelector<HTMLButtonElement>('[aria-label="Make Local：Remote Card"]')!;
+    await act(async () => makeLocal.click());
+    await waitFor(() => localizeRequests.length === 1);
+    assert.deepEqual(localizeRequests[0], {
+      id: remoteId,
+      dependencies: [
+        { source: 'https://fixture.flownote.test/theme.css', kind: 'stylesheet' },
+        { source: 'https://fixture.flownote.test/bg.png', kind: 'image' },
+      ],
+    });
+    await waitFor(() => !!document.querySelector('[aria-label="资源状态：Local"]'));
+    assert.equal(document.querySelector('[aria-label="Make Local：Remote Card"]'), null,
+      'fully localized Visual should no longer offer Make Local');
+    await waitFor(() => reads.some(read => read.id === remoteId && read.path === 'assets/localized/theme.css'));
+    assert.ok(reads.some(read => read.id === remoteId && read.path === 'assets/localized/bg.png'),
+      'localized preview did not read copied image payload');
+
+    const trashTab = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .find(button => button.textContent?.includes('Trash'))!;
+    await act(async () => trashTab.click());
+    await waitFor(() => !!document.querySelector('[aria-label="恢复 Visual：Trash Remote"]'));
+    assert.equal(document.querySelector('[aria-label="Make Local：Trash Remote"]'), null,
+      'Trash Visuals must never expose Make Local');
+  }, { visualLibraryPort });
+}
+
 export const appChecks = [
   { name: '默认首页：打开即为可编辑的普通 Markdown 笔记', run: welcome },
   { name: 'V1.1 Visual Library：收藏已保存 HTML Visual 并以独立身份重新插入', run: visualLibraryCollectsAndReinsertsIndependentBlock },
   { name: 'V1.1 Visual Library：rename / tags / favorite / search / Trash / Restore', run: visualLibraryMetadataManagementWorksInSidebar },
+  { name: 'V1.1 Visual Library：Make Local 仅显式触发并更新 Remote / Partial / Local 状态', run: visualLibraryMakeLocalIsExplicitAndUpdatesResourceState },
   { name: '主题：Auto 跟随系统且可显式切换 Light / Dark', run: themeFollowsSystemAndCyclesPreferences },
   { name: 'HTML Full Editor：draft 不污染 live Note，Current + asset 原子提交', run: fullHtmlEditorKeepsDraftLocalAndSavesCurrentWithAssets },
   { name: 'HTML Full Editor：保存失败保留 draft 且不污染 live Note', run: fullHtmlEditorFailedSaveKeepsLiveNoteAndDraftOpen },

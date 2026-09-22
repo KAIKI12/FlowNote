@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, LibraryBig, Pencil, Plus, RefreshCw, RotateCcw, Search, Star, Tag, Trash2, X } from 'lucide-react';
+import { Check, Download, LibraryBig, Pencil, Plus, RefreshCw, RotateCcw, Search, Star, Tag, Trash2, X } from 'lucide-react';
 import { HtmlSandbox } from '../html/HtmlSandbox';
 import { resolveHtmlResources } from '../html/htmlResources';
+import { inspectRemoteResources } from '../html/remoteResources';
 import type { MarkdownFileError } from '../files/fileTypes';
 import type { BlockAsset } from '../note/nativeNotePort';
-import type { VisualLibraryItem, VisualMetadataUpdate } from './types';
+import type { VisualLibraryItem, VisualLocalizeRequest, VisualMetadataUpdate } from './types';
 
 type LibraryView = 'all' | 'favorites' | 'trash';
 
@@ -18,7 +19,7 @@ function VisualPreview({ item, readAsset }: {
     let active = true;
     setHtml(item.html);
     setError('');
-    void resolveHtmlResources(item.html, path => readAsset(item.id, path)).then(value => {
+    void resolveHtmlResources(item.html, path => readAsset(item.id, path), item.config).then(value => {
       if (active) setHtml(value);
     }).catch(cause => {
       if (active) setError(cause instanceof Error ? cause.message : String(cause));
@@ -39,6 +40,13 @@ function dateLabel(value: number): string {
 
 function parseTags(value: string): string[] {
   return value.split(',').map(tag => tag.trim()).filter(Boolean);
+}
+
+function resourceStateLabel(status: ReturnType<typeof inspectRemoteResources>['status']): string | null {
+  if (status === 'remote') return 'Remote';
+  if (status === 'partial') return 'Partially Local';
+  if (status === 'local') return 'Local';
+  return null;
 }
 
 function VisualMetadataEditor({ item, disabled, onCancel, onSave }: {
@@ -62,7 +70,7 @@ function VisualMetadataEditor({ item, disabled, onCancel, onSave }: {
 }
 
 export function VisualLibraryPanel({
-  items, busy, error, notice, readAsset, insertDisabled, onRefresh, onInsert, onUpdate, onTrash, onRestore,
+  items, busy, error, notice, readAsset, insertDisabled, onRefresh, onInsert, onUpdate, onTrash, onRestore, onLocalize,
 }: {
   items: VisualLibraryItem[];
   busy: string | null;
@@ -75,6 +83,7 @@ export function VisualLibraryPanel({
   onUpdate(value: VisualMetadataUpdate): void;
   onTrash(id: string): void;
   onRestore(id: string): void;
+  onLocalize(request: VisualLocalizeRequest): void;
 }) {
   const [view, setView] = useState<LibraryView>('all');
   const [query, setQuery] = useState('');
@@ -127,44 +136,61 @@ export function VisualLibraryPanel({
     </div>}
 
     <div className="visual-library-list">
-      {visible.map(item => <article className="visual-library-card" data-trashed={item.trashed ? 'true' : 'false'} key={item.id}>
-        <VisualPreview item={item} readAsset={readAsset} />
-        <div className="visual-library-card-body">
-          <div className="visual-library-card-title">
-            <strong title={item.title}>{item.title}</strong>
-            <span>{dateLabel(item.updatedAtMs)}</span>
+      {visible.map(item => {
+        const resources = inspectRemoteResources(item.html, item.config);
+        const resourceLabel = resourceStateLabel(resources.status);
+        const canMakeLocal = !item.trashed && resources.dependencies.length > resources.localizedCount;
+        return <article className="visual-library-card" data-trashed={item.trashed ? 'true' : 'false'} key={item.id}>
+          <VisualPreview item={item} readAsset={readAsset} />
+          <div className="visual-library-card-body">
+            <div className="visual-library-card-title">
+              <strong title={item.title}>{item.title}</strong>
+              <span>{dateLabel(item.updatedAtMs)}</span>
+            </div>
+            {!!item.tags.length && <div className="visual-library-tags" aria-label="Visual tags">
+              {item.tags.map(tag => <span key={tag}><Tag size={9} />{tag}</span>)}
+            </div>}
+            {editingId === item.id && !item.trashed
+              ? <VisualMetadataEditor item={item} disabled={!!busy} onCancel={() => setEditingId(null)}
+                  onSave={value => { onUpdate(value); setEditingId(null); }} />
+              : <div className="visual-library-card-meta">
+                  <div className="visual-library-resource-summary">
+                    <span>{item.assetCount ? `${item.assetCount} assets` : 'Self-contained'}</span>
+                    {resourceLabel && <span className="visual-library-resource-state" data-state={resources.status}
+                      aria-label={`资源状态：${resourceLabel}`}>{resourceLabel}</span>}
+                  </div>
+                  <div className="visual-library-card-actions">
+                    {item.trashed
+                      ? <button type="button" aria-label={`恢复 Visual：${item.title}`} disabled={!!busy}
+                          onClick={() => onRestore(item.id)}><RotateCcw size={12} />Restore</button>
+                      : <>
+                          <button type="button" className={item.favorite ? 'is-favorite' : ''} aria-pressed={item.favorite}
+                            aria-label={item.favorite ? `取消 Favorite：${item.title}` : `Favorite Visual：${item.title}`}
+                            disabled={!!busy} onClick={() => onUpdate({
+                              id: item.id, title: item.title, favorite: !item.favorite, tags: item.tags,
+                            })}><Star size={12} /></button>
+                          <button type="button" aria-label={`编辑 Visual：${item.title}`} disabled={!!busy}
+                            onClick={() => setEditingId(item.id)}><Pencil size={12} /></button>
+                          <button type="button" aria-label={`移到 Trash：${item.title}`} disabled={!!busy}
+                            onClick={() => onTrash(item.id)}><Trash2 size={12} /></button>
+                          {canMakeLocal && <button type="button" className="visual-library-make-local"
+                            aria-label={`Make Local：${item.title}`} disabled={!!busy}
+                            onClick={() => onLocalize({
+                              id: item.id,
+                              dependencies: resources.dependencies.map(dependency => ({
+                                source: dependency.source, kind: dependency.type,
+                              })),
+                            })}><Download size={12} />Make Local</button>}
+                          <button type="button" className="visual-library-insert" aria-label={`插入 Visual：${item.title}`}
+                            disabled={insertDisabled || !!busy} onClick={() => onInsert(item.id)}>
+                            <Plus size={12} />Insert
+                          </button>
+                        </>}
+                  </div>
+                </div>}
           </div>
-          {!!item.tags.length && <div className="visual-library-tags" aria-label="Visual tags">
-            {item.tags.map(tag => <span key={tag}><Tag size={9} />{tag}</span>)}
-          </div>}
-          {editingId === item.id && !item.trashed
-            ? <VisualMetadataEditor item={item} disabled={!!busy} onCancel={() => setEditingId(null)}
-                onSave={value => { onUpdate(value); setEditingId(null); }} />
-            : <div className="visual-library-card-meta">
-                <span>{item.assetCount ? `${item.assetCount} assets` : 'Self-contained'}</span>
-                <div className="visual-library-card-actions">
-                  {item.trashed
-                    ? <button type="button" aria-label={`恢复 Visual：${item.title}`} disabled={!!busy}
-                        onClick={() => onRestore(item.id)}><RotateCcw size={12} />Restore</button>
-                    : <>
-                        <button type="button" className={item.favorite ? 'is-favorite' : ''} aria-pressed={item.favorite}
-                          aria-label={item.favorite ? `取消 Favorite：${item.title}` : `Favorite Visual：${item.title}`}
-                          disabled={!!busy} onClick={() => onUpdate({
-                            id: item.id, title: item.title, favorite: !item.favorite, tags: item.tags,
-                          })}><Star size={12} /></button>
-                        <button type="button" aria-label={`编辑 Visual：${item.title}`} disabled={!!busy}
-                          onClick={() => setEditingId(item.id)}><Pencil size={12} /></button>
-                        <button type="button" aria-label={`移到 Trash：${item.title}`} disabled={!!busy}
-                          onClick={() => onTrash(item.id)}><Trash2 size={12} /></button>
-                        <button type="button" className="visual-library-insert" aria-label={`插入 Visual：${item.title}`}
-                          disabled={insertDisabled || !!busy} onClick={() => onInsert(item.id)}>
-                          <Plus size={12} />Insert
-                        </button>
-                      </>}
-                </div>
-              </div>}
-        </div>
-      </article>)}
+        </article>;
+      })}
     </div>
     {busy === 'list' && <p className="visual-library-loading">Loading Visual Library…</p>}
   </section>;
