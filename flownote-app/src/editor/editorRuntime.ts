@@ -20,7 +20,7 @@ import type { HtmlBlockHost } from './plugins/htmlBlock/htmlBlockContext';
 import { parseHtmlReference, validBlockId } from '../note/htmlBlockData';
 import { managedImageContext, managedImageView } from './plugins/managedImageView';
 import type { ManagedImageReader } from './plugins/managedImageView';
-import { NodeSelection } from '@milkdown/prose/state';
+import { NodeSelection, TextSelection } from '@milkdown/prose/state';
 import { DOMSerializer } from 'prosemirror-model';
 
 export const editorSessionCtx = $ctx<EditorSession | null, 'flowNoteSession'>(null, 'flowNoteSession');
@@ -101,6 +101,29 @@ export function createEditorApi(session: EditorSession, get: () => Editor | unde
     setMarkdown: source => session.setMarkdown(source),
     setMode: mode => session.setMode(mode),
     focus: () => session.focus(),
+    revealHeading: index => {
+      if (!Number.isInteger(index) || index < 0 || session.getSnapshot().active !== 'visual') return false;
+      const editor = get();
+      if (!editor) return false;
+      let found = false;
+      editor.action(ctx => {
+        const view = ctx.get(editorViewCtx);
+        let headingIndex = 0;
+        view.state.doc.descendants((node, pos) => {
+          if (found || node.type.name !== 'heading' || Number(node.attrs.level) > 3) return;
+          if (headingIndex++ !== index) return;
+          found = true;
+          const target = view.nodeDOM(pos);
+          if (target instanceof Element && typeof target.scrollIntoView === 'function') {
+            target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          }
+          const selection = TextSelection.near(view.state.doc.resolve(Math.min(pos + 1, view.state.doc.content.size)));
+          view.dispatch(view.state.tr.setSelection(selection));
+          if (view.editable) view.focus();
+        });
+      });
+      return found;
+    },
     insertImage: (src, alt) => {
       session.requireVisualEdit();
       const editor = get();

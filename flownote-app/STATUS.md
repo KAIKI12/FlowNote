@@ -1,8 +1,8 @@
 # FlowNote 当前状态
 
-**更新时间：2026-09-19**
+**更新时间：2026-09-22**
 
-**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read/Focus/Fullscreen、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、V1 UI Polish、Source Protection Narrowing、Reference UI Alignment 与 Raw HTML Visual Compatibility / Seamless Focus 均已完成。当前 `V1 产品收尾` 只剩安装 / 升级级发布验证；Workspace 高阶能力与资源架构扩展继续作为后续独立 Slice。**
+**当前阶段：Markdown Gate、HTML Block / `.note` Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read/Focus/Fullscreen、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、V1 UI Polish、Source Protection Narrowing、Reference UI Alignment、Raw HTML Visual Compatibility / Seamless Focus 与 Link / Outline / Chrome Readability 均已完成。当前 `V1 产品收尾` 只剩安装 / 升级级发布验证；Workspace 高阶能力与资源架构扩展继续作为后续独立 Slice。**
 
 **范围原则：Slice 完成只表示当前切片定义的实现与验证范围完成，不删除最终需求。Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等尚未实现的能力继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留。**
 
@@ -200,9 +200,20 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 
 本轮不执行任意 Markdown raw HTML；需要真实 HTML 运行 / 可视化的内容仍应使用 FlowNote 的隔离 HTML Block。WikiLink、Footnote、Mermaid、LaTeX、directive / attributes 等未接入完整 visual round-trip 的扩展语法继续安全地保留源码保护。
 
+## 2.16 Link / Outline / Chrome Readability — completed
+
+2026-09-22 修复三处直接影响日常使用的桌面交互问题：
+
+- **Markdown 链接 Ctrl/Cmd+点击**：编辑器现在拦截外部 `http/https/mailto/tel` 链接的 Ctrl/Cmd+左键点击；Tauri 桌面端通过系统 Shell 打开，普通 Web QA 使用新标签页 fallback。普通单击仍留在编辑器中，不再把当前 FlowNote 页面直接导航走。
+- **Shell capability**：主窗口显式加入 `shell:allow-open`，确保桌面 release 中链接可走系统默认浏览器/应用。
+- **Outline 可点击**：右侧 Outline 从静态 `div` 改为可键盘聚焦的真实 `button`；点击后通过编辑器 `revealHeading(index)` 定位对应 H1–H3、滚动到视野中并在编辑模式下恢复正文焦点。
+- **非编辑区字号提升**：只增大 Topbar、Sidebar、文件树、搜索、Inspector、状态区等系统 chrome；正文保持原来的 **15.5 px**，没有放大 Markdown 写作区。主要 UI 字号由原先大量 **9–11.5 px** 提升到约 **11.5–14 px**。
+- **真实 Chrome QA**：1440×960 页面实测正文仍为 15.5 px，品牌 14 px、breadcrumb 12.5 px、Outline 12.5 px；Outline 共有 6 个可点击 BUTTON，点击第二项后焦点回到 ProseMirror。
+- **回归**：新增链接打开与 Outline 定位测试；Stage One 更新为 **67 / 67**。Format Freeze、Desktop UI / IPC、production build、Tauri MSI / NSIS build 与 release exe smoke 均 PASS。
+
 ## 3. 最新验证基线
 
-2026-09-19 Raw HTML Visual Compatibility / Seamless Focus 完成后的新鲜验证结果：
+2026-09-22 Link / Outline / Chrome Readability 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
@@ -210,7 +221,7 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 | Workspace Native | **11 / 11** |
 | Format Freeze Gate | **PASS** |
 | HTML | **16 / 16** |
-| Stage One | **65 / 65** |
+| Stage One | **67 / 67** |
 | Protection | **42 / 42** |
 | Qualification | **36 / 36** |
 | Files | **18 / 18** |

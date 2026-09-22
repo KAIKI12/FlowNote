@@ -1243,3 +1243,58 @@ body { background: var(--workspace-bg); color: var(--workspace-text); }
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Readable desktop chrome: keep the document typography unchanged, enlarge only app/system UI. */
+.workspace-brand-name { font-size: 14px; }
+.workspace-breadcrumb { font-size: 12.5px; }
+.workspace-current-title { font-size: 13px; }
+.workspace-note-badge { font-size: 10.5px; }
+.workspace-sync-status { font-size: 11.5px; }
+.workspace-icon-button,
+.workspace-top-actions button,
+.workspace-mode-switch button,
+.workspace-sidebar .writing-header button,
+.workspace-quick-file-actions > button,
+.workspace-sidebar-tabs button { font-size: 12px; }
+.workspace-search-trigger span,
+.workspace-theme-label,
+.workspace-search-popover kbd { font-size: 10.5px; }
+.workspace-search-popover input,
+.workspace-sidebar-search input { font-size: 12.5px; }
+.workspace-nav-section > span { font-size: 11px; }
+.workspace-nav-item,
+.workspace-folder,
+.workspace-tree-name,
+.workspace-tree-rename,
+.workspace-search-result strong,
+.workspace-empty-title { font-size: 12.5px; }
+.workspace-root-header > div:first-child span,
+.workspace-recent small,
+.workspace-search-result span { font-size: 10.5px; }
+.workspace-root-header > div:first-child strong,
+.workspace-root-header button,
+.workspace-tree-more,
+.workspace-tree-empty,
+.workspace-search-result small,
+.workspace-empty p,
+.workspace-empty button,
+.workspace-inline-error { font-size: 11.5px; }
+.writing-document-status,
+.writing-document-status p { font-size: 11.5px; }
+.workspace-inspector-tabs button { font-size: 12px; }
+.workspace-inspector-section-heading { font-size: 11.5px; }
+.workspace-inspector-section-heading small { font-size: 10.5px; }
+.workspace-inspector-empty { font-size: 11.5px; }
+.workspace-outline-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.workspace-outline-item > span { font-size: 10px; }
+.workspace-outline-item > strong { font-size: 12.5px; }
+.workspace-properties > div,
+.workspace-properties strong,
+.workspace-properties code { font-size: 11.5px; }

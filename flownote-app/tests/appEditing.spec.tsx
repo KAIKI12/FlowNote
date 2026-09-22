@@ -1124,6 +1124,11 @@ async function workspaceModesKeepFocusEditableAndReadOnlyWhenRequested() {
     await act(async () => inspectorToggle.click());
     assert.ok(document.querySelector('[aria-label="Files"]'));
     assert.ok(document.querySelector('[aria-label="Inspector"]'));
+    const outlineItems = [...document.querySelectorAll<HTMLButtonElement>('.workspace-outline-item')];
+    assert.ok(outlineItems.length >= 2, 'Inspector Outline must expose document headings as buttons');
+    assert.ok(parseFloat(getComputedStyle(outlineItems[0]).fontSize) >= 12, 'Inspector system text is still too small');
+    await act(async () => outlineItems[1].click());
+    assert.equal(document.activeElement, document.querySelector('.ProseMirror'), 'Outline click did not return focus to the target heading');
 
     await act(async () => read.click());
     await waitFor(() => document.querySelector('.flownote-editor')?.getAttribute('data-mode') === 'read');

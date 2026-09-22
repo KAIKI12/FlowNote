@@ -380,7 +380,9 @@ function App({ filePort, notePort, workspacePort }: {
     </main>
     {showInspector && <WorkspaceInspector tab={inspectorTab} markdown={note.currentNote?.contentMd ?? ''} title={title}
       type={note.currentNote?.metadata.type ?? 'markdown'} dirty={dirty} selectedBlockId={selectedHtmlBlockId}
-      selectedBlock={selectedBlock} onTabChange={setInspectorTab} onClose={() => setInspectorOpen(false)} />}
+      selectedBlock={selectedBlock} onTabChange={setInspectorTab}
+      onOutlineSelect={index => editorRef.current?.revealHeading(index)}
+      onClose={() => setInspectorOpen(false)} />}
     <UnsavedDialog session={files.session} state={files.state} composing={note.isComposing} exportNote={note.exportNote}
       canSave={note.currentNote?.metadata.type === 'mixed' ? true : undefined} />
   </div>;

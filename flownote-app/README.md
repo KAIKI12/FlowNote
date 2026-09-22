@@ -1,6 +1,6 @@
 # FlowNote 技术验证 Demo
 
-FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、Source Protection Narrowing、Reference UI Alignment 与 Raw HTML Visual Compatibility / Seamless Focus；当前 V1 只剩安装 / 卸载 / 升级级发布验证。
+FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。当前已经完成 Markdown Gate、HTML Block / `.note` Vertical Slice 1–3、V1 Workspace、Note Format v1 Format Freeze、Read / Focus / Fullscreen hardening、Full HTML Editor、Browser Bundle、Mixed Markdown export、bundle splitting、Source Protection Narrowing、Reference UI Alignment、Raw HTML Visual Compatibility / Seamless Focus 与 Link / Outline / Chrome Readability；当前 V1 只剩安装 / 卸载 / 升级级发布验证。
 
 当前主能力包括：
 
@@ -26,13 +26,13 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 
 ## 当前验证基线
 
-2026-09-19 Raw HTML Visual Compatibility / Seamless Focus 完成后的当前验证结果：
+2026-09-22 Link / Outline / Chrome Readability 完成后的当前验证结果：
 
 - Workspace Frontend：**8 / 8**
 - Workspace Native：**11 / 11**
 - Format Freeze Gate：**PASS**
 - HTML：**16 / 16**
-- Stage One：**65 / 65**
+- Stage One：**67 / 67**
 - Protection：**42 / 42**
 - Qualification：**36 / 36**
 - Files：**18 / 18**

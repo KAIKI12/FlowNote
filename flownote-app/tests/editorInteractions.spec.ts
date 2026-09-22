@@ -104,6 +104,33 @@ async function keyboardUndo(h: Harness) {
   assert.equal(h.api.current!.getMarkdown().trim(), '键盘原文');
 }
 
+async function ctrlClickLink(h: Harness) {
+  await h.mount('[OpenAI](https://openai.com/)\n');
+  const anchor = document.querySelector<HTMLAnchorElement>('.ProseMirror a[href]');
+  assert.ok(anchor);
+  const opened: string[] = [];
+  const previous = window.open;
+  window.open = ((url?: string | URL) => { opened.push(String(url)); return null; }) as typeof window.open;
+  try {
+    await act(async () => anchor.dispatchEvent(new MouseEvent('click', {
+      bubbles: true, cancelable: true, button: 0, ctrlKey: true,
+    })));
+    assert.deepEqual(opened, ['https://openai.com/']);
+    await act(async () => anchor.dispatchEvent(new MouseEvent('click', {
+      bubbles: true, cancelable: true, button: 0,
+    })));
+    assert.equal(opened.length, 1, 'Plain click must keep normal editor selection behavior');
+  } finally { window.open = previous; }
+}
+
+async function revealHeading(h: Harness) {
+  await h.mount('# 第一章\n\n正文\n\n## 第二章\n\n更多正文\n\n### 第三章\n');
+  assert.equal(h.api.current!.revealHeading(1), true);
+  assert.equal(h.view().state.selection.$from.parent.type.name, 'heading');
+  assert.equal(h.view().state.selection.$from.parent.textContent, '第二章');
+  assert.equal(h.api.current!.revealHeading(9), false);
+}
+
 export function interactionChecks(h: Harness) {
   const cases = [
     ['列表操作：Tab 缩进及 Shift+Tab 还原层级', listIndent],
@@ -115,6 +142,8 @@ export function interactionChecks(h: Harness) {
     ['中文保护：composition 期间延迟外部更新', composition],
     ['中文保护：输入内容不重复且编辑器不重建', chineseTyping],
     ['键盘撤销：Ctrl+Z / Ctrl+Y', keyboardUndo],
+    ['链接操作：Ctrl/Cmd+点击使用系统外部打开且普通点击保持编辑', ctrlClickLink],
+    ['Outline 导航：按标题序号定位到对应可视化标题', revealHeading],
   ] as const;
   return cases.map(([name, action]) => ({ name, run: () => action(h) }));
 }

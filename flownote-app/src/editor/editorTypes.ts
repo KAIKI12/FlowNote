@@ -56,6 +56,11 @@ export interface FlowNoteEditorApi {
   focus(): void;
 
   /**
+   * 将第 index 个 H1-H3 标题滚动到编辑区并定位光标；源码保护模式下返回 false。
+   */
+  revealHeading(index: number): boolean;
+
+  /**
    * 设置编辑模式
    */
   setMode(mode: 'edit' | 'read' | 'source'): void;

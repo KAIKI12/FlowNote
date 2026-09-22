@@ -7,6 +7,7 @@ import { isInTable } from '@milkdown/prose/tables';
 import { addRowAfterCommand, goToNextTableCellCommand, goToPrevTableCellCommand } from '@milkdown/preset-gfm';
 import { Plugin, PluginKey } from '@milkdown/prose/state';
 import { $prose } from '@milkdown/utils';
+import { open } from '@tauri-apps/plugin-shell';
 
 export const EDITOR_STATE_EVENT = 'flownote-editor-state';
 export const editorStateEvents = $prose(() => new Plugin({
@@ -84,6 +85,27 @@ function handleKey({ ctx, view, event }: { ctx: Ctx; view: EditorView; event: Ke
   return false;
 }
 
+function externalLink(target: EventTarget | null): HTMLAnchorElement | null {
+  if (!(target instanceof Element)) return null;
+  const anchor = target.closest<HTMLAnchorElement>('a[href]');
+  if (!anchor) return null;
+  try {
+    const url = new URL(anchor.href, window.location.href);
+    return ['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol) ? anchor : null;
+  } catch {
+    return null;
+  }
+}
+
+function openExternalLink(anchor: HTMLAnchorElement): void {
+  const href = anchor.href;
+  if ('__TAURI_INTERNALS__' in window) {
+    void open(href).catch(error => console.error('Failed to open Markdown link', error));
+    return;
+  }
+  window.open(href, '_blank', 'noopener,noreferrer');
+}
+
 export function configureEditorInteractions(ctx: Ctx): void {
   ctx.update(editorViewOptionsCtx, previous => ({
     ...previous,
@@ -93,6 +115,21 @@ export function configureEditorInteractions(ctx: Ctx): void {
     }),
     handleKeyDown(view, event) {
       return handleKey({ ctx, view, event }) || previous.handleKeyDown?.call(previous, view, event);
+    },
+    handleDOMEvents: {
+      ...previous.handleDOMEvents,
+      click(view, rawEvent) {
+        const event = rawEvent as MouseEvent;
+        const anchor = externalLink(event.target);
+        if (anchor) {
+          event.preventDefault();
+          if ((event.ctrlKey || event.metaKey) && event.button === 0) {
+            openExternalLink(anchor);
+            return true;
+          }
+        }
+        return previous.handleDOMEvents?.click?.(view, rawEvent) ?? false;
+      },
     },
   }));
 }

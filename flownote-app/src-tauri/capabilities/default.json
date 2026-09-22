@@ -3,5 +3,5 @@
   "identifier": "main-window",
   "description": "Main editor window events and confirmed close actions",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-destroy"]
+  "permissions": ["core:default", "core:window:allow-destroy", "shell:allow-open"]
 }

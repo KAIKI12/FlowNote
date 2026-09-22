@@ -132,6 +132,7 @@
 - [x] Source Protection Narrowing：Frontmatter 原字节包络 + 可视化正文、任意 fenced code language 普通往返、HTML 候选保留 Frontmatter；源码输入 focus accent 横线已移除。
 - [x] Reference UI Alignment：二次逐组件对照 `E:\flownote-desktop-ui-design`，完成 256 px Sidebar、288 px Inspector、参考 Topbar / breadcrumb / tabs / typography / scrollbar、selection-only 工具栏；不引入 Markdown Block 编辑模型或未实现假入口。
 - [x] Raw HTML Visual Compatibility / Seamless Focus：Raw HTML 通过 semantic round-trip 后作为惰性 atom 保留，外围 Markdown 继续可视化；08-roundtrip-stress 已覆盖 visual save/reopen；ProseMirror 水平 gap cursor 改为竖直 caret，Source notice / textarea focus 横线已移除。
+- [x] Link / Outline / Chrome Readability：Markdown 外部链接支持 Ctrl/Cmd+点击系统打开；右侧 Outline 可点击跳转 H1–H3；Topbar / Sidebar / 文件树 / Inspector / 状态区字号提升且正文 15.5 px 保持不变。
 - [x] Release build / exe smoke：production build、MSI、NSIS 均 PASS；release exe 启动后保持运行，无启动即崩。
 - [ ] 最终安装级发布验证：真实 MSI / NSIS 安装、卸载、升级路径与发布版本整理。
 

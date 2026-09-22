@@ -197,6 +197,7 @@ interface InspectorProps {
     config: { scriptPolicy?: string; viewport?: { heightPx?: number }; inputKind?: string; kind?: string };
   };
   onTabChange(tab: InspectorTab): void;
+  onOutlineSelect(index: number): void;
   onClose(): void;
 }
 
@@ -208,7 +209,7 @@ function headings(markdown: string) {
 }
 
 export function WorkspaceInspector({
-  tab, markdown, title, type, dirty, selectedBlockId, selectedBlock, onTabChange, onClose,
+  tab, markdown, title, type, dirty, selectedBlockId, selectedBlock, onTabChange, onOutlineSelect, onClose,
 }: InspectorProps) {
   const outline = headings(markdown);
   const tabs = [
@@ -232,9 +233,11 @@ export function WorkspaceInspector({
       {tab === 'outline' && <div className="workspace-outline">
         <div className="workspace-inspector-section-heading"><span>Document Outline</span><small>{outline.length} headings</small></div>
         {outline.length ? outline.map((item, index) =>
-          <div key={item.text + '-' + index} className={'workspace-outline-item depth-' + item.depth}>
+          <button key={item.text + '-' + index} type="button"
+            className={'workspace-outline-item depth-' + item.depth}
+            onClick={() => onOutlineSelect(index)} title={'跳转到：' + item.text}>
             <span>H{item.depth}</span><strong>{item.text}</strong>
-          </div>)
+          </button>)
           : <p className="workspace-inspector-empty">当前文档还没有标题。在正文中输入 # 标题后会自动出现在这里。</p>}
       </div>}
       {tab === 'block' && (selectedBlock
