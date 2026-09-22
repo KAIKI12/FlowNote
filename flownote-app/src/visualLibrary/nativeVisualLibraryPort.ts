@@ -101,5 +101,14 @@ export function createNativeVisualLibraryPort(call: VisualInvoke = invoke): Visu
       if (!validBlockId(id)) protocol('Visual Library item ID 无效');
       return visual(await request('visual_library_restore', { request: { id } }));
     },
+    async localize(value) {
+      if (!validBlockId(value.id)) protocol('Visual Library item ID 无效');
+      if (!Array.isArray(value.dependencies) || !value.dependencies.every(dependency =>
+        typeof dependency.source === 'string' && dependency.source.length > 0
+        && ['script', 'stylesheet', 'image', 'style-asset'].includes(dependency.kind))) {
+        protocol('Visual Library localization dependencies 无效');
+      }
+      return visual(await request('visual_library_localize', { request: value }));
+    },
   };
 }

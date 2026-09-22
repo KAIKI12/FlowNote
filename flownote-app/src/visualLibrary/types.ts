@@ -27,6 +27,16 @@ export interface VisualMetadataUpdate {
   tags: string[];
 }
 
+export interface VisualLocalizationDependency {
+  source: string;
+  kind: 'script' | 'stylesheet' | 'image' | 'style-asset';
+}
+
+export interface VisualLocalizeRequest {
+  id: string;
+  dependencies: VisualLocalizationDependency[];
+}
+
 export interface VisualLibraryPort {
   list(): Promise<VisualLibraryItem[]>;
   collect(request: { noteId: string; revision: string; blockId: string; title: string }): Promise<VisualLibraryItem>;
@@ -35,4 +45,5 @@ export interface VisualLibraryPort {
   update(request: VisualMetadataUpdate): Promise<VisualLibraryItem>;
   trash(id: string): Promise<VisualLibraryItem>;
   restore(id: string): Promise<VisualLibraryItem>;
+  localize(request: VisualLocalizeRequest): Promise<VisualLibraryItem>;
 }

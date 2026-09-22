@@ -66,6 +66,7 @@ pub fn configure_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
             visual_library::visual_library_update,
             visual_library::visual_library_trash,
             visual_library::visual_library_restore,
+            visual_library::visual_library_localize,
             workspace::workspace_pick,
             workspace::workspace_restore,
             workspace::workspace_scan,

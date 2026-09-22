@@ -89,6 +89,8 @@ fn every_note_command_denies_non_main_windows_before_dialog_or_disk_access() {
             "favorite": true, "tags": ["report"] } })),
         ("visual_library_trash", json!({ "request": { "id": note_support::FIRST } })),
         ("visual_library_restore", json!({ "request": { "id": note_support::FIRST } })),
+        ("visual_library_localize", json!({ "request": { "id": note_support::FIRST,
+            "dependencies": [{ "source": "https://cdn.example/app.js", "kind": "script" }] } })),
     ];
     for (command, args) in calls {
         assert_eq!(desktop.call(command, args).unwrap_err()["code"], "permission", "{command}");

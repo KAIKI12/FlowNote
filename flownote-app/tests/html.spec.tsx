@@ -347,6 +347,14 @@ async function visualLibraryPortUsesRegisteredCommands() {
     if (command === 'visual_library_update') return { ...item, title: 'Renamed', favorite: true, tags: ['report'] };
     if (command === 'visual_library_trash') return { ...item, trashed: true };
     if (command === 'visual_library_restore') return item;
+    if (command === 'visual_library_localize') return {
+      ...item,
+      config: { ...item.config, resources: { localized: [{
+        source: 'https://cdn.example/app.js', path: 'assets/localized/app.js', type: 'script',
+        mime: 'text/javascript', sha256: 'abc',
+      }] } },
+      assetCount: 2,
+    };
     throw new Error('unexpected command');
   });
 
@@ -362,9 +370,15 @@ async function visualLibraryPortUsesRegisteredCommands() {
   assert.deepEqual(updated.tags, ['report']);
   assert.equal((await port.trash(visualId)).trashed, true);
   assert.equal((await port.restore(visualId)).trashed, false);
+  const localized = await port.localize({
+    id: visualId,
+    dependencies: [{ source: 'https://cdn.example/app.js', kind: 'script' }],
+  });
+  assert.equal(localized.assetCount, 2);
+  assert.equal(localized.config.resources?.localized?.[0]?.source, 'https://cdn.example/app.js');
   assert.deepEqual(calls.map(call => call.command), [
     'visual_library_list', 'visual_library_collect', 'visual_library_package', 'visual_library_read_asset',
-    'visual_library_update', 'visual_library_trash', 'visual_library_restore',
+    'visual_library_update', 'visual_library_trash', 'visual_library_restore', 'visual_library_localize',
   ]);
   assert.deepEqual(calls[1].args, { request: {
     noteId: 'note:capability', revision: 'r1', blockId: ID, title: 'Reusable Visual',
@@ -372,6 +386,9 @@ async function visualLibraryPortUsesRegisteredCommands() {
   assert.deepEqual(calls[2].args, { request: { id: visualId } });
   assert.deepEqual(calls[4].args, { request: { id: visualId, title: 'Renamed', favorite: true, tags: ['report'] } });
   assert.deepEqual(calls[5].args, { request: { id: visualId } });
+  assert.deepEqual(calls[7].args, { request: {
+    id: visualId, dependencies: [{ source: 'https://cdn.example/app.js', kind: 'script' }],
+  } });
 }
 
 async function nativeNotePortUsesRegisteredCommands() {

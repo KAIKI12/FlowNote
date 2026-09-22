@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { fileError, type MarkdownFileError } from '../files/fileTypes';
 import { defaultVisualLibraryPort } from './defaultVisualLibraryPort';
-import type { VisualLibraryItem, VisualLibraryPackage, VisualLibraryPort, VisualMetadataUpdate } from './types';
+import type { VisualLibraryItem, VisualLibraryPackage, VisualLibraryPort, VisualLocalizeRequest, VisualMetadataUpdate } from './types';
 
 interface Options { port?: VisualLibraryPort | null }
 
 export function useVisualLibrary(options: Options = {}) {
   const portRef = useRef<VisualLibraryPort | null>(options.port === undefined ? defaultVisualLibraryPort() : options.port);
   const [items, setItems] = useState<VisualLibraryItem[]>([]);
-  const [busy, setBusy] = useState<'list' | 'collect' | 'load' | 'update' | 'trash' | 'restore' | null>(null);
+  const [busy, setBusy] = useState<'list' | 'collect' | 'load' | 'update' | 'trash' | 'restore' | 'localize' | null>(null);
   const [error, setError] = useState<MarkdownFileError | null>(null);
   const [notice, setNotice] = useState('');
 
@@ -101,10 +101,25 @@ export function useVisualLibrary(options: Options = {}) {
     } finally { setBusy(null); }
   };
 
+  const localize = async (request: VisualLocalizeRequest) => {
+    const port = portRef.current;
+    if (!port) return null;
+    setBusy('localize'); setError(null); setNotice('');
+    try {
+      const item = await port.localize(request);
+      replace(item);
+      setNotice(`已本地化 Visual 资源：${item.title}`);
+      return item;
+    } catch (cause) {
+      setError(fileError(cause));
+      return null;
+    } finally { setBusy(null); }
+  };
+
   return {
     available: !!portRef.current,
     items, busy, error, notice,
-    refresh, collect, load, updateMetadata, trash, restore,
+    refresh, collect, load, updateMetadata, trash, restore, localize,
     readAsset: async (id: string, path: string) => {
       const port = portRef.current;
       if (!port) throw new Error('Visual Library 仅在桌面版可用');

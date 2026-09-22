@@ -2,6 +2,7 @@ use crate::file_error::{FileError, FileResult};
 use crate::note_commands::ManagedNotes;
 use crate::note_files::{asset_mime, validate_asset_path, BlockAsset, BlockPackage};
 use crate::note_format;
+use crate::visual_localization::{self, HttpsFetcher, LocalizationDependency};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -87,6 +88,13 @@ pub struct VisualMetadataUpdateRequest {
     pub title: String,
     pub favorite: bool,
     pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VisualLocalizeRequest {
+    pub id: String,
+    pub dependencies: Vec<LocalizationDependency>,
 }
 
 #[derive(Default)]
@@ -620,4 +628,22 @@ pub async fn visual_library_restore<R: Runtime>(
         let _guard = state.0.lock().map_err(|error| FileError::io("Visual Library 状态异常", error))?;
         restore_from_trash(&roots.items, &roots.trash, &request.id)
     }).await.map_err(|error| FileError::io("Visual Restore 操作被中断", error))?
+}
+
+#[tauri::command]
+pub async fn visual_library_localize<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    request: VisualLocalizeRequest,
+) -> FileResult<VisualLibraryItem> {
+    require_main(&window)?;
+    let roots = library_roots(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<ManagedVisualLibrary>();
+        let _guard = state.0.lock().map_err(|error| FileError::io("Visual Library 状态异常", error))?;
+        let fetcher = HttpsFetcher;
+        visual_localization::localize_with_fetcher(
+            &roots.items, &roots.trash, &request.id, request.dependencies, &fetcher,
+        )
+    }).await.map_err(|error| FileError::io("Visual Make Local 操作被中断", error))?
 }

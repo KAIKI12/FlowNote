@@ -4,7 +4,8 @@ use flownote::file_error::{FileError, FileResult};
 use flownote::markdown_files::{FileStore, SaveRequest};
 use flownote::note_commands::{AssetRequest as NoteAssetRequest, RepairRequest as NoteRepairRequest};
 use flownote::note_files::{NoteSaveAsRequest, NoteSaveRequest, NoteStore};
-use flownote::visual_library::{self, VisualAssetRequest, VisualCollectRequest, VisualIdRequest, VisualMetadataUpdateRequest};
+use flownote::visual_library::{self, VisualAssetRequest, VisualCollectRequest, VisualIdRequest, VisualLocalizeRequest, VisualMetadataUpdateRequest};
+use flownote::visual_localization::{self, FetchResponse, RemoteFetcher};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Write};
@@ -92,6 +93,23 @@ fn dispatch_note(store: &mut NoteStore, input: &Input) -> FileResult<Value> {
     }
 }
 
+struct FixtureFetcher;
+
+impl RemoteFetcher for FixtureFetcher {
+    fn fetch(&self, source: &str, _kind: &str) -> FileResult<FetchResponse> {
+        let (mime, bytes): (&str, Vec<u8>) = match source {
+            "https://fixture.flownote.test/theme.css" =>
+                ("text/css", br#".remote{background:url("https://fixture.flownote.test/bg.png")}"#.to_vec()),
+            "https://fixture.flownote.test/bg.png" =>
+                ("image/png", vec![137, 80, 78, 71, 13, 10, 26, 10]),
+            "https://fixture.flownote.test/app.js" =>
+                ("text/javascript", b"window.__flownoteLocal = true;".to_vec()),
+            _ => return Err(FileError::new("network", format!("No deterministic localization fixture for {source}"))),
+        };
+        Ok(FetchResponse { final_url: source.into(), mime: mime.into(), bytes })
+    }
+}
+
 fn dispatch_visual(notes: &mut NoteStore, input: &Input) -> FileResult<Value> {
     let root = input.selection.as_ref().ok_or_else(|| FileError::new("protocol", "Test driver requires a Visual Library root"))?;
     let items = root.join("items");
@@ -128,6 +146,13 @@ fn dispatch_visual(notes: &mut NoteStore, input: &Input) -> FileResult<Value> {
             let request: VisualIdRequest = serde_json::from_value(input.args["request"].clone())
                 .map_err(|error| FileError::io("Invalid Visual restore request", error))?;
             visual_library::restore_from_trash(&items, &trash, &request.id).map(|item| json!(item))
+        }
+        "visual_library_localize" => {
+            let request: VisualLocalizeRequest = serde_json::from_value(input.args["request"].clone())
+                .map_err(|error| FileError::io("Invalid Visual localize request", error))?;
+            visual_localization::localize_with_fetcher(
+                &items, &trash, &request.id, request.dependencies, &FixtureFetcher,
+            ).map(|item| json!(item))
         }
         _ => Err(FileError::new("protocol", "Unknown Visual Library test command")),
     }
