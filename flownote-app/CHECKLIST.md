@@ -125,8 +125,9 @@
 - [x] V1.1 Visual Library Slice 2：rename / tags / favorite / title+tag search / Favorites / recoverable Trash+Restore；metadata 属于 app-owned Library，不修改 Note Format v1。
 - [x] V1.1 Visual Library Slice 3：Remote / Partially Local / Local 检测与显式 Make Local；静态 HTTPS CSS / JS / image / CSS `url()` 事务式本地化到 Library-owned `assets/localized/**`，以 `block.json.resources.localized` 做映射而不改写 Current / Original；Insert 深复制 mapping + localized assets 到新 Block，来源 Note / Library / 目标 Note ownership 独立。
 - [x] Workspace Trash / Direct Actions：真实 Files 增加 `New Note Here`、Move to Trash、Restore / Permanent Delete；HTML 主入口改为 `Add Visual` + 直接粘贴 HTML 提示，底层继续复用既有 sandboxed Mixed Note 流程。
-- [x] Release build / exe smoke：production build、MSI、NSIS 均 PASS；release exe 启动后保持运行，无启动即崩。
-- [ ] 最终安装级发布验证：真实 MSI / NSIS 安装、卸载、升级路径与发布版本整理。
+- [x] v0.1.2 Release build / exe smoke：production build、MSI、NSIS 均 fresh PASS；release exe 版本为 0.1.2 且启动后稳定运行。
+- [x] v0.1.2 安装级验证：官方 v0.1.1 NSIS clean install → v0.1.2 NSIS upgrade → 启动 → silent uninstall PASS；v0.1.2 MSI per-user install → 启动 → uninstall PASS；两种卸载后注册表 / install dir / process 均清理。
+- [ ] v0.1.2 GitHub Release：push release commit + tag，等待 Actions 产出 NSIS / MSI / SHA256SUMS 并核对远端资产。
 
 ## 需求保留规则
 

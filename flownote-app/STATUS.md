@@ -289,10 +289,12 @@ VLIB-06 已完成；Library metadata 仍与 `.note` 的 `note.json` / `block.jso
 | Rust 全套 | **106 passed / 1 ignored** |
 | Rust Clippy | **PASS** |
 | Frontend build | **PASS** |
-| Tauri release build | 最近 release checkpoint PASS；本轮未重打包 |
-| Release exe smoke | 最近 release checkpoint PASS；本轮未重跑 |
+| Tauri release build | **v0.1.2 PASS（MSI + NSIS）** |
+| Release exe smoke | **v0.1.2 PASS** |
+| NSIS install / upgrade / uninstall | **v0.1.1 → v0.1.2 PASS** |
+| MSI install / launch / uninstall | **v0.1.2 PASS** |
 
-本轮前端 production build **PASS**。当前最大 JS chunk 为 **475.44 kB**（gzip **147.54 kB**），仍低于 Vite 500 kB warning 阈值；此前约 861 kB 的单主 bundle 已拆分。Tauri release build / exe smoke 沿用最近一次 release checkpoint，本轮未重新打安装包。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。测试环境仍会输出既有 Prism Tcl language 与部分 React `act()` warning，但本轮相关断言均 PASS。
+本轮前端 production build **PASS**。当前最大 JS chunk 为 **475.44 kB**（gzip **147.54 kB**），仍低于 Vite 500 kB warning 阈值。v0.1.2 fresh Tauri release build 已生成 `FlowNote_0.1.2_x64_en-US.msi` 与 `FlowNote_0.1.2_x64-setup.exe`；本地 SHA256 分别为 `da1c4761bc09b7b1a99381d402c322fa0449de8ec81ec111473e8fad9ff2d02c` 与 `675d04d77e9f6b996694744fa0b5ae31e9da6f58a3f36e29a948602e41d93672`。NSIS 已验证官方 v0.1.1 → v0.1.2 真实升级，MSI 已验证 per-user 安装 / 启动 / 卸载；卸载后注册表、安装目录和进程均无残留。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。
 
 ## 4. 当前基线文档
 
@@ -315,6 +317,6 @@ V1.1 reusable Visual 的 Collect、metadata management 与显式 Make Local 已�
 2. **Cross-note managed dependency copy**：在不产生隐藏跨 Note 文件依赖的前提下，复制 / 导入所需 shared dependencies。
 3. **Resolver 扩展**：评估 `@import`、ES module graph、dynamic `fetch()`、Worker / WASM 的可证明安全解析；当前 unresolved 项继续显式保留。
 4. **Session-only network permission**：如果加入 “Allow this preview session”，权限必须只存在运行时，并在 close / restart / source change / preview recreation 后失效。
-5. **Release hardening**：继续真实 MSI / NSIS 安装、卸载、升级路径验证，并用现有 GitHub Release tag pipeline 发布后续版本。
+5. **Release hardening**：v0.1.2 本地 MSI / NSIS 安装、卸载、NSIS 升级路径已验证；剩余一步是通过现有 GitHub Release tag pipeline 发布并核对远端安装包 / SHA256SUMS。
 
 后续共享资源能力仍不得通过修改冻结的 Note Format v1 基础语义或把网络权限持久化到 Note 中来实现。

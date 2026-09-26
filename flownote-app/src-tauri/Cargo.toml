@@ -1,6 +1,6 @@
 [package]
 name = "flownote"
-version = "0.1.1"
+version = "0.1.2"
 description = "FlowNote - Markdown + HTML 混合笔记系统"
 authors = ["FlowNote Team"]
 license = ""

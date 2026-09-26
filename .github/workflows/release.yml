@@ -68,10 +68,24 @@ jobs:
           }
           $lines | Set-Content -Path (Join-Path $bundle "SHA256SUMS.txt") -Encoding ascii
 
+      - name: Prepare release notes
+        id: release_notes
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:GITHUB_WORKSPACE "docs/releases/${{ github.ref_name }}.md"
+          $target = Join-Path $env:RUNNER_TEMP "flownote-release-notes.md"
+          if (Test-Path $source) {
+            Copy-Item $source $target
+          } else {
+            "# FlowNote ${{ github.ref_name }}" | Set-Content -Path $target -Encoding utf8
+          }
+          "path=$target" >> $env:GITHUB_OUTPUT
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: FlowNote ${{ github.ref_name }}
+          body_path: ${{ steps.release_notes.outputs.path }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |

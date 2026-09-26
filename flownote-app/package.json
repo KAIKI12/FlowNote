@@ -1,7 +1,7 @@
 {
   "name": "flownote",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "test:stage-one": "node tests/run-stage-one.mjs",

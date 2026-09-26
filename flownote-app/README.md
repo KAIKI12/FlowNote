@@ -29,28 +29,30 @@ FlowNote 是一个 **Document-first 的 Markdown + HTML 混合笔记原型**。�
 
 ## 当前验证基线
 
-2026-09-22 V1.1 Visual Library Slice 3 / Make Local 完成后的当前验证结果：
+2026-09-26 v0.1.2 integrated release candidate 的当前验证结果：
 
-- Workspace Frontend：**8 / 8**
-- Workspace Native：**11 / 11**
+- Workspace Frontend：**9 / 9**
+- Workspace Native：**14 / 14**
 - Format Freeze Gate：**PASS**
 - HTML：**20 / 20**
-- Stage One：**70 / 70**
-- Protection：**42 / 42**
+- Stage One：**72 / 72**
+- Protection：**44 / 44**
 - Qualification：**36 / 36**
-- Files：**18 / 18**
+- Files：**19 / 19**
 - 真实磁盘：**20 / 20**
 - Browser Bundle `file://` qualification：**PASS**
 - Markdown Export `file://` qualification：**PASS**
 - Desktop UI：**12 / 12**
 - Desktop IPC：**12 / 12**
-- Rust 全套：**103 passed / 1 ignored**
+- Rust 全套：**106 passed / 1 ignored**
 - Rust Clippy：**PASS**
 - Frontend build：**PASS**
-- Tauri release build：**PASS**
+- Tauri release build（MSI + NSIS）：**PASS**
 - Release exe smoke：**PASS**
+- NSIS 真实升级：**v0.1.1 → v0.1.2 PASS**
+- MSI per-user 安装 / 启动 / 卸载：**PASS**
 
-当前最大生产 JS chunk 为 **256.18 kB**（gzip **79.53 kB**）；React、ProseMirror、Milkdown 与 Tauri vendor 已拆分，原有 >500 kB warning 已消失。
+当前最大生产 JS chunk 为 **475.44 kB**（gzip **147.54 kB**），仍低于 Vite 500 kB warning 阈值。
 
 ## 文档入口与基线
 
@@ -192,8 +194,8 @@ flownote-app/src-tauri/target/release/flownote.exe
 
 接下来统一围绕 V1 可交付性收尾，不再继续扩张已完成 Slice：
 
-1. **最终发布验证**：release build 与 exe smoke 已完成；继续真实 MSI / NSIS 安装、卸载、升级路径与发布版本整理。
-2. **Workspace 后续增强（非当前阻塞）**：Favorites、Trash / delete / recovery、filesystem watcher、multi-Workspace、SQLite / FTS 等按独立 Slice 继续。
-3. **资源 / 产品后续增强（非当前阻塞）**：Shared Localized Resource、CDN Localization、cross-note dependency copy、Presentation / AI 等继续按 Requirements Matrix 分期实现。
+1. **v0.1.2 发布**：release build、exe smoke、NSIS 升级和 MSI 安装 / 卸载均已完成；下一步通过现有 tag workflow 发布 GitHub Release 并核对远端 SHA256 资产。
+2. **Workspace 后续增强（非当前阻塞）**：Trash 批量清空 / 自定义恢复位置 / retention、filesystem watcher、multi-Workspace、SQLite / FTS 等按独立 Slice 继续。
+3. **资源 / 产品后续增强（非当前阻塞）**：Shared Localized Resource、cross-note dependency copy、更多 remote resolver、Presentation / AI 等继续按 Requirements Matrix 分期实现。
 
 Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等需求继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留，后续单独实现，不因当前 Slice 完成而删除。
