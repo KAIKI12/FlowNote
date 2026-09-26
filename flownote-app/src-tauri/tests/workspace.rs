@@ -233,27 +233,86 @@ fn rename_preserves_extensions_and_folder_moves_stay_inside_workspace() {
 }
 
 #[test]
-fn deletes_markdown_note_and_only_empty_folders() {
+fn trashes_markdown_note_and_non_empty_folder_without_polluting_scan_or_search() {
     let root = temp_workspace();
-    fs::write(root.join("delete.md"), "# delete").unwrap();
+    fs::write(root.join("delete.md"), "# Delete Needle").unwrap();
     let note = root.join("delete.note");
     fs::create_dir_all(&note).unwrap();
-    fs::write(note.join("content.md"), "# Visual").unwrap();
+    fs::write(note.join("content.md"), "# Visual Delete Needle").unwrap();
     fs::write(note.join("note.json"), r#"{"formatVersion":1,"type":"mixed","title":"Visual"}"#).unwrap();
-    fs::create_dir_all(root.join("Empty")).unwrap();
     fs::create_dir_all(root.join("NonEmpty")).unwrap();
-    fs::write(root.join("NonEmpty").join("keep.md"), "# keep").unwrap();
+    fs::write(root.join("NonEmpty").join("keep.md"), "# Folder Delete Needle").unwrap();
 
     let mut store = WorkspaceStore::default();
     store.bind(&root).unwrap();
-    assert_eq!(store.delete("delete.md").unwrap().relative_path, "delete.md");
-    assert_eq!(store.delete("delete.note").unwrap().relative_path, "delete.note");
-    assert_eq!(store.delete("Empty").unwrap().relative_path, "Empty");
+    let markdown = store.trash("delete.md").unwrap();
+    let visual = store.trash("delete.note").unwrap();
+    let folder = store.trash("NonEmpty").unwrap();
+
+    assert_eq!(markdown.original_relative_path, "delete.md");
+    assert_eq!(markdown.name, "delete.md");
+    assert_eq!(markdown.kind, WorkspaceEntryKind::Markdown);
+    assert!(markdown.deleted_at_ms > 0);
+    assert_eq!(visual.kind, WorkspaceEntryKind::Note);
+    assert_eq!(folder.kind, WorkspaceEntryKind::Folder);
     assert!(!root.join("delete.md").exists());
     assert!(!root.join("delete.note").exists());
-    assert!(!root.join("Empty").exists());
-    assert!(store.delete("NonEmpty").is_err());
-    assert!(root.join("NonEmpty").join("keep.md").exists());
+    assert!(!root.join("NonEmpty").exists());
+    assert!(root.join(".flownote-trash").is_dir());
+
+    let listed = store.list_trash().unwrap();
+    assert_eq!(listed.len(), 3);
+    assert!(listed.iter().any(|item| item.id == markdown.id));
+    assert!(store.snapshot().unwrap().entries.is_empty());
+    assert!(store.search("delete needle").unwrap().is_empty());
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn trash_restore_is_exact_and_preserves_payload_on_conflict() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("Folder")).unwrap();
+    fs::write(root.join("Folder").join("restore.md"), "# Restore").unwrap();
+
+    let mut store = WorkspaceStore::default();
+    store.bind(&root).unwrap();
+    let item = store.trash("Folder/restore.md").unwrap();
+    assert!(!root.join("Folder").join("restore.md").exists());
+
+    fs::write(root.join("Folder").join("restore.md"), "# Occupied").unwrap();
+    assert!(store.restore_trash(&item.id).is_err());
+    assert_eq!(fs::read_to_string(root.join("Folder").join("restore.md")).unwrap(), "# Occupied");
+    assert!(store.list_trash().unwrap().iter().any(|value| value.id == item.id));
+
+    fs::remove_file(root.join("Folder").join("restore.md")).unwrap();
+    assert_eq!(store.restore_trash(&item.id).unwrap().relative_path, "Folder/restore.md");
+    assert_eq!(fs::read_to_string(root.join("Folder").join("restore.md")).unwrap(), "# Restore");
+    assert!(store.list_trash().unwrap().is_empty());
+
+    let missing_parent = store.trash("Folder/restore.md").unwrap();
+    fs::remove_dir(root.join("Folder")).unwrap();
+    assert!(store.restore_trash(&missing_parent.id).is_err());
+    assert!(store.list_trash().unwrap().iter().any(|value| value.id == missing_parent.id));
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn trash_permanent_delete_removes_record_and_rejects_invalid_ids() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("Archive")).unwrap();
+    fs::write(root.join("Archive").join("keep.md"), "# keep").unwrap();
+
+    let mut store = WorkspaceStore::default();
+    store.bind(&root).unwrap();
+    let item = store.trash("Archive").unwrap();
+    assert_eq!(store.list_trash().unwrap().len(), 1);
+    store.delete_trash(&item.id).unwrap();
+    assert!(store.list_trash().unwrap().is_empty());
+    assert!(store.restore_trash(&item.id).is_err());
+    assert!(store.delete_trash("../escape").is_err());
+    assert!(store.restore_trash("..").is_err());
 
     fs::remove_dir_all(root).unwrap();
 }

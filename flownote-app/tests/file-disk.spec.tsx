@@ -310,14 +310,14 @@ async function mixedNoteConversionSurvivesDisk() {
     await fs.writeFile(path.join(sourceAssets, 'plot.png'), Buffer.from([137, 80, 78, 71, 9]));
     const target = path.join(h.directory, 'Converted.note');
     h.driver.noteSaveAs(target);
-    await click('导入 HTML Block');
-    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML 导入源码"]')!;
+    await click('Add Visual');
+    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML Visual source"]')!;
     assert.ok(source);
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(source, '<section><h2>原始 HTML</h2></section>');
       source.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await click('确认导入 HTML');
+    await click('Confirm Add Visual');
     await waitFor(() => useNoteStore.getState().currentNote?.metadata.type === 'mixed');
     await ready();
     assert.equal(await fs.readFile(h.file, 'utf8'), original, 'Markdown source was overwritten during conversion');
@@ -366,14 +366,14 @@ async function mixedNoteConversionSurvivesDisk() {
     assert.equal(reopened.mixed!.blocks[0].originalHtml, '<section><h2>原始 HTML</h2></section>');
     assert.equal(reopened.contentMd, savedContent, 'content.md order changed across close/reopen');
 
-    await click('导入 HTML Block');
-    const secondSource = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML 导入源码"]')!;
+    await click('Add Visual');
+    const secondSource = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML Visual source"]')!;
     const secondHtml = '<section><h2>Second Block</h2><img src="./assets/second.png"></section>';
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(secondSource, secondHtml);
       secondSource.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await click('确认导入 HTML');
+    await click('Confirm Add Visual');
     try {
       await waitFor(() => useNoteStore.getState().currentNote?.mixed?.blocks.length === 2);
     } catch (cause) {
@@ -741,7 +741,7 @@ async function visualLibraryCollectInsertSurvivesDisk() {
     assert.equal(await fs.readFile(path.join(notePath, 'content.md'), 'utf8'), sourceBeforeManagement,
       'Library Trash must not mutate source Note');
 
-    const trashTab = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+    const trashTab = [...document.querySelectorAll<HTMLButtonElement>('.visual-library-filters [role="tab"]')]
       .find(button => button.textContent?.includes('Trash'))!;
     await act(async () => trashTab.click());
     await waitFor(() => !!document.querySelector('[aria-label="恢复 Visual：Disk Renamed Visual"]'));

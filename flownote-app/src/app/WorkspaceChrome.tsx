@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import {
   BookOpen, CheckCircle2, ChevronRight, Clock3, Download, Edit3, FilePlus2, Files, FolderOpen, Info,
   LibraryBig, ListTree, Maximize2, Moon, MoreHorizontal, PanelLeft, PanelLeftClose, PanelRight, PanelRightClose,
-  Search, SlidersHorizontal, Sun, X,
+  Search, SlidersHorizontal, Sun, Trash2, X,
 } from 'lucide-react';
 import type { ThemePreference } from './themePreference';
 
@@ -134,9 +134,9 @@ interface SidebarProps {
   fileActionsDisabled: boolean;
   searchQuery: string;
   searchDisabled?: boolean;
-  view: 'files' | 'recent' | 'visuals';
+  view: 'files' | 'recent' | 'visuals' | 'trash';
   onSearchQueryChange(value: string): void;
-  onViewChange(view: 'files' | 'recent' | 'visuals'): void;
+  onViewChange(view: 'files' | 'recent' | 'visuals' | 'trash'): void;
   onNew(): void;
   onOpen(): void;
   onSelectView(view: 'editor' | 'demo' | 'qualification'): void;
@@ -148,7 +148,7 @@ export function WorkspaceSidebar({
 }: SidebarProps) {
   return <aside className="workspace-sidebar" aria-label="Files">
     <div className="workspace-sidebar-head">
-      {view !== 'visuals' && <label className="workspace-sidebar-search">
+      {view !== 'visuals' && view !== 'trash' && <label className="workspace-sidebar-search">
         <Search size={13} aria-hidden="true" />
         <input aria-label="侧栏搜索笔记" placeholder={searchDisabled ? 'Choose a workspace first' : '搜索笔记…'}
           value={searchQuery} disabled={searchDisabled} onChange={event => onSearchQueryChange(event.target.value)} />
@@ -174,6 +174,9 @@ export function WorkspaceSidebar({
         </button>
         <button type="button" role="tab" aria-selected={view === 'visuals'} onClick={() => onViewChange('visuals')}>
           <LibraryBig size={12} />Visuals
+        </button>
+        <button type="button" role="tab" aria-selected={view === 'trash'} onClick={() => onViewChange('trash')}>
+          <Trash2 size={12} />Trash
         </button>
       </div>
     </div>

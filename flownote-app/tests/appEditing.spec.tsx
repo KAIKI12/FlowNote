@@ -192,17 +192,20 @@ async function importHtmlConvertsMarkdownWithoutPreMutating() {
   };
   await withApp(async () => {
     const original = useNoteStore.getState().currentNote!.contentMd;
-    const importButton = document.querySelector<HTMLButtonElement>('[aria-label="导入 HTML Block"]');
-    assert.ok(importButton, 'HTML import action is missing');
+    const importButton = document.querySelector<HTMLButtonElement>('[aria-label="Add Visual"]');
+    assert.ok(importButton, 'Add Visual action is missing');
     await act(async () => importButton.click());
-    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML 导入源码"]');
-    assert.ok(source, 'HTML import source is missing');
+    assert.ok(document.querySelector('[aria-label="Add HTML Visual"]'), 'Add HTML Visual form is missing');
+    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML Visual source"]');
+    assert.ok(source, 'HTML Visual source is missing');
+    assert.equal(source.placeholder, 'Paste HTML source here…');
+    assert.ok(document.body.textContent?.includes('You can also paste complete HTML source directly into the document.'));
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(source, '<section><h2>AI 图表</h2></section>');
       source.dispatchEvent(new Event('input', { bubbles: true }));
     });
     assert.equal(useNoteStore.getState().currentNote!.contentMd, original, 'Import draft mutated Markdown before save');
-    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="确认导入 HTML"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Confirm Add Visual"]')!.click());
     await waitFor(() => !!created);
     assert.equal(created!.sourceId, undefined, 'Markdown conversion must not rewrite the original file binding');
     assert.equal(created!.mixed.blocks.length, 1);
@@ -274,13 +277,13 @@ async function markdownManagedImagesMigrateDuringConversion() {
   await withApp(async () => {
     await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="打开 Markdown 文件"]')!.click());
     await waitFor(() => useNoteStore.getState().currentNote?.metadata.title === 'Timing.md'.replace(/\.md$/, ''));
-    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="导入 HTML Block"]')!.click());
-    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML 导入源码"]')!;
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Add Visual"]')!.click());
+    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML Visual source"]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(source, '<section>Visual</section>');
       source.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="确认导入 HTML"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Confirm Add Visual"]')!.click());
     await waitFor(() => !!created);
     assert.deepEqual([...new Set(reads)], ['Timing.assets/plot.png']);
     assert.ok(reads.length >= 1, 'managed Markdown image was never read through the file capability');
@@ -656,15 +659,15 @@ async function addSecondHtmlBlockPersistsAfterSuccessfulSave() {
   await withApp(async () => {
     await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="打开 Mixed Note"]')!.click());
     await waitFor(() => document.querySelectorAll('.ProseMirror iframe').length === 1);
-    const importButton = document.querySelector<HTMLButtonElement>('[aria-label="导入 HTML Block"]')!;
+    const importButton = document.querySelector<HTMLButtonElement>('[aria-label="Add Visual"]')!;
     assert.equal(importButton.disabled, false, 'Mixed Note cannot add another HTML Block');
     await act(async () => importButton.click());
-    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML 导入源码"]')!;
+    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML Visual source"]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(source, '<section>Second</section>');
       source.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="确认导入 HTML"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Confirm Add Visual"]')!.click());
     await waitFor(() => !!saved);
     assert.equal(saved!.mixed.blocks.length, 2);
     assert.equal(saved!.mixed.blocks[0].originalHtml, firstHtml);
@@ -701,13 +704,13 @@ async function failedSecondHtmlBlockSaveLeavesLiveNoteUntouched() {
     await waitFor(() => document.querySelectorAll('.ProseMirror iframe').length === 1);
     const before = useNoteStore.getState().currentNote!;
     const beforeContent = before.contentMd;
-    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="导入 HTML Block"]')!.click());
-    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML 导入源码"]')!;
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Add Visual"]')!.click());
+    const source = document.querySelector<HTMLTextAreaElement>('[aria-label="HTML Visual source"]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(source, '<section>Must Roll Back</section>');
       source.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="确认导入 HTML"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Confirm Add Visual"]')!.click());
     await waitFor(() => attempts === 1);
     await settle();
     const after = useNoteStore.getState().currentNote!;
@@ -1320,7 +1323,7 @@ async function visualLibraryMetadataManagementWorksInSidebar() {
 
     await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="移到 Trash：Renamed Widget"]')!.click());
     await waitFor(() => !document.querySelector('.visual-library-card'));
-    const trash = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+    const trash = [...document.querySelectorAll<HTMLButtonElement>('.visual-library-filters [role="tab"]')]
       .find(button => button.textContent?.includes('Trash'))!;
     await act(async () => trash.click());
     await waitFor(() => !!document.querySelector('[aria-label="恢复 Visual：Renamed Widget"]'));

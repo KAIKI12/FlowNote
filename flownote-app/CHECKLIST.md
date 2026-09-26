@@ -76,7 +76,7 @@
 - [x] 单一真实本地 Workspace：Choose / Change / Restart Restore。
 - [x] `.md` / `.markdown` / `.note` 真实树；`.note` 作为 package 叶节点，不展开内部资源。
 - [x] Workspace path capability：仅 relative path，拒绝 traversal / absolute / backslash / colon / NUL / symlink escape。
-- [x] New Note：当前 folder 下 collision-free `Untitled.md`；首次点击可完成 Choose Workspace → Create → Open。
+- [x] New Note：当前 folder 下 collision-free `Untitled.md`；首次点击可完成 Choose Workspace → Create → Open；folder 行菜单支持 `New Note Here`，无需先切换选中目录。
 - [x] Rename：folder / Markdown / Note package；后缀保留、冲突拒绝；folder rename 迁移 active / expanded / selected folder / Recent 子路径。
 - [x] Recent：按 Workspace ID 记录相对路径，去重、限 10 条、Missing / Refresh 清理，不复制正文。
 - [x] 基础 Search：filename / H1 / Markdown body / Note metadata title / `.note/content.md`；跳过超大文本与 Block private assets，结果上限 100。
@@ -84,28 +84,29 @@
 - [x] Markdown ↔ Mixed Note Workspace 切换复用既有 Dirty / IME / pending-save 保护。
 - [x] 候选/旧 capability 在 cancel / failure / successful switch 时按正确顺序释放。
 - [x] Sidebar 使用真实 Workspace 数据，无静态 Research / PD / Cislunar 假目录；row action 按 hover/focus 渐进显示。
-- [x] 手动 Refresh + create / rename / restore / change 后 rescan。
+- [x] 手动 Refresh + create / rename / trash / restore / permanent-delete / change 后 rescan。
 - [ ] Favorites 持久化。
-- [x] Workspace Delete：三点菜单 / 右键均可删除 Markdown、`.note` 与空文件夹；删除命令经过 native 路径校验。
-- [ ] Workspace Trash / recovery：当前删除仍是确认后的直接删除，尚未加入可恢复回收站。
+- [x] Workspace Trash：三点菜单 / 右键统一使用 Move to Trash；Markdown、`.note` 与非空 folder 均原子移动到隐藏 `.flownote-trash/<id>/payload`，正常文件树与 Search 不扫描 Trash。
+- [x] Workspace Trash recovery：Trash 视图支持按原相对路径 Restore；同名冲突或原父目录缺失时明确失败且保留 payload；Permanent Delete 仅在 Trash 内二次确认后执行。
+- [ ] Trash 批量清空 / 自定义恢复位置 / 自动清理策略。
 - [ ] filesystem watcher。
 - [ ] multi-Workspace。
 - [ ] SQLite / FTS 索引搜索。
 
 ## 最新验证 — completed
 
-- [x] Workspace Frontend：**8 / 8**
-- [x] Workspace Native：**12 / 12**
+- [x] Workspace Frontend：**9 / 9**
+- [x] Workspace Native：**14 / 14**
 - [x] Format Freeze Gate：PASS
 - [x] HTML：**17 / 17**
-- [x] Stage One：**70 / 70**
+- [x] Stage One：**71 / 71**
 - [x] Protection：**44 / 44**
 - [x] Qualification：**36 / 36**
 - [x] Files：**19 / 19**
-- [x] 真实磁盘：**16 / 16**
+- [x] 真实磁盘：**20 / 20**
 - [x] Desktop UI：**12 / 12**
 - [x] Desktop IPC / Rust desktop commands：**12 / 12**
-- [x] Rust 全套：**87 passed / 1 ignored**
+- [x] Rust 全套：**101 passed / 1 ignored**
 - [x] Rust Clippy：PASS
 - [x] Frontend build：PASS
 - [x] Tauri release build：PASS
@@ -128,14 +129,15 @@
 - [x] Full HTML Editor：Quick Edit 入口已接通；Full Editor draft 本地隔离，Current + Block 私有文本资源一次原子保存；Original 只读，binary 只读；失败保存与非法资源编辑均不污染 live Note / 磁盘。
 - [x] Browser Bundle export：Mixed Note 可导出为普通浏览器可直接打开的目录；保留当前 Markdown、managed images、HTML Block 顺序、Current HTML 与 Block 私有资源，默认断网且不修改源 `.note`。
 - [x] Markdown export：Mixed Note 的 HTML Anchor 转为外部 HTML 相对链接；Current HTML、Note-managed assets 与 Block-private assets 一并导出，Dirty 可导出且不隐式保存源 `.note`。
-- [x] Bundle code-splitting：按 React / ProseMirror / Milkdown / Tauri vendor 拆分，最大 chunk 降至 256.18 kB，Vite >500 kB warning 已消失。
-- [x] V1 UI Polish：Auto / Light / Dark 系统主题联动与偏好持久化、参考稿 token 对齐、Ctrl/Cmd+K 搜索、Quiet empty/error states、移除 Tags / Trash 假入口；连续 Markdown 编辑面保持无 Block 框。
+- [x] Bundle code-splitting：按 React / ProseMirror / Milkdown / Tauri vendor 拆分；当前 production build 最大 JS chunk 为 475.44 kB（gzip 147.54 kB），仍低于 Vite 500 kB warning 阈值。
+- [x] V1 UI Polish：Auto / Light / Dark 系统主题联动与偏好持久化、参考稿 token 对齐、Ctrl/Cmd+K 搜索、Quiet empty/error states；当时的 Tags / Trash 假入口已移除，当前 Workspace Trash 已由真实能力重新接入；连续 Markdown 编辑面保持无 Block 框。
 - [x] Source Protection Narrowing：Frontmatter 原字节包络 + 可视化正文、任意 fenced code language 普通往返、HTML 候选保留 Frontmatter；源码输入 focus accent 横线已移除。
 - [x] Reference UI Alignment：二次逐组件对照 `E:\flownote-desktop-ui-design`，完成 256 px Sidebar、288 px Inspector、参考 Topbar / breadcrumb / tabs / typography / scrollbar、selection-only 工具栏；不引入 Markdown Block 编辑模型或未实现假入口。
 - [x] Raw HTML Visual Compatibility / Seamless Focus：Raw HTML 通过 semantic round-trip 后作为惰性 atom 保留，外围 Markdown 继续可视化；08-roundtrip-stress 已覆盖 visual save/reopen；ProseMirror 水平 gap cursor 改为竖直 caret，Source notice / textarea focus 横线已移除。
 - [x] Link / Outline / Chrome Readability：Markdown 外部链接支持 Ctrl/Cmd+点击系统打开；右侧 Outline 可点击跳转 H1–H3；Topbar / Sidebar / 文件树 / Inspector / 状态区字号提升且正文 15.5 px 保持不变。
 - [x] V1.1 Visual Library Slice 1：HTML Visual 可收藏 Current / Original / config / private assets，在 Visuals Sidebar 预览，并以新 Block ID + 独立资源插入 Mixed Note。
 - [x] V1.1 Visual Library Slice 2：rename / tags / favorite / title+tag search / Favorites / recoverable Trash+Restore；metadata 属于 app-owned Library，不修改 Note Format v1。
+- [x] Workspace Trash / Direct Actions：真实 Files 增加 `New Note Here`、Move to Trash、Restore / Permanent Delete；HTML 主入口改为 `Add Visual` + 直接粘贴 HTML 提示，底层继续复用既有 sandboxed Mixed Note 流程。
 - [x] Release build / exe smoke：production build、MSI、NSIS 均 PASS；release exe 启动后保持运行，无启动即崩。
 - [ ] 最终安装级发布验证：真实 MSI / NSIS 安装、卸载、升级路径与发布版本整理。
 

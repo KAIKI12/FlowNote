@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileText, Folder, Layers3 } from 'lucide-react';
-import type { WorkspaceEntry, WorkspaceSearchResult, WorkspaceSnapshot } from './workspaceTypes';
+import { FilePlus2, FileText, Folder, Layers3, RotateCcw, Trash2 } from 'lucide-react';
+import type { WorkspaceEntry, WorkspaceSearchResult, WorkspaceSnapshot, WorkspaceTrashItem } from './workspaceTypes';
 import type { WorkspaceRecentView } from './useWorkspace';
 
 interface Props {
@@ -8,36 +8,43 @@ interface Props {
   busy: string | null;
   error: Error | null;
   query: string;
-  view: 'files' | 'recent';
+  view: 'files' | 'recent' | 'trash';
   results: WorkspaceSearchResult[];
   recent: WorkspaceRecentView[];
+  trashItems: WorkspaceTrashItem[];
   activeRelativePath: string | null;
   selectedFolder: string;
   expanded: Set<string>;
   renameDisabled?: boolean;
+  actionsDisabled?: boolean;
   onPick(): void;
   onRefresh(): void;
   onOpen(entry: WorkspaceEntry): void;
   onRename(entry: WorkspaceEntry, newName: string): void;
-  onDelete(entry: WorkspaceEntry): void;
+  onCreateInFolder(entry: WorkspaceEntry): void;
+  onTrash(entry: WorkspaceEntry): void;
+  onRestoreTrash(item: WorkspaceTrashItem): void;
+  onDeleteTrash(item: WorkspaceTrashItem): void;
 }
 
 function nameOf(path: string) { const parts = path.split('/'); return parts[parts.length - 1] ?? path; }
 
-function TreeEntry({ entry, depth, activeRelativePath, selectedFolder, expanded, renameDisabled, onOpen, onRename, onDelete }: {
+function TreeEntry({ entry, depth, activeRelativePath, selectedFolder, expanded, renameDisabled, actionsDisabled, onOpen, onRename,
+  onCreateInFolder, onTrash }: {
   entry: WorkspaceEntry; depth: number; activeRelativePath: string | null; selectedFolder: string; expanded: Set<string>;
-  renameDisabled?: boolean; onOpen(entry: WorkspaceEntry): void; onRename(entry: WorkspaceEntry, newName: string): void;
-  onDelete(entry: WorkspaceEntry): void;
+  renameDisabled?: boolean; actionsDisabled?: boolean;
+  onOpen(entry: WorkspaceEntry): void; onRename(entry: WorkspaceEntry, newName: string): void;
+  onCreateInFolder(entry: WorkspaceEntry): void; onTrash(entry: WorkspaceEntry): void;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmTrash, setConfirmTrash] = useState(false);
   const [draft, setDraft] = useState(entry.name);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!menuOpen) return;
     const close = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) { setMenuOpen(false); setConfirmDelete(false); }
+      if (!menuRef.current?.contains(event.target as Node)) { setMenuOpen(false); setConfirmTrash(false); }
     };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
@@ -55,9 +62,9 @@ function TreeEntry({ entry, depth, activeRelativePath, selectedFolder, expanded,
     <div className={'workspace-tree-row' + (active ? ' active' : '') + (selected ? ' selected-folder' : '')}
       style={{ '--tree-depth': depth } as React.CSSProperties}
       onContextMenu={event => {
-        if (renameDisabled) return;
+        if (actionsDisabled) return;
         event.preventDefault();
-        setConfirmDelete(false);
+        setConfirmTrash(false);
         setMenuOpen(true);
       }}>
       {renaming ? <input className="workspace-tree-rename" aria-label={'重命名输入 ' + entry.relativePath} value={draft} autoFocus
@@ -79,19 +86,24 @@ function TreeEntry({ entry, depth, activeRelativePath, selectedFolder, expanded,
         </button>
         <div className="workspace-tree-actions" ref={menuRef}>
           <button type="button" className="workspace-tree-more" aria-label={'更多操作 ' + entry.relativePath}
-            disabled={renameDisabled} onClick={() => { setConfirmDelete(false); setMenuOpen(value => !value); }}>•••</button>
+            disabled={actionsDisabled} onClick={() => { setConfirmTrash(false); setMenuOpen(value => !value); }}>•••</button>
           {menuOpen && <div className="workspace-tree-menu" role="menu" aria-label={'文件操作 ' + entry.relativePath}>
-            {!confirmDelete ? <>
+            {!confirmTrash ? <>
+              {isFolder && <button type="button" role="menuitem" aria-label={'在 ' + entry.relativePath + ' 新建笔记'}
+                disabled={renameDisabled} onClick={() => { setMenuOpen(false); onCreateInFolder(entry); }}>
+                <FilePlus2 size={12} />New Note Here
+              </button>}
               <button type="button" role="menuitem" aria-label={'重命名 ' + entry.relativePath}
+                disabled={renameDisabled}
                 onClick={() => { setMenuOpen(false); setDraft(entry.name); setRenaming(true); }}>重命名</button>
-              <button type="button" role="menuitem" className="danger" aria-label={'删除 ' + entry.relativePath}
-                onClick={() => setConfirmDelete(true)}>删除</button>
+              <button type="button" role="menuitem" className="danger" aria-label={'移到 Trash ' + entry.relativePath}
+                onClick={() => setConfirmTrash(true)}><Trash2 size={12} />Move to Trash</button>
             </> : <>
-              <p>确定删除“{entry.name}”？{isFolder ? '仅空文件夹可删除。' : ''}</p>
-              <button type="button" className="danger" aria-label={'确认删除 ' + entry.relativePath}
-                onClick={() => { setMenuOpen(false); setConfirmDelete(false); onDelete(entry); }}>确认删除</button>
-              <button type="button" aria-label={'取消删除 ' + entry.relativePath}
-                onClick={() => setConfirmDelete(false)}>取消</button>
+              <p>“{entry.name}”将移到 Trash，可稍后恢复。</p>
+              <button type="button" className="danger" aria-label={'确认移到 Trash ' + entry.relativePath}
+                onClick={() => { setMenuOpen(false); setConfirmTrash(false); onTrash(entry); }}>Move to Trash</button>
+              <button type="button" aria-label={'取消移到 Trash ' + entry.relativePath}
+                onClick={() => setConfirmTrash(false)}>取消</button>
             </>}
           </div>}
         </div>
@@ -99,7 +111,36 @@ function TreeEntry({ entry, depth, activeRelativePath, selectedFolder, expanded,
     </div>
     {isExpanded && entry.children.map(child => <TreeEntry key={child.relativePath} entry={child} depth={depth + 1}
       activeRelativePath={activeRelativePath} selectedFolder={selectedFolder} expanded={expanded}
-      renameDisabled={renameDisabled} onOpen={onOpen} onRename={onRename} onDelete={onDelete} />)}
+      renameDisabled={renameDisabled} actionsDisabled={actionsDisabled} onOpen={onOpen} onRename={onRename}
+      onCreateInFolder={onCreateInFolder} onTrash={onTrash} />)}
+  </div>;
+}
+
+function TrashEntry({ item, disabled, onRestore, onDelete }: {
+  item: WorkspaceTrashItem; disabled?: boolean;
+  onRestore(item: WorkspaceTrashItem): void; onDelete(item: WorkspaceTrashItem): void;
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  return <div className="workspace-trash-row">
+    <div className="workspace-trash-main">
+      <span className="workspace-tree-kind" aria-hidden="true">
+        {item.kind === 'folder' ? <Folder size={13} /> : item.kind === 'note' ? <Layers3 size={13} /> : <FileText size={13} />}
+      </span>
+      <span><strong>{item.name}</strong><small>Original: {item.originalRelativePath}</small></span>
+    </div>
+    {!confirmDelete ? <div className="workspace-trash-actions">
+      <button type="button" aria-label={'恢复 ' + item.name} disabled={disabled} onClick={() => onRestore(item)}>
+        <RotateCcw size={12} />Restore
+      </button>
+      <button type="button" className="danger" aria-label={'永久删除 ' + item.name} disabled={disabled}
+        onClick={() => setConfirmDelete(true)}><Trash2 size={12} />Delete</button>
+    </div> : <div className="workspace-trash-confirm">
+      <small>永久删除后无法恢复。</small>
+      <button type="button" className="danger" aria-label={'确认永久删除 ' + item.name}
+        disabled={disabled} onClick={() => { setConfirmDelete(false); onDelete(item); }}>确认删除</button>
+      <button type="button" aria-label={'取消永久删除 ' + item.name} disabled={disabled}
+        onClick={() => setConfirmDelete(false)}>取消</button>
+    </div>}
   </div>;
 }
 
@@ -112,7 +153,7 @@ export function WorkspaceNavigation(props: Props) {
       {props.error && <p className="workspace-inline-error" role="alert">{props.error.message}</p>}
     </div>;
   }
-  const searchMode = !!props.query.trim();
+  const searchMode = props.view !== 'trash' && !!props.query.trim();
   return <nav className="workspace-real-nav" aria-label="Workspace 文件">
     <div className="workspace-root-header">
       <div aria-label="当前 Workspace"><span>Workspace</span><strong>{props.snapshot.name}</strong></div>
@@ -122,7 +163,13 @@ export function WorkspaceNavigation(props: Props) {
       </div>
     </div>
     {props.error && <p className="workspace-inline-error" role="alert">{props.error.message}</p>}
-    {searchMode ? <div className="workspace-nav-section">
+    {props.view === 'trash' ? <div className="workspace-nav-section workspace-nav-section--primary workspace-trash-section">
+      <span>Workspace Trash</span>
+      {props.trashItems.length ? props.trashItems.map(item =>
+        <TrashEntry key={item.id} item={item} disabled={!!props.busy}
+          onRestore={props.onRestoreTrash} onDelete={props.onDeleteTrash} />)
+        : <p className="workspace-tree-empty">Trash 为空。移到 Trash 的文件可以在这里恢复。</p>}
+    </div> : searchMode ? <div className="workspace-nav-section">
       <span>Search</span>
       {props.busy === 'search' && <p className="workspace-tree-empty">Searching…</p>}
       {!props.busy && !props.results.length && <p className="workspace-tree-empty">No notes match this search.</p>}
@@ -149,7 +196,9 @@ export function WorkspaceNavigation(props: Props) {
       {props.snapshot.entries.length ? props.snapshot.entries.map(entry =>
         <TreeEntry key={entry.relativePath} entry={entry} depth={0} activeRelativePath={props.activeRelativePath}
           selectedFolder={props.selectedFolder} expanded={props.expanded} renameDisabled={props.renameDisabled}
-          onOpen={props.onOpen} onRename={props.onRename} onDelete={props.onDelete} />)
+          actionsDisabled={props.actionsDisabled}
+          onOpen={props.onOpen} onRename={props.onRename}
+          onCreateInFolder={props.onCreateInFolder} onTrash={props.onTrash} />)
         : <p className="workspace-tree-empty">No notes yet. Use New Note above to create your first Markdown file.</p>}
     </div>}
   </nav>;

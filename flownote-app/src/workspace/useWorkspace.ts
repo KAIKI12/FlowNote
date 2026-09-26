@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { fileError, type MarkdownFileError } from '../files/fileTypes';
 import { defaultWorkspacePort } from './defaultWorkspacePort';
 import { loadRecent, recordRecent, removeRecent, renameRecent, type WorkspaceRecentEntry } from './workspaceRecent';
-import type { WorkspaceEntry, WorkspacePort, WorkspaceSearchResult, WorkspaceSnapshot } from './workspaceTypes';
+import type { WorkspaceEntry, WorkspacePort, WorkspaceSearchResult, WorkspaceSnapshot, WorkspaceTrashItem } from './workspaceTypes';
 
 interface OpenWorkspaceEntry {
   (entry: WorkspaceEntry, onApplied: () => void): Promise<void>;
@@ -23,6 +23,11 @@ function leafName(relativePath: string): string {
   return parts[parts.length - 1] ?? relativePath;
 }
 
+async function readTrash(port: WorkspacePort): Promise<WorkspaceTrashItem[]> {
+  const list = (port as Partial<WorkspacePort>).listTrash;
+  return typeof list === 'function' ? list.call(port) : [];
+}
+
 export function findWorkspaceEntry(entries: WorkspaceEntry[], relativePath: string): WorkspaceEntry | undefined {
   for (const entry of entries) {
     if (entry.relativePath === relativePath) return entry;
@@ -40,8 +45,9 @@ export function useWorkspace(options: Options) {
   openRef.current = options.openEntry;
   const searchGeneration = useRef(0);
   const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null);
-  const [busy, setBusy] = useState<'restore' | 'pick' | 'scan' | 'search' | 'create' | 'rename' | 'delete' | null>(null);
+  const [busy, setBusy] = useState<'restore' | 'pick' | 'scan' | 'search' | 'create' | 'rename' | 'trash' | 'trashRestore' | 'trashDelete' | null>(null);
   const [error, setError] = useState<MarkdownFileError | null>(null);
+  const [trashItems, setTrashItems] = useState<WorkspaceTrashItem[]>([]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<WorkspaceSearchResult[]>([]);
   const [recent, setRecent] = useState<WorkspaceRecentEntry[]>([]);
@@ -58,6 +64,7 @@ export function useWorkspace(options: Options) {
       setActiveRelativePath(null);
       setQuery('');
       setResults([]);
+      setTrashItems([]);
     }
   };
 
@@ -66,8 +73,10 @@ export function useWorkspace(options: Options) {
     if (!port) return;
     let active = true;
     setBusy('restore');
-    void port.restore().then(value => {
-      if (active) applySnapshot(value);
+    void port.restore().then(async value => {
+      if (!active) return;
+      applySnapshot(value);
+      setTrashItems(value ? await readTrash(port) : []);
     }).catch(cause => {
       if (active) setError(fileError(cause));
     }).finally(() => { if (active) setBusy(null); });
@@ -103,7 +112,10 @@ export function useWorkspace(options: Options) {
     setBusy('pick'); setError(null);
     try {
       const value = await port.pick();
-      if (value) applySnapshot(value);
+      if (value) {
+        applySnapshot(value);
+        setTrashItems(await readTrash(port));
+      }
       return value;
     } catch (cause) { setError(fileError(cause)); return null; }
     finally { setBusy(null); }
@@ -126,6 +138,7 @@ export function useWorkspace(options: Options) {
         if (!valid.has(item.relativePath)) removeRecent(value.workspaceId, item.relativePath);
       }
       setRecent(loadRecent(value.workspaceId));
+      setTrashItems(await port.listTrash());
     } catch (cause) { setError(fileError(cause)); }
     finally { setBusy(null); }
   };
@@ -154,7 +167,7 @@ export function useWorkspace(options: Options) {
     await openRef.current(entry, () => markApplied(entry));
   };
 
-  const createNote = async () => {
+  const createNote = async (folderOverride?: string) => {
     const port = portRef.current;
     if (!port) { await pick(); return; }
     let current = snapshot;
@@ -164,7 +177,7 @@ export function useWorkspace(options: Options) {
     }
     setBusy('create'); setError(null);
     try {
-      const folder = snapshot ? selectedFolder : '';
+      const folder = folderOverride ?? (snapshot ? selectedFolder : '');
       const created = await port.createMarkdown(folder);
       const value = await port.scan();
       setSnapshot(value);
@@ -216,28 +229,55 @@ export function useWorkspace(options: Options) {
     finally { setBusy(null); }
   };
 
-  const deleteEntry = async (entry: WorkspaceEntry) => {
+  const trashEntry = async (entry: WorkspaceEntry) => {
     const port = portRef.current;
     const current = snapshot;
-    if (!port?.delete || !current) {
-      setError(fileError(new Error('当前 Workspace 不支持删除')));
+    if (!port || !current) {
+      setError(fileError(new Error('当前 Workspace 不支持 Trash')));
       return false;
     }
-    setBusy('delete'); setError(null);
+    setBusy('trash'); setError(null);
     try {
-      const deleted = await port.delete(entry.relativePath);
-      const removed = deleted.relativePath;
+      const trashed = await port.trash(entry.relativePath);
+      const removed = trashed.originalRelativePath;
       for (const item of loadRecent(current.workspaceId)) {
         if (item.relativePath === removed || item.relativePath.startsWith(removed + '/')) {
           removeRecent(current.workspaceId, item.relativePath);
         }
       }
-      const value = await port.scan();
+      const [value, nextTrash] = await Promise.all([port.scan(), port.listTrash()]);
       setSnapshot(value);
+      setTrashItems(nextTrash);
       setRecent(loadRecent(current.workspaceId));
       setSelectedFolder(folder => folder === removed || folder.startsWith(removed + '/') ? '' : folder);
       setExpanded(paths => new Set([...paths].filter(path => path !== removed && !path.startsWith(removed + '/'))));
       setActiveRelativePath(path => path && (path === removed || path.startsWith(removed + '/')) ? null : path);
+      return true;
+    } catch (cause) { setError(fileError(cause)); return false; }
+    finally { setBusy(null); }
+  };
+
+  const restoreTrash = async (item: WorkspaceTrashItem) => {
+    const port = portRef.current;
+    if (!port || !snapshot) return false;
+    setBusy('trashRestore'); setError(null);
+    try {
+      await port.restoreTrash(item.id);
+      const [value, nextTrash] = await Promise.all([port.scan(), port.listTrash()]);
+      setSnapshot(value);
+      setTrashItems(nextTrash);
+      return true;
+    } catch (cause) { setError(fileError(cause)); return false; }
+    finally { setBusy(null); }
+  };
+
+  const deleteTrash = async (item: WorkspaceTrashItem) => {
+    const port = portRef.current;
+    if (!port || !snapshot) return false;
+    setBusy('trashDelete'); setError(null);
+    try {
+      await port.deleteTrash(item.id);
+      setTrashItems(await port.listTrash());
       return true;
     } catch (cause) { setError(fileError(cause)); return false; }
     finally { setBusy(null); }
@@ -251,8 +291,8 @@ export function useWorkspace(options: Options) {
 
   return {
     portAvailable: !!portRef.current,
-    snapshot, busy, error, query, setQuery, results, recent: recentView,
+    snapshot, busy, error, query, setQuery, results, recent: recentView, trashItems,
     activeRelativePath, selectedFolder, setSelectedFolder, expanded, setExpanded,
-    pick, refresh, open, createNote, rename, deleteEntry,
+    pick, refresh, open, createNote, rename, trashEntry, restoreTrash, deleteTrash,
   };
 }

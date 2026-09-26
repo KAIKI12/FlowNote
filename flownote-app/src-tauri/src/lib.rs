@@ -71,6 +71,9 @@ pub fn configure_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Bu
             workspace::workspace_search,
             workspace::workspace_create_markdown,
             workspace::workspace_rename,
-            workspace::workspace_delete,
+            workspace::workspace_trash,
+            workspace::workspace_trash_list,
+            workspace::workspace_trash_restore,
+            workspace::workspace_trash_delete,
         ])
 }

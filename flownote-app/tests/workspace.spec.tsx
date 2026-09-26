@@ -41,13 +41,26 @@ export const workspaceChecks = [
       if (command === 'workspace_search') {
         return [{ relativePath: 'a.md', kind: 'markdown', title: 'A', snippet: 'needle' }];
       }
+      if (command === 'workspace_trash_list') {
+        return [{ id: '11111111-1111-4111-8111-111111111111', originalRelativePath: 'renamed.md',
+          name: 'renamed.md', kind: 'markdown', deletedAtMs: 1234 }];
+      }
+      if (command === 'workspace_trash') {
+        return { id: '11111111-1111-4111-8111-111111111111', originalRelativePath: 'renamed.md',
+          name: 'renamed.md', kind: 'markdown', deletedAtMs: 1234 };
+      }
+      if (command === 'workspace_trash_delete') return null;
       return { relativePath: command === 'workspace_create_markdown' ? 'Drafts/Untitled.md' : 'renamed.md' };
     });
     await port.restore(); await port.pick(); await port.scan();
     assert.deepEqual(await port.search('needle'), [{ relativePath: 'a.md', kind: 'markdown', title: 'A', snippet: 'needle' }]);
     await port.createMarkdown('Drafts');
     await port.rename('a.md', 'renamed');
-    await port.delete?.('renamed.md');
+    const trashed = await port.trash('renamed.md');
+    assert.equal(trashed.name, 'renamed.md');
+    assert.equal((await port.listTrash())[0].originalRelativePath, 'renamed.md');
+    await port.restoreTrash(trashed.id);
+    await port.deleteTrash(trashed.id);
     assert.deepEqual(calls.map(call => [call.command, call.args]), [
       ['workspace_restore', undefined],
       ['workspace_pick', undefined],
@@ -55,7 +68,10 @@ export const workspaceChecks = [
       ['workspace_search', { request: { query: 'needle' } }],
       ['workspace_create_markdown', { request: { folder: 'Drafts' } }],
       ['workspace_rename', { request: { relativePath: 'a.md', newName: 'renamed' } }],
-      ['workspace_delete', { request: { relativePath: 'renamed.md' } }],
+      ['workspace_trash', { request: { relativePath: 'renamed.md' } }],
+      ['workspace_trash_list', undefined],
+      ['workspace_trash_restore', { request: { id: '11111111-1111-4111-8111-111111111111' } }],
+      ['workspace_trash_delete', { request: { id: '11111111-1111-4111-8111-111111111111' } }],
     ]);
 
     const childrenOnNote = createNativeWorkspacePort(async () => ({
@@ -170,14 +186,15 @@ async function realWorkspaceSidebarDrivesOpenCreateAndSearch() {
 
     assert.equal(document.body.textContent?.includes('Research'), false, 'Static fake folder is still rendered');
     assert.equal(document.body.textContent?.includes('Tags'), false, 'Unimplemented Tags placeholder is still rendered');
-    assert.equal(document.body.textContent?.includes('Trash'), false, 'Unimplemented Trash placeholder is still rendered');
+    assert.ok([...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .some(button => button.textContent?.includes('Trash')), 'Workspace Trash should be a real navigation tab');
     const folder = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.includes('PD'));
     assert.ok(folder, 'Real workspace folder missing');
     const contextualMenu = document.querySelector<HTMLButtonElement>('[aria-label="更多操作 PD"]')!;
     assert.equal(getComputedStyle(contextualMenu).opacity, '0', 'Tree row actions should stay hidden until contextual hover/focus');
     const folderRow = contextualMenu.closest('.workspace-tree-row')!;
     await act(async () => folderRow.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })));
-    assert.ok(document.querySelector('[aria-label="删除 PD"]'), 'Right-click should expose delete in the same row menu');
+    assert.ok(document.querySelector('[aria-label="移到 Trash PD"]'), 'Right-click should expose Move to Trash in the same row menu');
     await act(async () => document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
     await act(async () => folder.click());
     const timing = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.includes('Timing.md'));
@@ -487,6 +504,10 @@ async function workspaceSwitchingRespectsDirtyAndCapabilityRelease() {
 
 
 async function newNoteChoosesWorkspaceThenCreatesImmediately() {
+  const waitStep = async (label: string, check: () => boolean) => {
+    try { await waitFor(check); }
+    catch (cause) { throw new Error(label + ': ' + (cause instanceof Error ? cause.message : String(cause))); }
+  };
   const opened: string[] = [];
   const created: string[] = [];
   const snapshot: WorkspaceSnapshot = {
@@ -511,13 +532,125 @@ async function newNoteChoosesWorkspaceThenCreatesImmediately() {
   const root = createRoot(document.getElementById('workspace-first-app')!);
   try {
     await act(async () => root.render(<App filePort={workspaceMarkdownPort(opened)} workspacePort={workspacePort} />));
-    await waitFor(() => document.body.textContent?.includes('Choose Workspace') === true);
+    await waitStep('choose workspace visible', () => document.body.textContent?.includes('Choose Workspace') === true);
     const newNote = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.includes('New Note'))!;
+    await waitStep('new note enabled', () => !newNote.disabled);
     await act(async () => newNote.click());
-    await waitFor(() => created.length === 1);
-    await waitFor(() => opened.includes('Untitled.md'));
+    await waitStep('workspace create called', () => created.length === 1);
+    await waitStep('new markdown opened', () => opened.includes('Untitled.md'));
     assert.equal(created[0], '');
     assert.equal(useNoteStore.getState().currentNote?.metadata.title, 'Untitled');
+  } finally {
+    await act(async () => root.unmount());
+    await settle();
+  }
+}
+
+async function workspaceTrashFlowAndFolderActions() {
+  const trashId = '22222222-2222-4222-8222-222222222222';
+  let snapshot: WorkspaceSnapshot = {
+    workspaceId: 'ws-trash', name: 'Trash Notes', entries: [
+      { name: 'Folder', relativePath: 'Folder', kind: 'folder', children: [] },
+      { name: 'remove.md', relativePath: 'remove.md', kind: 'markdown', children: [] },
+    ],
+  };
+  let trashItems: import('../src/workspace/workspaceTypes').WorkspaceTrashItem[] = [];
+  const opened: string[] = [];
+  const trashed: string[] = [];
+  const restored: string[] = [];
+  const deleted: string[] = [];
+  const workspacePort: WorkspacePort = {
+    restore: async () => snapshot,
+    pick: async () => snapshot,
+    scan: async () => snapshot,
+    search: async () => [],
+    createMarkdown: async folder => ({ relativePath: folder ? folder + '/Untitled.md' : 'Untitled.md' }),
+    rename: async (_path, newName) => ({ relativePath: newName }),
+    trash: async relativePath => {
+      trashed.push(relativePath);
+      const target = relativePath === 'remove.md'
+        ? { id: trashId, originalRelativePath: 'remove.md', name: 'remove.md', kind: 'markdown' as const, deletedAtMs: 1234 }
+        : { id: trashId, originalRelativePath: relativePath, name: relativePath, kind: 'folder' as const, deletedAtMs: 1234 };
+      trashItems = [target];
+      snapshot = { ...snapshot, entries: snapshot.entries.filter(entry => entry.relativePath !== relativePath) };
+      return target;
+    },
+    listTrash: async () => trashItems,
+    restoreTrash: async id => {
+      restored.push(id);
+      const item = trashItems.find(value => value.id === id)!;
+      trashItems = trashItems.filter(value => value.id !== id);
+      snapshot = { ...snapshot, entries: [...snapshot.entries,
+        { name: item.name, relativePath: item.originalRelativePath, kind: item.kind, children: [] }] };
+      return { relativePath: item.originalRelativePath };
+    },
+    deleteTrash: async id => { deleted.push(id); trashItems = trashItems.filter(value => value.id !== id); },
+  };
+  useNoteStore.getState().setCurrentNote(null);
+  useNoteStore.getState().setDirty(false);
+  useNoteStore.getState().setComposing(false);
+  document.body.innerHTML = '<main id="workspace-trash-app"></main>';
+  const root = createRoot(document.getElementById('workspace-trash-app')!);
+  try {
+    await act(async () => root.render(<App filePort={workspaceMarkdownPort(opened)} workspacePort={workspacePort} />));
+    await waitFor(() => document.querySelector('[aria-label="当前 Workspace"]')?.textContent?.includes('Trash Notes') === true);
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="打开 Workspace 笔记 remove.md"]')!.click());
+    await waitFor(() => opened.includes('remove.md') && useNoteStore.getState().currentNote?.metadata.title === 'remove');
+    await act(async () => useNoteStore.getState().setDirty(true));
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="更多操作 remove.md"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="移到 Trash remove.md"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="确认移到 Trash remove.md"]')!.click());
+    await waitFor(() => !!document.querySelector('[role="dialog"][aria-label="未保存的更改"]'));
+    assert.equal(trashed.length, 0, 'Dirty active document must not move before close decision');
+    const cancelTrash = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+      .find(button => button.textContent === '取消')!;
+    await act(async () => cancelTrash.click());
+    await waitFor(() => !document.querySelector('[role="dialog"][aria-label="未保存的更改"]'));
+    assert.equal(trashed.length, 0, 'Cancelling Dirty close must keep the Workspace entry out of Trash');
+    assert.ok(document.querySelector('[aria-label="打开 Workspace 笔记 remove.md"]'));
+
+    await act(async () => useNoteStore.getState().setDirty(false));
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="更多操作 Folder"]')!.click());
+    assert.ok(document.querySelector('[aria-label="在 Folder 新建笔记"]'), 'Folder menu should expose New Note Here');
+    await act(async () => document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="更多操作 remove.md"]')!.click());
+    const move = document.querySelector<HTMLButtonElement>('[aria-label="移到 Trash remove.md"]');
+    assert.ok(move, 'File row menu should expose Move to Trash');
+    await act(async () => move!.click());
+    const confirmMove = document.querySelector<HTMLButtonElement>('[aria-label="确认移到 Trash remove.md"]');
+    assert.ok(confirmMove, 'Move to Trash should keep a lightweight confirmation');
+    await act(async () => confirmMove!.click());
+    await waitFor(() => trashed.includes('remove.md'));
+    await waitFor(() => !document.querySelector('[aria-label="打开 Workspace 笔记 remove.md"]'));
+
+    const trashTab = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .find(button => button.textContent?.includes('Trash'));
+    assert.ok(trashTab, 'Workspace sidebar should expose a Trash tab');
+    await act(async () => trashTab!.click());
+    await waitFor(() => !!document.querySelector('[aria-label="恢复 remove.md"]'));
+    assert.ok(document.body.textContent?.includes('remove.md'));
+    assert.ok(document.body.textContent?.includes('Original: remove.md'));
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="恢复 remove.md"]')!.click());
+    await waitFor(() => restored.includes(trashId));
+    const filesTab = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+      .find(button => button.textContent?.includes('Files'))!;
+    await act(async () => filesTab.click());
+    await waitFor(() => !!document.querySelector('[aria-label="打开 Workspace 笔记 remove.md"]'));
+
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="更多操作 remove.md"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="移到 Trash remove.md"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="确认移到 Trash remove.md"]')!.click());
+    await waitFor(() => trashed.length === 2);
+    await act(async () => trashTab!.click());
+    await waitFor(() => !!document.querySelector('[aria-label="永久删除 remove.md"]'));
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="永久删除 remove.md"]')!.click());
+    assert.ok(document.querySelector('[aria-label="确认永久删除 remove.md"]'), 'Permanent delete requires a second confirmation');
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="确认永久删除 remove.md"]')!.click());
+    await waitFor(() => deleted.includes(trashId));
   } finally {
     await act(async () => root.unmount());
     await settle();
@@ -530,6 +663,7 @@ export const workspaceAppChecks = [
   { name: 'Workspace state：旧搜索结果不能覆盖新查询', run: staleSearchCannotOverwriteNewerResults },
   { name: 'Workspace switching：Dirty 跨 .md/.note 切换复用 pending 保护并正确释放 capability', run: workspaceSwitchingRespectsDirtyAndCapabilityRelease },
   { name: 'Workspace UI：首次 New Note 选择 Workspace 后立即创建并打开', run: newNoteChoosesWorkspaceThenCreatesImmediately },
+  { name: 'Workspace Trash：文件菜单、恢复和永久删除形成完整可恢复路径', run: workspaceTrashFlowAndFolderActions },
 ];
 
 export async function run(filter: string) {

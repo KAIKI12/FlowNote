@@ -158,8 +158,8 @@ function WritingHeader({ activeView, note, files, mixed, editorRef }: {
   return <header className="writing-header">
     <div className="writing-file-heading"><h2>Markdown 写作</h2><FileStatus {...controls} /></div>
     <div className="writing-header-actions"><FileToolbar {...controls} />
-      <button aria-label="导入 HTML Block" disabled={activeView === 'demo' || !!mixed.state.busy || note.isComposing
-        || !files.editorReady || !canImportHtml} onClick={() => setHtmlOpen(value => !value)}>导入 HTML</button>
+      <button aria-label="Add Visual" disabled={activeView === 'demo' || !!mixed.state.busy || note.isComposing
+        || !files.editorReady || !canImportHtml} onClick={() => setHtmlOpen(value => !value)}>Add Visual</button>
       <button aria-label="打开 Mixed Note" disabled={!!mixed.state.busy || dirty || note.isComposing}
         onClick={() => void mixed.open(async () => { await files.session.detachCurrent(); return true; })}>打开 Mixed Note</button>
       <button aria-label="保存 Mixed Note" disabled={!!mixed.state.busy || note.isComposing || note.currentNote?.metadata.type !== 'mixed'}
@@ -171,12 +171,14 @@ function WritingHeader({ activeView, note, files, mixed, editorRef }: {
       <button aria-label="导出 Markdown 笔记" disabled={activeView === 'demo' || note.isComposing || !note.currentNote || !files.editorReady
         || note.currentNote.metadata.type === 'mixed' && (!!mixed.state.busy || !!mixed.state.externalConflict || !mixed.state.file || mixed.state.file.readOnly)}
         onClick={() => note.currentNote?.metadata.type === 'mixed' ? void mixed.exportMarkdown() : note.exportNote()}>导出 Markdown</button>
-      {htmlOpen && <form className="editor-link-form html-import-form" aria-label="HTML 导入" onSubmit={event => void importHtml(event)}>
-        <textarea aria-label="HTML 导入源码" value={htmlSource} onChange={event => setHtmlSource(event.target.value)} autoFocus />
-        <button type="submit" aria-label="确认导入 HTML" disabled={!!mixed.state.busy || note.isComposing}>
-          {note.currentNote?.metadata.type === 'mixed' ? '添加 Block' : '创建 .note'}
+      {htmlOpen && <form className="editor-link-form html-import-form" aria-label="Add HTML Visual" onSubmit={event => void importHtml(event)}>
+        <p className="html-import-hint">Paste HTML source to add an isolated Visual. You can also paste complete HTML source directly into the document.</p>
+        <textarea aria-label="HTML Visual source" placeholder="Paste HTML source here…" value={htmlSource}
+          onChange={event => setHtmlSource(event.target.value)} autoFocus />
+        <button type="submit" aria-label="Confirm Add Visual" disabled={!!mixed.state.busy || note.isComposing}>
+          {note.currentNote?.metadata.type === 'mixed' ? 'Add Visual' : 'Create Visual Note'}
         </button>
-        <button type="button" onClick={() => { setHtmlOpen(false); setHtmlError(''); }}>取消</button>
+        <button type="button" onClick={() => { setHtmlOpen(false); setHtmlError(''); }}>Cancel</button>
         {htmlError && <span role="alert">{htmlError}</span>}
       </form>}
     </div>
@@ -255,7 +257,7 @@ function App({ filePort, notePort, workspacePort, visualLibraryPort }: {
   const [activeView, setActiveView] = useState<AppView>('editor');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('edit');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sidebarView, setSidebarView] = useState<'files' | 'recent' | 'visuals'>('files');
+  const [sidebarView, setSidebarView] = useState<'files' | 'recent' | 'visuals' | 'trash'>('files');
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('outline');
   const [selectedHtmlBlockId, setSelectedHtmlBlockId] = useState<string | null>(null);
@@ -407,14 +409,14 @@ function App({ filePort, notePort, workspacePort, visualLibraryPort }: {
     if (note.currentNote?.metadata.type === 'mixed') void mixed.exportMarkdown();
     else note.exportNote();
   };
-  const deleteWorkspaceEntry = async (entry: Parameters<typeof workspace.deleteEntry>[0]) => {
+  const trashWorkspaceEntry = async (entry: WorkspaceEntry) => {
     const active = workspace.activeRelativePath;
     const containsActive = !!active && (active === entry.relativePath || active.startsWith(entry.relativePath + '/'));
     if (containsActive) {
       await files.session.closeDocument();
       if (useNoteStore.getState().currentNote) return;
     }
-    await workspace.deleteEntry(entry);
+    await workspace.trashEntry(entry);
   };
 
   return <div className="app writing-app" data-view-mode={workspaceMode}
@@ -447,11 +449,17 @@ function App({ filePort, notePort, workspacePort, visualLibraryPort }: {
             onTrash={id => void visualLibrary.trash(id)} onRestore={id => void visualLibrary.restore(id)} />
         : <WorkspaceNavigation snapshot={workspace.snapshot} busy={workspace.busy} error={workspace.error}
             query={workspace.query} view={sidebarView} results={workspace.results} recent={workspace.recent}
+            trashItems={workspace.trashItems}
             activeRelativePath={workspace.activeRelativePath} selectedFolder={workspace.selectedFolder}
-            expanded={workspace.expanded} renameDisabled={dirty || note.isComposing || !!files.state.busy || !!mixed.state.busy}
+            expanded={workspace.expanded}
+            renameDisabled={dirty || note.isComposing || !!files.state.busy || !!mixed.state.busy || !!workspace.busy}
+            actionsDisabled={note.isComposing || !!files.state.busy || !!mixed.state.busy || !!workspace.busy}
             onPick={() => void workspace.pick()} onRefresh={() => void workspace.refresh()}
             onOpen={entry => void workspace.open(entry)} onRename={(entry, name) => void workspace.rename(entry, name)}
-            onDelete={entry => void deleteWorkspaceEntry(entry)} />}
+            onCreateInFolder={entry => void workspace.createNote(entry.relativePath)}
+            onTrash={entry => void trashWorkspaceEntry(entry)}
+            onRestoreTrash={item => void workspace.restoreTrash(item)}
+            onDeleteTrash={item => void workspace.deleteTrash(item)} />}
       fileActionsDisabled={!!files.state.busy || !!files.state.pending || note.isComposing || !!workspace.busy}
       onNew={() => void workspace.createNote()}
       onOpen={() => void files.session.open().catch(cause => files.session.notifyError(cause))}

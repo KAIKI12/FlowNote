@@ -5,8 +5,10 @@ use std::cmp::Ordering;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
+use uuid::Uuid;
 
 const MAX_SEARCH_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_SEARCH_RESULTS: usize = 100;
@@ -51,6 +53,39 @@ pub struct WorkspaceMutation {
     pub relative_path: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceTrashItem {
+    pub id: String,
+    pub original_relative_path: String,
+    pub name: String,
+    pub kind: WorkspaceEntryKind,
+    pub deleted_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceTrashMetadata {
+    version: u32,
+    id: String,
+    original_relative_path: String,
+    name: String,
+    kind: WorkspaceEntryKind,
+    deleted_at_ms: u64,
+}
+
+impl WorkspaceTrashMetadata {
+    fn item(&self) -> WorkspaceTrashItem {
+        WorkspaceTrashItem {
+            id: self.id.clone(),
+            original_relative_path: self.original_relative_path.clone(),
+            name: self.name.clone(),
+            kind: self.kind,
+            deleted_at_ms: self.deleted_at_ms,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct WorkspaceStore {
     root: Option<PathBuf>,
@@ -87,6 +122,12 @@ pub struct WorkspaceRenameRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WorkspaceDeleteRequest {
     pub relative_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceTrashIdRequest {
+    pub id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -210,19 +251,79 @@ impl WorkspaceStore {
         Ok(WorkspaceMutation { relative_path: relative_string(self.root()?, &target)? })
     }
 
-    pub fn delete(&mut self, relative: &str) -> FileResult<WorkspaceMutation> {
+    pub fn trash(&mut self, relative: &str) -> FileResult<WorkspaceTrashItem> {
         let source = self.resolve_existing(relative)?;
-        let kind = entry_kind(&source).ok_or_else(|| FileError::new("invalidFormat", "该 Workspace 条目不能删除"))?;
-        let deleted = relative_string(self.root()?, &source)?;
-        match kind {
-            WorkspaceEntryKind::Markdown => fs::remove_file(&source)
-                .map_err(|error| FileError::io("删除 Markdown 文件失败", error))?,
-            WorkspaceEntryKind::Note => fs::remove_dir_all(&source)
-                .map_err(|error| FileError::io("删除 FlowNote 笔记失败", error))?,
-            WorkspaceEntryKind::Folder => fs::remove_dir(&source)
-                .map_err(|error| FileError::io("文件夹非空或无法删除", error))?,
+        let kind = entry_kind(&source).ok_or_else(|| FileError::new("invalidFormat", "该 Workspace 条目不能移到 Trash"))?;
+        let original_relative_path = relative_string(self.root()?, &source)?;
+        if original_relative_path.split('/').next().is_some_and(|part| part.starts_with('.')) {
+            return Err(FileError::new("invalidPath", "隐藏 Workspace 条目不能移到 Trash"));
         }
-        Ok(WorkspaceMutation { relative_path: deleted })
+        let name = source.file_name().and_then(|value| value.to_str())
+            .ok_or_else(|| FileError::new("invalidPath", "Workspace 条目名称无效"))?.to_string();
+        let deleted_at_ms = SystemTime::now().duration_since(UNIX_EPOCH)
+            .map_err(|error| FileError::io("系统时间无效", error))?.as_millis() as u64;
+        let id = Uuid::new_v4().to_string();
+        let trash_root = self.ensure_trash_root()?;
+        let record = trash_root.join(&id);
+        fs::create_dir(&record).map_err(|error| FileError::io("无法创建 Trash 记录", error))?;
+        let metadata = WorkspaceTrashMetadata {
+            version: 1,
+            id: id.clone(),
+            original_relative_path,
+            name,
+            kind,
+            deleted_at_ms,
+        };
+        let bytes = serde_json::to_vec_pretty(&metadata)
+            .map_err(|error| FileError::io("无法编码 Trash 元数据", error))?;
+        if let Err(error) = fs::write(record.join("metadata.json"), bytes) {
+            let _ = fs::remove_dir_all(&record);
+            return Err(FileError::io("无法写入 Trash 元数据", error));
+        }
+        if let Err(error) = fs::rename(&source, record.join("payload")) {
+            let _ = fs::remove_dir_all(&record);
+            return Err(FileError::io("无法将 Workspace 条目移到 Trash", error));
+        }
+        Ok(metadata.item())
+    }
+
+    pub fn list_trash(&self) -> FileResult<Vec<WorkspaceTrashItem>> {
+        let Some(root) = self.existing_trash_root()? else { return Ok(Vec::new()); };
+        let mut items = Vec::new();
+        for entry in fs::read_dir(&root).map_err(|error| FileError::io("无法读取 Workspace Trash", error))? {
+            let entry = entry.map_err(|error| FileError::io("无法读取 Trash 记录", error))?;
+            let file_type = entry.file_type().map_err(|error| FileError::io("无法读取 Trash 记录类型", error))?;
+            if file_type.is_symlink() || !file_type.is_dir() {
+                return Err(FileError::new("invalidFormat", "Workspace Trash 包含无效记录"));
+            }
+            let id = entry.file_name().to_string_lossy().into_owned();
+            let (_, metadata) = self.trash_record(&id)?;
+            items.push(metadata.item());
+        }
+        items.sort_by(|left, right| right.deleted_at_ms.cmp(&left.deleted_at_ms).then_with(|| left.name.cmp(&right.name)));
+        Ok(items)
+    }
+
+    pub fn restore_trash(&mut self, id: &str) -> FileResult<WorkspaceMutation> {
+        let (record, metadata) = self.trash_record(id)?;
+        let parts = validate_relative(&metadata.original_relative_path, false)?;
+        let leaf = parts.last().copied().ok_or_else(|| FileError::new("invalidPath", "Trash 原路径无效"))?;
+        let parent_relative = parts[..parts.len() - 1].join("/");
+        let parent = self.resolve_folder(&parent_relative)
+            .map_err(|_| FileError::new("conflict", "原文件夹已不存在，无法恢复到原位置"))?;
+        let target = parent.join(leaf);
+        if target.exists() {
+            return Err(FileError::new("conflict", "原位置已有同名条目，无法恢复"));
+        }
+        let payload = record.join("payload");
+        fs::rename(&payload, &target).map_err(|error| FileError::io("恢复 Trash 条目失败", error))?;
+        fs::remove_dir_all(&record).map_err(|error| FileError::io("恢复成功，但清理 Trash 记录失败", error))?;
+        Ok(WorkspaceMutation { relative_path: metadata.original_relative_path })
+    }
+
+    pub fn delete_trash(&mut self, id: &str) -> FileResult<()> {
+        let (record, _) = self.trash_record(id)?;
+        fs::remove_dir_all(record).map_err(|error| FileError::io("永久删除 Trash 条目失败", error))
     }
 
     pub fn search(&self, query: &str) -> FileResult<Vec<WorkspaceSearchResult>> {
@@ -232,6 +333,53 @@ impl WorkspaceStore {
         let mut results = Vec::new();
         search_directory(root, root, &needle, &mut results)?;
         Ok(results)
+    }
+
+    fn ensure_trash_root(&self) -> FileResult<PathBuf> {
+        let path = self.root()?.join(".flownote-trash");
+        if path.exists() {
+            let metadata = fs::symlink_metadata(&path).map_err(|error| FileError::io("无法读取 Workspace Trash", error))?;
+            if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                return Err(FileError::new("invalidPath", "Workspace Trash 路径无效"));
+            }
+        } else {
+            fs::create_dir(&path).map_err(|error| FileError::io("无法创建 Workspace Trash", error))?;
+        }
+        Ok(path)
+    }
+
+    fn existing_trash_root(&self) -> FileResult<Option<PathBuf>> {
+        let path = self.root()?.join(".flownote-trash");
+        if !path.exists() { return Ok(None); }
+        let metadata = fs::symlink_metadata(&path).map_err(|error| FileError::io("无法读取 Workspace Trash", error))?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err(FileError::new("invalidPath", "Workspace Trash 路径无效"));
+        }
+        Ok(Some(path))
+    }
+
+    fn trash_record(&self, id: &str) -> FileResult<(PathBuf, WorkspaceTrashMetadata)> {
+        validate_trash_id(id)?;
+        let root = self.existing_trash_root()?
+            .ok_or_else(|| FileError::new("notFound", "Trash 条目不存在"))?;
+        let record = root.join(id);
+        let metadata = fs::symlink_metadata(&record)
+            .map_err(|error| FileError::io("Trash 条目不存在", error))?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err(FileError::new("invalidFormat", "Trash 记录格式无效"));
+        }
+        let bytes = fs::read(record.join("metadata.json"))
+            .map_err(|error| FileError::io("无法读取 Trash 元数据", error))?;
+        let metadata: WorkspaceTrashMetadata = serde_json::from_slice(&bytes)
+            .map_err(|error| FileError::io("Trash 元数据损坏", error))?;
+        if metadata.version != 1 || metadata.id != id {
+            return Err(FileError::new("invalidFormat", "Trash 元数据版本或 ID 无效"));
+        }
+        validate_relative(&metadata.original_relative_path, false)?;
+        if !record.join("payload").exists() {
+            return Err(FileError::new("invalidFormat", "Trash payload 缺失"));
+        }
+        Ok((record, metadata))
     }
 
     fn resolve_folder(&self, relative: &str) -> FileResult<PathBuf> {
@@ -289,6 +437,14 @@ fn validate_leaf_name(name: &str) -> FileResult<()> {
     }
     if Path::new(trimmed).components().count() != 1 {
         return Err(FileError::new("invalidPath", "名称必须是单个文件名"));
+    }
+    Ok(())
+}
+
+fn validate_trash_id(id: &str) -> FileResult<()> {
+    let parsed = Uuid::parse_str(id).map_err(|_| FileError::new("invalidPath", "Trash ID 无效"))?;
+    if parsed.to_string() != id.to_ascii_lowercase() {
+        return Err(FileError::new("invalidPath", "Trash ID 无效"));
     }
     Ok(())
 }
@@ -556,13 +712,47 @@ pub async fn workspace_rename<R: Runtime>(
 }
 
 #[tauri::command]
-pub async fn workspace_delete<R: Runtime>(
+pub async fn workspace_trash<R: Runtime>(
     app: AppHandle<R>,
     window: WebviewWindow<R>,
     request: WorkspaceDeleteRequest,
+) -> FileResult<WorkspaceTrashItem> {
+    require_main(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        with_workspace(&app, |workspace| workspace.trash(&request.relative_path))
+    }).await.map_err(|error| FileError::io("Workspace 移到 Trash 被中断", error))?
+}
+
+#[tauri::command]
+pub async fn workspace_trash_list<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+) -> FileResult<Vec<WorkspaceTrashItem>> {
+    require_main(&window)?;
+    tauri::async_runtime::spawn_blocking(move || with_workspace(&app, |workspace| workspace.list_trash()))
+        .await.map_err(|error| FileError::io("Workspace Trash 列表被中断", error))?
+}
+
+#[tauri::command]
+pub async fn workspace_trash_restore<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    request: WorkspaceTrashIdRequest,
 ) -> FileResult<WorkspaceMutation> {
     require_main(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
-        with_workspace(&app, |workspace| workspace.delete(&request.relative_path))
-    }).await.map_err(|error| FileError::io("Workspace 删除被中断", error))?
+        with_workspace(&app, |workspace| workspace.restore_trash(&request.id))
+    }).await.map_err(|error| FileError::io("Workspace Trash 恢复被中断", error))?
+}
+
+#[tauri::command]
+pub async fn workspace_trash_delete<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    request: WorkspaceTrashIdRequest,
+) -> FileResult<()> {
+    require_main(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        with_workspace(&app, |workspace| workspace.delete_trash(&request.id))
+    }).await.map_err(|error| FileError::io("Workspace Trash 永久删除被中断", error))?
 }

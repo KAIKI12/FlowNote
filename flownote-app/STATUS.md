@@ -2,7 +2,7 @@
 
 **更新时间：2026-09-26**
 
-**当前阶段：V1 基线能力与发布收尾保持稳定；V1.1 Visual Library 已完成 Slice 1–2。除收藏 / 复用外，Visuals Sidebar 现已支持 rename、tags、favorite、title/tag search、Favorites 过滤，以及可恢复的 app-owned Trash / Restore；这些状态全部属于 Library metadata，不写入 Note Format v1，也不会联动修改来源 Note 或已经插入的 Block 副本。下一步进入 V1.1 的资源本地化 / reusable visual 资产增强。**
+**当前阶段：V1 基线能力与发布收尾保持稳定；V1.1 Visual Library 已完成 Slice 1–2，Workspace 可用性继续增强。真实 Files Sidebar 现已加入 Workspace-local 可恢复 Trash / Restore / Permanent Delete、folder `New Note Here`，HTML 主入口改为更直接的 `Add Visual`；Visual Library 自身的 app-owned Trash 仍保持独立。上述 Workspace 管理状态不修改 Note Format v1。下一步继续 V1.1 的资源本地化 / reusable visual 资产增强与剩余桌面交互收尾。**
 
 **范围原则：Slice 完成只表示当前切片定义的实现与验证范围完成，不删除最终需求。Shared Localized Resource、CDN Localization、cross-note managed dependency copy 等尚未实现的能力继续由 [REQUIREMENTS-MATRIX.md](../REQUIREMENTS-MATRIX.md) 保留。**
 
@@ -11,7 +11,7 @@
 FlowNote 当前已经从“Markdown 编辑器验证”进入可持续收尾阶段，现有主路径包括：
 
 - 普通 Markdown：可视化 / 源码双模式、复杂列表、任务列表、表格、代码、图片、粘贴、撤销重做、中文 IME 保护；Frontmatter 作为原字节元数据包络保留且正文可继续可视化编辑，任意 fenced code language 可按普通代码块安全往返；真正无法安全往返的扩展语法继续走源码保真路径。
-- 普通 `.md` 文件：新建、打开、保存、另存为、重载、关闭 / 重开、外部版本检测与失败恢复；无编辑保存保持原字节与时间语义。
+- 普通 `.md` 文件：新建、打开、保存、另存为、重载、关闭 / 重开、外部版本检测与失败恢复；无编辑保存保持原字节与时间语义。Workspace 删除改为移动到隐藏 `.flownote-trash`，可按原路径恢复或显式永久删除。
 - Mixed Note：显式 `.md → .note` 转换、`content.md` + `note.json` + Block 目录持久化、多个 HTML Block、关闭重开与整体移动。
 - HTML Block：NodeView 已注册并在 Markdown 原位置渲染隔离 iframe；Current / Original 分离，Block 配置与私有资源独立持久化，默认 sandbox + CSP 阻止联网。
 - Managed resources：Markdown managed images、`assets/images/**`、HTML Block 私有 `blocks/<id>/assets/**`、CSS / JS / Image 与 CSS `url()` 运行时解析均已接通；持久化 Source 保持相对路径，不写入 runtime data URL 或 Host 绝对路径。
@@ -28,7 +28,7 @@ FlowNote 当前已经从“Markdown 编辑器验证”进入可持续收尾阶�
 
 | Slice | 状态 | 当前完成范围 |
 |---|---|---|
-| Slice 1 | completed | Markdown + HTML → `.note` 持久化 → Close → Reopen；显式 HTML 导入、Current / Original、NodeView / iframe、Ctrl+S、Dirty 关闭保护。 |
+| Slice 1 | completed | Markdown + HTML → `.note` 持久化 → Close → Reopen；显式 HTML Visual 导入（当前 UI 为 `Add Visual`）、Current / Original、NodeView / iframe、Ctrl+S、Dirty 关闭保护。 |
 | Slice 2 | completed | Markdown managed images、Block 私有 CSS / JS / Image、第二 HTML Block、capability reader、整体移动后重开、保存失败回滚与资源相对路径。 |
 | Slice 3 | completed（当前范围） | Clean 自动 reload、Dirty conflict、IME queue、Missing / Orphan repair、same-note Deep Copy、shared read-only probe / resource snapshot、disposal guard。 |
 
@@ -38,7 +38,7 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 - Shared Localized Resource；
 - CDN Localization；
 - `@import`、动态 `fetch()`、module import、Worker / WASM 等更广资源解析；
-- 更完整的 Trash / 删除恢复、共享资源冲突及未来迁移语义。
+- Workspace Trash 之外的 Block/resource-level 删除恢复、共享资源冲突及未来迁移语义。
 
 ## 2.5 V1 UI 第一波 App 原型 — completed
 
@@ -47,9 +47,9 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 - **App Shell**：极简 Topbar + 可折叠 Files Sidebar + 中央 Document + 按需 Inspector；默认仍以文档为视觉中心。
 - **Markdown 连续编辑**：Markdown 没有 click-to-edit Block 心智；Edit / Focus 下正文可直接输入，Read 仅切换为同一文档的只读阅读状态。
 - **Edit / Read / Focus**：Read 去除编辑噪声；Focus 自动隐藏左右栏并继续保持 Markdown 可编辑；三种模式不再互相重叠。
-- **Files Sidebar**：New Note / Open 为直接入口，保存、另存、Mixed Note、导出等低频操作折叠到 File actions；其后 Workspace Slice 已接入真实本地文件树。
+- **Files Sidebar**：New Note / Open 为直接入口，保存、另存、Mixed Note、导出等低频操作折叠到 File actions；真实本地文件树现支持 folder `New Note Here`、Rename、Move to Trash，并有独立 Workspace Trash 视图。
 - **Inspector**：Outline / Block / Info 三个上下文 Tab 已接入；HTML Visual 选中后可打开 Block Inspector。
-- **HTML Visual**：Normal / Hover / Selected 渐进控制已实现；Visual 支持 Normal / Wide / Full 的第一波展示交互，不把 Markdown 本身 Block 化。
+- **HTML Visual**：Normal / Hover / Selected 渐进控制已实现；Visual 支持 Normal / Wide / Full 的第一波展示交互，不把 Markdown 本身 Block 化。主入口使用 `Add Visual` / `Paste HTML source here…`，不要求用户先理解 `.note` 或 Block 内部术语。
 - **HTML Quick Edit**：使用大尺寸 Source + Live Preview 双栏弹窗；保留现有 Current / Original 与快速编辑语义。其 `Open Full Editor` 入口现已接通真实 Full HTML Editor。
 - **HTML Fullscreen**：当前 Visual 可进入独立展示层，FlowNote 工作区 chrome 隐藏，支持 Esc / Close 退出。
 - **Light / Dark 基础主题**：第一波原型仅提供手动切换；后续 V1 UI Polish 已升级为 Auto / Light / Dark、系统主题联动和持久化显式偏好。
@@ -69,10 +69,10 @@ Slice 3 的 completed **不等于所有复制与共享资源需求完成**。以
 - **Rename**：支持 folder / Markdown / Note package；省略后缀时保留 `.md` / `.note`；文件夹 rename 会同步迁移 selected folder、expanded path、active child 与 Recent 子路径，并通过正常 open 流重新绑定当前子笔记。
 - **Recent**：按 Workspace ID 保存最近打开的相对路径与时间，最多 10 条；不复制内容，不成为第二事实来源。Refresh 会移除 Missing 项。
 - **基础 Search**：native 层直接有界扫描 filename、一级标题、Markdown 正文、Note metadata title 与 `.note/content.md`；跳过超大文本和私有 Block assets，最多返回 100 条。**当前不是 SQLite/FTS 索引搜索。**
-- **Quiet Technical Sidebar**：真实树采用紧凑行、高亮克制、More/Rename 按 hover/focus 渐进出现；搜索结果保持列表形态，不做 Dashboard 卡片化。
-- **Refresh 语义**：当前 V1 使用手动 Refresh，以及 create / rename / restore / change 后自动 rescan；尚未加入递归 filesystem watcher。
+- **Quiet Technical Sidebar**：真实树采用紧凑行、高亮克制、More 菜单按 hover/focus 渐进出现；folder 菜单提供 `New Note Here` / Rename / Move to Trash，Markdown / `.note` 提供 Rename / Move to Trash；右键复用同一菜单。
+- **Refresh / Trash 语义**：当前 V1 使用手动 Refresh，以及 create / rename / trash / restore / permanent-delete / change 后自动 rescan。Workspace 删除会原子移动到根目录隐藏 `.flownote-trash/<id>/`，记录原相对路径；Restore 只恢复到原位置，路径冲突或原父目录缺失时明确失败并保留 Trash payload；Permanent Delete 仅在 Trash 视图二次确认后执行。尚未加入递归 filesystem watcher。
 
-本 Slice 明确未包含：真实 Favorites、Trash/delete/recovery、drag & drop move、多 Workspace、filesystem watcher、SQLite/FTS 索引、tags/backlinks/graph 与导出能力。Full HTML Editor 已由后续独立 Slice 完成。
+当前仍未包含：真实 Favorites、Trash 批量清空 / 自定义恢复位置 / 自动清理策略、drag & drop move、多 Workspace、filesystem watcher、SQLite/FTS 索引、tags/backlinks/graph。Workspace Trash 已完成单条 Move / Restore / Permanent Delete；Block/resource-level 删除恢复仍由 Requirements Matrix 保留。Full HTML Editor 与导出能力已由后续独立 Slice 完成。
 
 ## 2.7 Note Format v1 Format Freeze — completed
 
@@ -249,36 +249,36 @@ VLIB-06 已完成；Library metadata 仍与 `.note` 的 `note.json` / `block.jso
 - **LaTeX**：标准 `$...$` / `$$...$$` 不再把整篇文档踢进源码保护，启用现有 Milkdown math 插件；反斜杠定界公式仍保留源码保护。
 - **空白画布光标**：点击 Markdown 正文下方 / 周围的编辑空白会聚焦 ProseMirror，并按坐标定位，无法映射坐标时落到文末；不再出现“只能点到已有文字才能继续输入”。
 - **HTML 粘贴**：独立 HTML 源码的 plain-text 粘贴直接走现有 HTML Visual / Mixed Note 导入管线；普通浏览器富文本粘贴仍按 Markdown 结构处理，不误转成 Visual。
-- **文件操作**：Workspace 行的三点按钮改为明确菜单，提供 Rename / Delete；右键打开同一菜单。删除链路已从 React → Workspace Port → Tauri/Rust 接通；Markdown / .note 可删除，普通文件夹仅允许空目录删除，避免递归误删未展示文件。
+- **文件操作**：Workspace 行的三点按钮与右键共用同一菜单；folder 提供 `New Note Here` / Rename / Move to Trash，Markdown / `.note` 提供 Rename / Move to Trash。删除不再直接销毁，而是由 React → Workspace Port → Tauri/Rust 原子移动到隐藏 `.flownote-trash`；Trash 视图可恢复或二次确认永久删除。
 - **关闭窗口**：IME composition 不再形成“关闭事件被拦截但对话框也不显示”的死路；关闭请求始终进入明确决策，用户可取消，或明确放弃后关闭。
-- **验证**：Stage One 70/70、Protection 44/44、Files 19/19、Workspace Frontend 8/8、Workspace Native 12/12，production build PASS；Desktop UI 在本轮更新旧断言后再次验证。
+- **验证**：本轮已扩展到 Stage One 71/71、Protection 44/44、Files 19/19、真实磁盘 20/20、Workspace Frontend 9/9、Workspace Native 14/14、HTML 17/17、Desktop UI / IPC 12/12，Format Freeze Gate PASS，production build PASS。
 
 ## 3. 最新验证基线
 
-2026-09-22 V1.1 Visual Library Slice 2 完成后的新鲜验证结果：
+2026-09-26 Workspace Trash / Direct Actions 完成后的新鲜验证结果：
 
 | 验证项 | 结果 |
 |---|---:|
-| Workspace Frontend | **8 / 8** |
-| Workspace Native | **11 / 11** |
+| Workspace Frontend | **9 / 9** |
+| Workspace Native | **14 / 14** |
 | Format Freeze Gate | **PASS** |
 | HTML | **17 / 17** |
-| Stage One | **69 / 69** |
-| Protection | **42 / 42** |
+| Stage One | **71 / 71** |
+| Protection | **44 / 44** |
 | Qualification | **36 / 36** |
-| Files | **18 / 18** |
+| Files | **19 / 19** |
 | 真实磁盘 | **20 / 20** |
 | Browser Bundle `file://` qualification | **PASS** |
 | Markdown Export `file://` qualification | **PASS** |
 | Desktop UI | **12 / 12** |
 | Desktop IPC / Rust desktop commands | **12 / 12** |
-| Rust 全套 | **98 passed / 1 ignored** |
+| Rust 全套 | **101 passed / 1 ignored** |
 | Rust Clippy | **PASS** |
 | Frontend build | **PASS** |
-| Tauri release build | **PASS** |
-| Release exe smoke | **PASS** |
+| Tauri release build | 最近 release checkpoint PASS；本轮未重打包 |
+| Release exe smoke | 最近 release checkpoint PASS；本轮未重跑 |
 
-本轮前端 production build **PASS**。经过稳定 vendor 拆分后，最大 JS chunk 为 **256.18 kB**（gzip **79.53 kB**），原先约 861 kB 的单主 bundle 与 Vite >500 kB warning 已消失；其余主要 chunk 均低于 204 kB。Tauri release build 已重新产出 MSI 与 NSIS bundle。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。测试环境仍会输出既有 Prism Tcl language 与部分 React `act()` warning，但本轮相关断言均 PASS。
+本轮前端 production build **PASS**。当前最大 JS chunk 为 **475.44 kB**（gzip **147.54 kB**），仍低于 Vite 500 kB warning 阈值；此前约 861 kB 的单主 bundle 已拆分。Tauri release build / exe smoke 沿用最近一次 release checkpoint，本轮未重新打安装包。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。测试环境仍会输出既有 Prism Tcl language 与部分 React `act()` warning，但本轮相关断言均 PASS。
 
 ## 4. 当前基线文档
 

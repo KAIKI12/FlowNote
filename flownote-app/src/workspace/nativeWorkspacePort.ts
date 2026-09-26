@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { fileError, MarkdownFileError } from '../files/fileTypes';
 import type {
   WorkspaceEntry, WorkspaceEntryKind, WorkspaceMutation, WorkspacePort,
-  WorkspaceSearchResult, WorkspaceSnapshot,
+  WorkspaceSearchResult, WorkspaceSnapshot, WorkspaceTrashItem,
 } from './workspaceTypes';
 
 export type WorkspaceInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
@@ -57,6 +57,30 @@ function mutation(value: unknown): WorkspaceMutation {
   return { relativePath: relativePath(result.relativePath) };
 }
 
+function trashId(value: unknown): string {
+  if (typeof value !== 'string'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    throw new MarkdownFileError('protocol', 'Workspace Trash ID 无效');
+  }
+  return value.toLowerCase();
+}
+
+function trashItem(value: unknown): WorkspaceTrashItem {
+  const item = object(value, 'Trash');
+  const parsedKind = kind(item.kind);
+  if (typeof item.name !== 'string' || !item.name
+    || typeof item.deletedAtMs !== 'number' || !Number.isSafeInteger(item.deletedAtMs) || item.deletedAtMs < 0) {
+    throw new MarkdownFileError('protocol', 'Workspace Trash 响应字段不完整');
+  }
+  return {
+    id: trashId(item.id),
+    originalRelativePath: relativePath(item.originalRelativePath),
+    name: item.name,
+    kind: parsedKind,
+    deletedAtMs: item.deletedAtMs,
+  };
+}
+
 function searchResult(value: unknown): WorkspaceSearchResult {
   const result = object(value, '搜索');
   const parsedKind = kind(result.kind);
@@ -97,8 +121,19 @@ export function createNativeWorkspacePort(call: WorkspaceInvoke = invoke): Works
     async rename(path, newName) {
       return mutation(await request('workspace_rename', { request: { relativePath: path, newName } }));
     },
-    async delete(path) {
-      return mutation(await request('workspace_delete', { request: { relativePath: path } }));
+    async trash(path) {
+      return trashItem(await request('workspace_trash', { request: { relativePath: path } }));
+    },
+    async listTrash() {
+      const value = await request('workspace_trash_list');
+      if (!Array.isArray(value)) throw new MarkdownFileError('protocol', 'Workspace Trash 列表响应格式无效');
+      return value.map(trashItem);
+    },
+    async restoreTrash(id) {
+      return mutation(await request('workspace_trash_restore', { request: { id: trashId(id) } }));
+    },
+    async deleteTrash(id) {
+      await request('workspace_trash_delete', { request: { id: trashId(id) } });
     },
   };
 }

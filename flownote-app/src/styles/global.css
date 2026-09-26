@@ -752,7 +752,7 @@ body { background: var(--workspace-bg); color: var(--workspace-text); }
   background: var(--workspace-surface); color: var(--workspace-text); font-size: 10.5px; text-align: left;
 }
 .workspace-sidebar .writing-header button[aria-label='新建笔记'],
-.workspace-sidebar .writing-header button[aria-label='导入 HTML Block'] {
+.workspace-sidebar .writing-header button[aria-label='Add Visual'] {
   color: var(--workspace-accent); border-color: color-mix(in srgb, var(--workspace-accent) 22%, var(--workspace-border));
   background: var(--workspace-accent-soft); font-weight: 600;
 }
@@ -762,6 +762,7 @@ body { background: var(--workspace-bg); color: var(--workspace-text); }
   border: 1px solid var(--workspace-border); border-radius: 10px; background: var(--workspace-surface);
   box-shadow: 0 18px 55px rgb(25 31 44 / .16);
 }
+.workspace-sidebar .html-import-hint { grid-column: 1 / -1; margin: 0; color: var(--workspace-muted); font-size: 10.5px; line-height: 1.45; }
 .workspace-sidebar .html-import-form textarea { grid-column: 1 / -1; min-height: 140px; padding: 10px; border: 1px solid var(--workspace-border); border-radius: 8px; background: var(--bg-secondary); color: var(--workspace-text); }
 
 .workspace-nav { display: flex; flex-direction: column; padding-top: 8px; }
@@ -922,7 +923,7 @@ body { background: var(--workspace-bg); color: var(--workspace-text); }
 .workspace-sidebar-primary .file-toolbar button[aria-label='打开 Markdown 文件'] { display: none; }
 
 .workspace-sidebar-tabs {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 2px;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 2px;
   border-radius: 6px; background: color-mix(in srgb, var(--workspace-border) 60%, transparent);
 }
 .workspace-sidebar-tabs button {
@@ -1133,10 +1134,12 @@ body { background: var(--workspace-bg); color: var(--workspace-text); }
   box-shadow: 0 12px 30px rgb(15 23 42 / .16);
 }
 .workspace-tree-menu button {
-  width: 100%; min-height: 30px; border: 0; border-radius: 5px; padding: 0 9px;
+  width: 100%; min-height: 30px; display: flex; align-items: center; gap: 7px;
+  border: 0; border-radius: 5px; padding: 0 9px;
   background: transparent; color: var(--workspace-text); text-align: left; font-size: 11px; cursor: pointer;
 }
-.workspace-tree-menu button:hover { background: var(--bg-hover); }
+.workspace-tree-menu button:hover:not(:disabled) { background: var(--bg-hover); }
+.workspace-tree-menu button:disabled { opacity: .45; cursor: default; }
 .workspace-tree-menu button.danger { color: #b42318; }
 .workspace-tree-menu p { margin: 4px 7px 7px; color: var(--workspace-muted); font-size: 10.5px; line-height: 1.45; }
 
@@ -1160,6 +1163,32 @@ body { background: var(--workspace-bg); color: var(--workspace-text); }
   font-size: 10px;
   line-height: 1.55;
 }
+
+.workspace-trash-section { gap: 3px; }
+.workspace-trash-row {
+  margin: 0 2px; padding: 8px; display: flex; flex-direction: column; gap: 7px;
+  border: 1px solid transparent; border-radius: 7px;
+}
+.workspace-trash-row:hover { background: var(--bg-hover); border-color: var(--workspace-border-soft); }
+.workspace-trash-main { min-width: 0; display: flex; align-items: flex-start; gap: 7px; color: var(--workspace-text); }
+.workspace-trash-main > span:last-child { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.workspace-trash-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 600; }
+.workspace-trash-main small, .workspace-trash-confirm small {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--workspace-subtle); font-size: 9.8px;
+}
+.workspace-trash-actions, .workspace-trash-confirm { display: flex; align-items: center; gap: 5px; padding-left: 20px; }
+.workspace-trash-confirm { flex-wrap: wrap; }
+.workspace-trash-confirm small { flex-basis: 100%; }
+.workspace-trash-actions button, .workspace-trash-confirm button {
+  min-height: 24px; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px;
+  border: 1px solid var(--workspace-border); border-radius: 5px; background: var(--workspace-surface);
+  color: var(--workspace-muted); font-size: 10px; cursor: pointer;
+}
+.workspace-trash-actions button:hover:not(:disabled), .workspace-trash-confirm button:hover:not(:disabled) {
+  background: var(--bg-hover); color: var(--workspace-text);
+}
+.workspace-trash-actions button.danger, .workspace-trash-confirm button.danger { color: #b42318; }
+.workspace-trash-actions button:disabled, .workspace-trash-confirm button:disabled { opacity: .5; cursor: default; }
 
 .workspace-recent { justify-content: space-between; gap: 8px; }
 .workspace-recent-main {
