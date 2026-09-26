@@ -45,7 +45,6 @@ function textReasons(text: string): string[] {
   const patterns: [RegExp, string][] = [
     [/\[\[/, 'WikiLink / 双链源码'],
     [/\[\^[^\]\r\n]+\]/, '脚注源码'],
-    [/\$\$|\$[^$]*\$/, 'LaTeX 公式源码'],
     [/(^|\s):{2,}[a-zA-Z]/m, '自定义 Markdown 指令'],
     [/(^|\s)\{[.#][^}\r\n]+\}/m, '扩展 Markdown 属性'],
   ];

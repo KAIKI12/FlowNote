@@ -69,7 +69,7 @@ export function UnsavedDialog({ session, state, composing, exportNote, canSave }
   session: DocumentSession; state: DocumentState; composing: boolean; exportNote: () => void; canSave?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  const visible = !!state.pending && !composing;
+  const visible = !!state.pending && (!composing || state.pending.kind === 'window');
   useEffect(() => {
     if (!visible) return;
     const previous = document.activeElement as HTMLElement | null;

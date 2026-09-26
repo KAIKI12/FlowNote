@@ -5,6 +5,7 @@ import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { block } from '@milkdown/plugin-block';
 import { history } from '@milkdown/plugin-history';
 import { prism } from '@milkdown/plugin-prism';
+import { math } from '@milkdown/plugin-math';
 import { $ctx } from '@milkdown/utils';
 import { htmlBlockPlugin } from './plugins/htmlBlock/htmlBlockPlugin';
 import { taskListView } from './taskListPlugin';
@@ -45,12 +46,13 @@ function configureHtmlParsing(ctx: import('@milkdown/ctx').Ctx): void {
   });
 }
 
-export function createFlowEditor(root: HTMLElement, session: EditorSession, htmlHost?: HtmlBlockHost, imageReader: ManagedImageReader | null = null): Editor {
+export function createFlowEditor(root: HTMLElement, session: EditorSession, htmlHost?: HtmlBlockHost,
+  imageReader: ManagedImageReader | null = null, pasteHtmlSource?: (html: string) => void | Promise<unknown>): Editor {
   const events = bindEvents(root, session);
   const editor = Editor.make()
     .config(ctx => {
       configureEditorInteractions(ctx);
-      configureProtectedInput(ctx, session);
+      configureProtectedInput(ctx, session, pasteHtmlSource);
       configureMarkdownClipboard(ctx);
       configureHtmlParsing(ctx);
       ctx.set(rootCtx, root);
@@ -70,7 +72,7 @@ export function createFlowEditor(root: HTMLElement, session: EditorSession, html
       events.abort();
       session.disconnect(editor.ctx);
     })
-    .use(commonmark).use(gfm).use(history).use(prism).use(taskListView).use(preservePastedCodeBlocks)
+    .use(commonmark).use(gfm).use(math).use(history).use(prism).use(taskListView).use(preservePastedCodeBlocks)
     .use(editorStateEvents).use(listener).use(block).use(htmlBlockPlugin).use(managedImageView)
     .use(editorSessionCtx).use(htmlBlockContext).use(managedImageContext);
   return editor;

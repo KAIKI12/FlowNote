@@ -79,14 +79,16 @@ async function inputDuringClosingSaveStaysOpen() {
   });
 }
 
-async function compositionPreventsWindowClose() {
+async function compositionCloseRemainsRecoverable() {
   await withDesktop(async ({ boundary }) => {
     const area = document.querySelector('textarea[aria-label="Markdown 源码"]')!;
     await act(async () => area.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true })));
     await editDesktop('桌面测试', '组合输入中');
     await closeEvent();
     assert.equal(boundary.destroyRequests, 0);
-    assert.match(document.querySelector('[role="alert"]')!.textContent!, /组合输入/);
+    assert.ok(document.querySelector('[role="dialog"]'), 'IME close request should expose an explicit close decision');
+    await clickDesktop('取消');
+    assert.equal(boundary.destroyRequests, 0);
     await act(async () => area.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true })));
     await closeEvent();
     assert.ok(document.querySelector('[role="dialog"]'));
@@ -171,7 +173,7 @@ export async function run(filter: string) {
     { name: '桌面关闭：内容真实写入磁盘后再关闭', run: saveBeforeClosing },
     { name: '桌面关闭：保存失败保留窗口、Dirty 和本地输入', run: failedSaveKeepsWindow },
     { name: '桌面关闭：保存期间有新输入时继续保留窗口', run: inputDuringClosingSaveStaysOpen },
-    { name: '桌面关闭：组合输入期间先阻止关闭', run: compositionPreventsWindowClose },
+    { name: '桌面关闭：组合输入期间显示可恢复关闭决策', run: compositionCloseRemainsRecoverable },
     { name: '桌面关闭：重复关闭事件不能重复销毁窗口', run: repeatedCloseIsSerialized },
     { name: '桌面关闭：系统销毁失败可见且允许重试', run: failedDestructionIsVisible },
     { name: '最终关闭：请求销毁前锁定源码，回执后继续保持关闭状态', run: finalCloseLocksSourceInput },

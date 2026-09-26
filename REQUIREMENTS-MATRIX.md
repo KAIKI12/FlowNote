@@ -35,7 +35,7 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 | MD-05 | Chinese IME safety | Composition-aware editor/session | Implemented for verified current path | Gate + desktop evidence |
 | MD-06 | Local Markdown image import/paste with managed persistence | `.md`: sibling `.assets`; `.note`: Note assets | Partial | URL/path insertion exists; managed migration/import remains Slice 2 |
 | MD-07 | Mermaid rendering | Source already preserved | Planned | V1.5 |
-| MD-08 | LaTeX rendering | Source already preserved | Planned | V1.5 |
+| MD-08 | LaTeX rendering | Source preservation + Milkdown math | Partial/Implemented | `$...$` / `$$...$$` render and edit visually; `\\(...\\)` / `\\[...\\]` remain source-protected |
 | MD-09 | Advanced code highlighting incl. Tcl | Code nodes exist | Partial | Tcl Prism warning remains |
 
 ## C. Mixed Note persistence
@@ -109,7 +109,7 @@ The matrix is normative for scope tracking. PRD explains product intent; Note Fo
 | COPY-03 | Same-note copies may share immutable localized resources | Shared resource architecture | Planned | V2 |
 | COPY-04 | Cross-note copy carries required managed shared dependencies | Shared resource manifest | Planned | V2 |
 | COPY-05 | No hidden cross-note filesystem dependencies | Ownership invariant | Planned enforcement | V2 |
-| DEL-01 | Delete moves content/resources to recoverable FlowNote Trash | Product requirement | Planned | V2 |
+| DEL-01 | Delete moves content/resources to recoverable FlowNote Trash | Product requirement | Partial | Workspace Markdown / `.note` / folders now move to hidden recoverable `.flownote-trash`; Block/resource-level delete recovery remains later work |
 | DEL-02 | Delete Anchor first, persist, then resource cleanup/trash; prefer Orphan over dangling Anchor | Save/delete ordering | Partial backend principles | Slice 3 |
 
 ## H. External editing and conflict handling

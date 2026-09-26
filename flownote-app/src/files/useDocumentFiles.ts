@@ -39,9 +39,11 @@ interface FileHookOptions {
   closeAlternate?: () => Promise<void>;
 }
 
-async function closeDesktopWindow({ acquire, ready }: { acquire: AcquireEditorReadLock | null; ready: boolean }): Promise<void> {
-  if (ready && !acquire) throw new Error('编辑器关闭保护尚未就绪，请稍候');
-  const release = acquire?.();
+async function closeDesktopWindow({ acquire, ready, composing }: {
+  acquire: AcquireEditorReadLock | null; ready: boolean; composing: boolean;
+}): Promise<void> {
+  if (ready && !acquire && !composing) throw new Error('编辑器关闭保护尚未就绪，请稍候');
+  const release = composing ? undefined : acquire?.();
   try {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     await getCurrentWindow().destroy();
@@ -91,6 +93,7 @@ function createSession({ latest, ready, readyChanged, readLockRef }: {
     })),
     saveAlternate: asNew => latest.current.saveAlternate?.(asNew) ?? Promise.resolve(false),
     closeAlternate: () => latest.current.closeAlternate?.() ?? Promise.resolve(),
-    closeWindow: () => closeDesktopWindow({ acquire: readLockRef.current, ready: ready.current }),
+    closeWindow: () => closeDesktopWindow({ acquire: readLockRef.current, ready: ready.current,
+      composing: useNoteStore.getState().isComposing }),
   });
 }

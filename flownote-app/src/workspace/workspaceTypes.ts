@@ -24,6 +24,14 @@ export interface WorkspaceMutation {
   relativePath: string;
 }
 
+export interface WorkspaceTrashItem {
+  id: string;
+  originalRelativePath: string;
+  name: string;
+  kind: WorkspaceEntryKind;
+  deletedAtMs: number;
+}
+
 export interface WorkspacePort {
   restore(): Promise<WorkspaceSnapshot | null>;
   pick(): Promise<WorkspaceSnapshot | null>;
@@ -31,4 +39,8 @@ export interface WorkspacePort {
   search(query: string): Promise<WorkspaceSearchResult[]>;
   createMarkdown(folder: string): Promise<WorkspaceMutation>;
   rename(relativePath: string, newName: string): Promise<WorkspaceMutation>;
+  trash(relativePath: string): Promise<WorkspaceTrashItem>;
+  listTrash(): Promise<WorkspaceTrashItem[]>;
+  restoreTrash(id: string): Promise<WorkspaceMutation>;
+  deleteTrash(id: string): Promise<void>;
 }

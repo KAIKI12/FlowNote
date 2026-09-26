@@ -139,7 +139,11 @@ export class DocumentSession {
   }
 
   async requestWindowClose(): Promise<void> {
-    if (this.available()) await this.offer({ kind: 'window' });
+    if (this.state.busy || this.state.pending) {
+      this.report(new MarkdownFileError('busy', '请先完成当前文件操作'));
+      return;
+    }
+    await this.offer({ kind: 'window' });
   }
 
   private async offer(action: PendingDocument): Promise<void> {
@@ -185,7 +189,10 @@ export class DocumentSession {
     const action = this.state.pending;
     if (!action || this.state.busy) return;
     if (choice === 'cancel') return this.cancelPending(action);
-    if (this.environment.read().composing) { this.report(new MarkdownFileError('composing', '请先完成组合输入')); return; }
+    if (this.environment.read().composing && !(action.kind === 'window' && choice === 'discard')) {
+      this.report(new MarkdownFileError('composing', '请先完成组合输入'));
+      return;
+    }
     const generation = this.generation;
     const saved = choice === 'save';
     if (saved && !(await this.save())) return;
@@ -217,7 +224,11 @@ export class DocumentSession {
       const next = await this.refreshCandidate(action, saved);
       if (!this.pendingIsCurrent(action, generation)) return;
       const current = this.environment.read();
-      if (current.composing || (saved && current.dirty)) { this.update({ pending: next }); return; }
+      const discardWindowDuringComposition = next.kind === 'window' && !saved;
+      if ((current.composing && !discardWindowDuringComposition) || (saved && current.dirty)) {
+        this.update({ pending: next });
+        return;
+      }
       await this.apply(next);
     } catch (cause) { if (this.currentGeneration(generation)) this.report(cause); }
     finally { if (this.currentGeneration(generation) && this.state.busy !== 'closing') this.update({ busy: null }); }

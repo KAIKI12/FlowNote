@@ -1,6 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { MutableRefObject } from 'react';
+import type { MouseEvent as ReactMouseEvent, MutableRefObject } from 'react';
 import { Milkdown, useEditor } from '@milkdown/react';
+import { editorViewCtx } from '@milkdown/core';
+import { TextSelection } from '@milkdown/prose/state';
 import { useNoteStore } from '../note/noteStore';
 import type { FlowNoteEditorApi, EditorMode } from './editorTypes';
 import { EditorToolbar } from './EditorToolbar';
@@ -57,15 +59,18 @@ interface FlowNoteEditorProps {
   onDuplicateHtmlBlock?: (blockId: string) => void | Promise<unknown>;
   onCollectHtmlBlock?: (blockId: string) => void | Promise<unknown>;
   onHtmlBlockSelect?: (blockId: string) => void;
+  onPasteHtmlSource?: (html: string) => void | Promise<unknown>;
 }
 
 export const FlowNoteEditor = forwardRef<FlowNoteEditorApi, FlowNoteEditorProps>(
   ({ initialContent = '', onContentChange, mode = 'edit', onReadyChange, readLockRef, readHtmlAsset, listHtmlAssets,
-    commitHtmlFullEditor, readManagedImage, onDuplicateHtmlBlock, onCollectHtmlBlock, onHtmlBlockSelect }, ref) => {
+    commitHtmlFullEditor, readManagedImage, onDuplicateHtmlBlock, onCollectHtmlBlock, onHtmlBlockSelect, onPasteHtmlSource }, ref) => {
     const setComposing = useNoteStore((state) => state.setComposing);
     const setDirty = useNoteStore((state) => state.setDirty);
-    const inputs = useRef({ onContentChange, setComposing, setDirty, onDuplicateHtmlBlock, onCollectHtmlBlock, onHtmlBlockSelect });
-    inputs.current = { onContentChange, setComposing, setDirty, onDuplicateHtmlBlock, onCollectHtmlBlock, onHtmlBlockSelect };
+    const inputs = useRef({ onContentChange, setComposing, setDirty, onDuplicateHtmlBlock, onCollectHtmlBlock, onHtmlBlockSelect,
+      onPasteHtmlSource });
+    inputs.current = { onContentChange, setComposing, setDirty, onDuplicateHtmlBlock, onCollectHtmlBlock, onHtmlBlockSelect,
+      onPasteHtmlSource };
     const [session] = useState(() => new EditorSession({ source: initialContent, mode,
       publish: source => inputs.current.onContentChange?.(source),
       dirty: () => inputs.current.setDirty(true),
@@ -83,8 +88,10 @@ export const FlowNoteEditor = forwardRef<FlowNoteEditorApi, FlowNoteEditorProps>
     const duplicate = (id: string) => inputs.current.onDuplicateHtmlBlock?.(id);
     const collect = (id: string) => inputs.current.onCollectHtmlBlock?.(id);
     const select = (id: string) => inputs.current.onHtmlBlockSelect?.(id);
+    const pasteHtml = (html: string) => inputs.current.onPasteHtmlSource?.(html);
     const { loading, get } = useEditor(root => createFlowEditor(root, session,
-      createHtmlHost(readHtmlAsset, listHtmlAssets, commitHtmlFullEditor, duplicate, collect, select), readManagedImage ?? null), []);
+      createHtmlHost(readHtmlAsset, listHtmlAssets, commitHtmlFullEditor, duplicate, collect, select), readManagedImage ?? null,
+      pasteHtml), []);
     useImperativeHandle(ref, () => createEditorApi(session, get), [get, session]);
     useEffect(() => session.receiveExternal(initialContent), [initialContent, session]);
     useEffect(() => {
@@ -93,12 +100,30 @@ export const FlowNoteEditor = forwardRef<FlowNoteEditorApi, FlowNoteEditorProps>
       catch (error) { session.reportNotice(error instanceof Error ? error.message : String(error)); }
       previousMode.current = mode;
     }, [mode, state.ready, state.composing, session]);
+    const placeCaretFromBlankCanvas = (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (event.button !== 0 || state.active !== 'visual' || state.mode !== 'edit') return;
+      const target = event.target as Element;
+      if (target.closest('.ProseMirror') || target.closest('.editor-toolbar')) return;
+      const editor = get();
+      if (!editor) return;
+      event.preventDefault();
+      editor.action(ctx => {
+        const view = ctx.get(editorViewCtx);
+        let selection = TextSelection.atEnd(view.state.doc);
+        try {
+          const position = view.posAtCoords({ left: event.clientX, top: event.clientY });
+          if (position) selection = TextSelection.near(view.state.doc.resolve(position.pos));
+        } catch { /* jsdom / blank padding fallback: end of document */ }
+        view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
+        view.focus();
+      });
+    };
     return (
       <div className="flownote-editor" data-mode={state.mode} data-active-editor={state.active} aria-busy={loading || !state.ready}>
         <EditorModeBar session={session} state={state} />
         <SourceConflict session={session} state={state} />
         {state.active === 'source' && <SourceEditor session={session} state={state} />}
-        <div className="editor-visual-surface" hidden={state.active !== 'visual'}>
+        <div className="editor-visual-surface" hidden={state.active !== 'visual'} onMouseDown={placeCaretFromBlankCanvas}>
           {state.active === 'visual' && <EditorToolbar />}
           <Milkdown />
         </div>
