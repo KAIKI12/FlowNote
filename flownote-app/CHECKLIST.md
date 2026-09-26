@@ -127,7 +127,7 @@
 - [x] Workspace Trash / Direct Actions：真实 Files 增加 `New Note Here`、Move to Trash、Restore / Permanent Delete；HTML 主入口改为 `Add Visual` + 直接粘贴 HTML 提示，底层继续复用既有 sandboxed Mixed Note 流程。
 - [x] v0.1.2 Release build / exe smoke：production build、MSI、NSIS 均 fresh PASS；release exe 版本为 0.1.2 且启动后稳定运行。
 - [x] v0.1.2 安装级验证：官方 v0.1.1 NSIS clean install → v0.1.2 NSIS upgrade → 启动 → silent uninstall PASS；v0.1.2 MSI per-user install → 启动 → uninstall PASS；两种卸载后注册表 / install dir / process 均清理。
-- [ ] v0.1.2 GitHub Release：push release commit + tag，等待 Actions 产出 NSIS / MSI / SHA256SUMS 并核对远端资产。
+- [x] v0.1.2 GitHub Release：tag `v0.1.2` 已发布；Actions run `36221114643` success；远端 NSIS / MSI / `SHA256SUMS.txt` 三个资产均已上传并通过实际下载哈希核对，CI 产物也已完成安装 / 启动 / 卸载 smoke。
 
 ## 需求保留规则
 

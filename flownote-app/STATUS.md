@@ -293,8 +293,9 @@ VLIB-06 已完成；Library metadata 仍与 `.note` 的 `note.json` / `block.jso
 | Release exe smoke | **v0.1.2 PASS** |
 | NSIS install / upgrade / uninstall | **v0.1.1 → v0.1.2 PASS** |
 | MSI install / launch / uninstall | **v0.1.2 PASS** |
+| GitHub Release v0.1.2 | **PUBLISHED / Actions run 36221114643 PASS** |
 
-本轮前端 production build **PASS**。当前最大 JS chunk 为 **475.44 kB**（gzip **147.54 kB**），仍低于 Vite 500 kB warning 阈值。v0.1.2 fresh Tauri release build 已生成 `FlowNote_0.1.2_x64_en-US.msi` 与 `FlowNote_0.1.2_x64-setup.exe`；本地 SHA256 分别为 `da1c4761bc09b7b1a99381d402c322fa0449de8ec81ec111473e8fad9ff2d02c` 与 `675d04d77e9f6b996694744fa0b5ae31e9da6f58a3f36e29a948602e41d93672`。NSIS 已验证官方 v0.1.1 → v0.1.2 真实升级，MSI 已验证 per-user 安装 / 启动 / 卸载；卸载后注册表、安装目录和进程均无残留。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。
+本轮前端 production build **PASS**。当前最大 JS chunk 为 **475.44 kB**（gzip **147.54 kB**），仍低于 Vite 500 kB warning 阈值。v0.1.2 fresh Tauri release build 已生成 `FlowNote_0.1.2_x64_en-US.msi` 与 `FlowNote_0.1.2_x64-setup.exe`；本地 fresh build SHA256 分别为 `da1c4761bc09b7b1a99381d402c322fa0449de8ec81ec111473e8fad9ff2d02c` 与 `675d04d77e9f6b996694744fa0b5ae31e9da6f58a3f36e29a948602e41d93672`。GitHub Actions run `36221114643` 已成功发布 v0.1.2；远端 CI 产物 SHA256 为 MSI `fcbca938ac4078ad787516f2bc5fe4b3c1535675760728d81804463408cf740d`、NSIS `40b0cf203154230b4ebaf0664bbae69f3f90b5e49da159efb54dd1e6e0673ee8`，与远端 `SHA256SUMS.txt` 及实际下载哈希完全一致。NSIS 已验证官方 v0.1.1 → v0.1.2 真实升级，MSI 已验证 per-user 安装 / 启动 / 卸载；远端 CI 产物也分别完成安装 / 启动 / 卸载 smoke。卸载后注册表、安装目录和进程均无残留。Rust 全套中的 1 个 ignored 是由 editor-to-disk 集成测试通过 stdin 驱动的 file-driver harness，不是失败项。
 
 ## 4. 当前基线文档
 
@@ -317,6 +318,6 @@ V1.1 reusable Visual 的 Collect、metadata management 与显式 Make Local 已�
 2. **Cross-note managed dependency copy**：在不产生隐藏跨 Note 文件依赖的前提下，复制 / 导入所需 shared dependencies。
 3. **Resolver 扩展**：评估 `@import`、ES module graph、dynamic `fetch()`、Worker / WASM 的可证明安全解析；当前 unresolved 项继续显式保留。
 4. **Session-only network permission**：如果加入 “Allow this preview session”，权限必须只存在运行时，并在 close / restart / source change / preview recreation 后失效。
-5. **Release hardening**：v0.1.2 本地 MSI / NSIS 安装、卸载、NSIS 升级路径已验证；剩余一步是通过现有 GitHub Release tag pipeline 发布并核对远端安装包 / SHA256SUMS。
+5. **Release hardening**：v0.1.2 已完成本地安装级验证并通过现有 GitHub Release tag pipeline 正式发布；后续版本继续沿用同一 pipeline，并保留安装 / 升级 / 远端 SHA256 复验作为发布门禁。
 
 后续共享资源能力仍不得通过修改冻结的 Note Format v1 基础语义或把网络权限持久化到 Note 中来实现。

@@ -194,7 +194,7 @@ flownote-app/src-tauri/target/release/flownote.exe
 
 接下来统一围绕 V1 可交付性收尾，不再继续扩张已完成 Slice：
 
-1. **v0.1.2 发布**：release build、exe smoke、NSIS 升级和 MSI 安装 / 卸载均已完成；下一步通过现有 tag workflow 发布 GitHub Release 并核对远端 SHA256 资产。
+1. **v0.1.2 发布**：已完成并正式发布到 GitHub Releases；release build、exe smoke、NSIS 升级、MSI 安装 / 卸载、远端资产 SHA256 与 CI 产物安装 smoke 均已验证。
 2. **Workspace 后续增强（非当前阻塞）**：Trash 批量清空 / 自定义恢复位置 / retention、filesystem watcher、multi-Workspace、SQLite / FTS 等按独立 Slice 继续。
 3. **资源 / 产品后续增强（非当前阻塞）**：Shared Localized Resource、cross-note dependency copy、更多 remote resolver、Presentation / AI 等继续按 Requirements Matrix 分期实现。
 
