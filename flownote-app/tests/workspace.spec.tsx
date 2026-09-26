@@ -47,6 +47,7 @@ export const workspaceChecks = [
     assert.deepEqual(await port.search('needle'), [{ relativePath: 'a.md', kind: 'markdown', title: 'A', snippet: 'needle' }]);
     await port.createMarkdown('Drafts');
     await port.rename('a.md', 'renamed');
+    await port.delete?.('renamed.md');
     assert.deepEqual(calls.map(call => [call.command, call.args]), [
       ['workspace_restore', undefined],
       ['workspace_pick', undefined],
@@ -54,6 +55,7 @@ export const workspaceChecks = [
       ['workspace_search', { request: { query: 'needle' } }],
       ['workspace_create_markdown', { request: { folder: 'Drafts' } }],
       ['workspace_rename', { request: { relativePath: 'a.md', newName: 'renamed' } }],
+      ['workspace_delete', { request: { relativePath: 'renamed.md' } }],
     ]);
 
     const childrenOnNote = createNativeWorkspacePort(async () => ({
@@ -171,8 +173,12 @@ async function realWorkspaceSidebarDrivesOpenCreateAndSearch() {
     assert.equal(document.body.textContent?.includes('Trash'), false, 'Unimplemented Trash placeholder is still rendered');
     const folder = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.includes('PD'));
     assert.ok(folder, 'Real workspace folder missing');
-    const contextualRename = document.querySelector<HTMLButtonElement>('[aria-label="重命名 PD"]')!;
-    assert.equal(getComputedStyle(contextualRename).opacity, '0', 'Tree row actions should stay hidden until contextual hover/focus');
+    const contextualMenu = document.querySelector<HTMLButtonElement>('[aria-label="更多操作 PD"]')!;
+    assert.equal(getComputedStyle(contextualMenu).opacity, '0', 'Tree row actions should stay hidden until contextual hover/focus');
+    const folderRow = contextualMenu.closest('.workspace-tree-row')!;
+    await act(async () => folderRow.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })));
+    assert.ok(document.querySelector('[aria-label="删除 PD"]'), 'Right-click should expose delete in the same row menu');
+    await act(async () => document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
     await act(async () => folder.click());
     const timing = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.includes('Timing.md'));
     assert.ok(timing, 'Nested Markdown note missing');
@@ -265,6 +271,8 @@ async function folderRenameMigratesActiveExpandedAndRecentPaths() {
     await waitFor(() => opened.includes('Folder/Child.md'));
     assert.ok(loadRecent('ws-rename').some(item => item.relativePath === 'Folder/Child.md'));
 
+    const more = document.querySelector<HTMLButtonElement>('[aria-label="更多操作 Folder"]')!;
+    await act(async () => more.click());
     const rename = document.querySelector<HTMLButtonElement>('[aria-label="重命名 Folder"]')!;
     await act(async () => rename.click());
     const input = document.querySelector<HTMLInputElement>('[aria-label="重命名输入 Folder"]')!;

@@ -85,6 +85,12 @@ pub struct WorkspaceRenameRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceDeleteRequest {
+    pub relative_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WorkspaceOpenRequest {
     pub relative_path: String,
 }
@@ -202,6 +208,21 @@ impl WorkspaceStore {
         }
         fs::rename(&source, &target).map_err(|error| FileError::io("重命名失败", error))?;
         Ok(WorkspaceMutation { relative_path: relative_string(self.root()?, &target)? })
+    }
+
+    pub fn delete(&mut self, relative: &str) -> FileResult<WorkspaceMutation> {
+        let source = self.resolve_existing(relative)?;
+        let kind = entry_kind(&source).ok_or_else(|| FileError::new("invalidFormat", "该 Workspace 条目不能删除"))?;
+        let deleted = relative_string(self.root()?, &source)?;
+        match kind {
+            WorkspaceEntryKind::Markdown => fs::remove_file(&source)
+                .map_err(|error| FileError::io("删除 Markdown 文件失败", error))?,
+            WorkspaceEntryKind::Note => fs::remove_dir_all(&source)
+                .map_err(|error| FileError::io("删除 FlowNote 笔记失败", error))?,
+            WorkspaceEntryKind::Folder => fs::remove_dir(&source)
+                .map_err(|error| FileError::io("文件夹非空或无法删除", error))?,
+        }
+        Ok(WorkspaceMutation { relative_path: deleted })
     }
 
     pub fn search(&self, query: &str) -> FileResult<Vec<WorkspaceSearchResult>> {
@@ -532,4 +553,16 @@ pub async fn workspace_rename<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || {
         with_workspace(&app, |workspace| workspace.rename(&request.relative_path, &request.new_name))
     }).await.map_err(|error| FileError::io("Workspace 重命名被中断", error))?
+}
+
+#[tauri::command]
+pub async fn workspace_delete<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    request: WorkspaceDeleteRequest,
+) -> FileResult<WorkspaceMutation> {
+    require_main(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        with_workspace(&app, |workspace| workspace.delete(&request.relative_path))
+    }).await.map_err(|error| FileError::io("Workspace 删除被中断", error))?
 }

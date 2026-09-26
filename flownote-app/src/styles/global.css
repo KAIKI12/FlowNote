@@ -1126,6 +1126,19 @@ body { background: var(--workspace-bg); color: var(--workspace-text); }
 }
 
 .workspace-tree-more:disabled { cursor: default; opacity: 0; }
+.workspace-tree-actions { position: relative; flex: 0 0 27px; }
+.workspace-tree-menu {
+  position: absolute; z-index: 120; top: 27px; right: 0; min-width: 154px; padding: 6px;
+  border: 1px solid var(--workspace-border); border-radius: 8px; background: var(--workspace-surface);
+  box-shadow: 0 12px 30px rgb(15 23 42 / .16);
+}
+.workspace-tree-menu button {
+  width: 100%; min-height: 30px; border: 0; border-radius: 5px; padding: 0 9px;
+  background: transparent; color: var(--workspace-text); text-align: left; font-size: 11px; cursor: pointer;
+}
+.workspace-tree-menu button:hover { background: var(--bg-hover); }
+.workspace-tree-menu button.danger { color: #b42318; }
+.workspace-tree-menu p { margin: 4px 7px 7px; color: var(--workspace-muted); font-size: 10.5px; line-height: 1.45; }
 
 .workspace-tree-rename {
   min-width: 0;

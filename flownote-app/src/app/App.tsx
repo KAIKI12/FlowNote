@@ -103,6 +103,39 @@ type AppNote = ReturnType<typeof useAppNote>;
 type AppFiles = ReturnType<typeof useDocumentFiles>;
 type MixedFiles = ReturnType<typeof useMixedNoteFiles>;
 
+async function storeHtmlSource(htmlSource: string, files: AppFiles, mixed: MixedFiles,
+  editorRef: RefObject<FlowNoteEditorApi>): Promise<boolean> {
+  const current = useNoteStore.getState().currentNote;
+  const api = editorRef.current;
+  if (!current) throw new Error('尚未打开笔记');
+  if (!api || !files.editorReady) throw new Error('编辑器尚未准备就绪');
+  if (!htmlSource.trim()) throw new Error('请输入要导入的 HTML');
+  const block = createHtmlBlock(htmlSource);
+  const replacements: Record<string, string> = {};
+  const assets: NoteAssetData[] = [];
+  if (current.metadata.type === 'markdown' && files.state.file) {
+    const reader = files.session.port.readAsset;
+    const seen = new Set<string>();
+    for (const source of api.getImageSources()) {
+      const target = managedMarkdownImageTarget(files.state.file.name, source);
+      if (!target || seen.has(source)) continue;
+      if (!reader) throw new MarkdownFileError('unsupported', '当前文件入口不能迁移 Markdown 本地图片');
+      const asset = await reader(files.state.file.id, source);
+      if (!asset.mime.startsWith('image/')) throw new MarkdownFileError('invalidFormat', `Markdown 图片类型无效：${source}`);
+      replacements[source] = target;
+      assets.push({ path: target, bytes: asset.bytes });
+      seen.add(source);
+    }
+  }
+  const content = api.previewHtmlBlock(block.id, 'normal', replacements);
+  return current.metadata.type === 'markdown'
+    ? mixed.create(content, newMixedNote(current.metadata.title, block), undefined, () => files.session.detachCurrent(), assets)
+    : current.mixed?.metadata.formatVersion === 1
+      ? mixed.commit(content, { metadata: { ...current.mixed.metadata, updatedAt: new Date().toISOString() },
+          blocks: [...current.mixed.blocks, block] })
+      : false;
+}
+
 function WritingHeader({ activeView, note, files, mixed, editorRef }: {
   activeView: AppView; note: AppNote; files: AppFiles; mixed: MixedFiles; editorRef: RefObject<FlowNoteEditorApi>;
 }) {
@@ -116,36 +149,7 @@ function WritingHeader({ activeView, note, files, mixed, editorRef }: {
   const importHtml = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      const current = useNoteStore.getState().currentNote;
-      const api = editorRef.current;
-      if (!current) throw new Error('尚未打开笔记');
-      if (!api || !files.editorReady) throw new Error('编辑器尚未准备就绪');
-      if (!htmlSource.trim()) throw new Error('请输入要导入的 HTML');
-      const block = createHtmlBlock(htmlSource);
-      const replacements: Record<string, string> = {};
-      const assets: NoteAssetData[] = [];
-      if (current.metadata.type === 'markdown' && files.state.file) {
-        const reader = files.session.port.readAsset;
-        const seen = new Set<string>();
-        for (const source of api.getImageSources()) {
-          const target = managedMarkdownImageTarget(files.state.file.name, source);
-          if (!target || seen.has(source)) continue;
-          if (!reader) throw new MarkdownFileError('unsupported', '当前文件入口不能迁移 Markdown 本地图片');
-          const asset = await reader(files.state.file.id, source);
-          if (!asset.mime.startsWith('image/')) throw new MarkdownFileError('invalidFormat', `Markdown 图片类型无效：${source}`);
-          replacements[source] = target;
-          assets.push({ path: target, bytes: asset.bytes });
-          seen.add(source);
-        }
-      }
-      const content = api.previewHtmlBlock(block.id, 'normal', replacements);
-      const stored = current.metadata.type === 'markdown'
-        ? await mixed.create(content, newMixedNote(current.metadata.title, block), undefined, () => files.session.detachCurrent(), assets)
-        : current.mixed?.metadata.formatVersion === 1
-          ? await mixed.commit(content, { metadata: { ...current.mixed.metadata, updatedAt: new Date().toISOString() },
-              blocks: [...current.mixed.blocks, block] })
-          : false;
-      if (!stored) return;
+      if (!(await storeHtmlSource(htmlSource, files, mixed, editorRef))) return;
       setHtmlSource('');
       setHtmlError('');
       setHtmlOpen(false);
@@ -208,10 +212,12 @@ function useFileEvents({ session, mixed, exportNote }: { session: DocumentSessio
   }, [session, mixed, exportNote]);
 }
 
-function WritingWorkspace({ activeView, editorRef, note, files, mixed, workspaceMode, onHtmlBlockSelect, onCollectHtmlBlock }: {
+function WritingWorkspace({ activeView, editorRef, note, files, mixed, workspaceMode, onHtmlBlockSelect, onCollectHtmlBlock,
+  onPasteHtmlSource }: {
   activeView: AppView; editorRef: RefObject<FlowNoteEditorApi>; note: AppNote; files: AppFiles; mixed: MixedFiles;
   workspaceMode: WorkspaceMode; onHtmlBlockSelect: (blockId: string) => void;
   onCollectHtmlBlock: (blockId: string) => void | Promise<unknown>;
+  onPasteHtmlSource: (html: string) => void | Promise<unknown>;
 }) {
   if (!note.currentNote) return <p className="file-empty-state">尚未打开笔记。使用「新建」开始写作，或「打开」选择 Markdown 文件。</p>;
   const showQualification = import.meta.env.DEV && activeView === 'qualification';
@@ -229,7 +235,8 @@ function WritingWorkspace({ activeView, editorRef, note, files, mixed, workspace
         mode={workspaceMode === 'read' ? 'read' : 'edit'} onReadyChange={files.readyChanged} readLockRef={files.readLockRef}
         readHtmlAsset={mixed.readAsset} listHtmlAssets={mixed.listAssets} commitHtmlFullEditor={mixed.commitFullEditor}
         readManagedImage={readManagedImage} onDuplicateHtmlBlock={mixed.duplicateBlock}
-        onCollectHtmlBlock={onCollectHtmlBlock} onHtmlBlockSelect={onHtmlBlockSelect} />
+        onCollectHtmlBlock={onCollectHtmlBlock} onHtmlBlockSelect={onHtmlBlockSelect}
+        onPasteHtmlSource={onPasteHtmlSource} />
       {showQualification && QualificationPanel && <Suspense fallback={<p role="status">正在加载测试面板…</p>}>
         <QualificationPanel editorRef={editorRef} />
       </Suspense>}
@@ -400,6 +407,15 @@ function App({ filePort, notePort, workspacePort, visualLibraryPort }: {
     if (note.currentNote?.metadata.type === 'mixed') void mixed.exportMarkdown();
     else note.exportNote();
   };
+  const deleteWorkspaceEntry = async (entry: Parameters<typeof workspace.deleteEntry>[0]) => {
+    const active = workspace.activeRelativePath;
+    const containsActive = !!active && (active === entry.relativePath || active.startsWith(entry.relativePath + '/'));
+    if (containsActive) {
+      await files.session.closeDocument();
+      if (useNoteStore.getState().currentNote) return;
+    }
+    await workspace.deleteEntry(entry);
+  };
 
   return <div className="app writing-app" data-view-mode={workspaceMode}
       data-sidebar-open={showSidebar ? 'true' : 'false'} data-inspector-open={showInspector ? 'true' : 'false'}>
@@ -434,7 +450,8 @@ function App({ filePort, notePort, workspacePort, visualLibraryPort }: {
             activeRelativePath={workspace.activeRelativePath} selectedFolder={workspace.selectedFolder}
             expanded={workspace.expanded} renameDisabled={dirty || note.isComposing || !!files.state.busy || !!mixed.state.busy}
             onPick={() => void workspace.pick()} onRefresh={() => void workspace.refresh()}
-            onOpen={entry => void workspace.open(entry)} onRename={(entry, name) => void workspace.rename(entry, name)} />}
+            onOpen={entry => void workspace.open(entry)} onRename={(entry, name) => void workspace.rename(entry, name)}
+            onDelete={entry => void deleteWorkspaceEntry(entry)} />}
       fileActionsDisabled={!!files.state.busy || !!files.state.pending || note.isComposing || !!workspace.busy}
       onNew={() => void workspace.createNote()}
       onOpen={() => void files.session.open().catch(cause => files.session.notifyError(cause))}
@@ -463,7 +480,8 @@ function App({ filePort, notePort, workspacePort, visualLibraryPort }: {
         </div>}
       </div>
       <WritingWorkspace activeView={activeView} editorRef={editorRef} note={note} files={files} mixed={mixed}
-        workspaceMode={workspaceMode} onHtmlBlockSelect={selectHtmlBlock} onCollectHtmlBlock={collectHtmlBlock} />
+        workspaceMode={workspaceMode} onHtmlBlockSelect={selectHtmlBlock} onCollectHtmlBlock={collectHtmlBlock}
+        onPasteHtmlSource={source => storeHtmlSource(source, files, mixed, editorRef)} />
       <DebugPanel activeView={activeView} />
     </main>
     {showInspector && <WorkspaceInspector tab={inspectorTab} markdown={note.currentNote?.contentMd ?? ''} title={title}

@@ -131,6 +131,20 @@ async function revealHeading(h: Harness) {
   assert.equal(h.api.current!.revealHeading(9), false);
 }
 
+async function blankCanvasPlacesCaretAtDocumentEnd(h: Harness) {
+  await h.mount('第一段\n\n第二段\n');
+  await act(async () => h.view().dispatch(h.view().state.tr.setSelection(TextSelection.atStart(h.view().state.doc))));
+  const canvas = document.querySelector<HTMLElement>('.editor-visual-surface .milkdown');
+  assert.ok(canvas, 'Milkdown canvas is missing');
+  await act(async () => canvas.dispatchEvent(new MouseEvent('mousedown', {
+    bubbles: true, cancelable: true, button: 0, clientX: 600, clientY: 900,
+  })));
+  await settle();
+  assert.equal(h.view().state.selection.from, TextSelection.atEnd(h.view().state.doc).from,
+    'Clicking blank editor canvas should move the caret to the document end');
+  assert.equal(document.activeElement, h.view().dom, 'Blank editor canvas should focus the ProseMirror editor');
+}
+
 export function interactionChecks(h: Harness) {
   const cases = [
     ['列表操作：Tab 缩进及 Shift+Tab 还原层级', listIndent],
@@ -144,6 +158,7 @@ export function interactionChecks(h: Harness) {
     ['键盘撤销：Ctrl+Z / Ctrl+Y', keyboardUndo],
     ['链接操作：Ctrl/Cmd+点击使用系统外部打开且普通点击保持编辑', ctrlClickLink],
     ['Outline 导航：按标题序号定位到对应可视化标题', revealHeading],
+    ['编辑体验：点击正文下方空白画布可直接定位光标继续输入', blankCanvasPlacesCaretAtDocumentEnd],
   ] as const;
   return cases.map(([name, action]) => ({ name, run: () => action(h) }));
 }

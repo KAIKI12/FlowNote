@@ -77,9 +77,18 @@ function boundaryChecks(h: Harness): ProtectionCheck[] {
       assert.equal(h.api.current!.getMarkdown().trim(), '正文');
       assert.equal(h.latest().trim(), '正文');
     } },
-    { name: '源码保护：API 装载公式、WikiLink、Footnote 与未支持扩展仍保真', run: async () => {
+    { name: '可视化兼容：标准 Dollar LaTeX 公式不再触发整篇源码保护', run: async () => {
+      const samples = ['$x^2 + y^2 = z^2$\n', '$$\nE = mc^2\n$$\n'];
+      for (const input of samples) {
+        await h.mount(input);
+        assert.equal(h.view().editable, true, document.querySelector('.editor-source-notice')?.textContent ?? 'Dollar math unexpectedly protected');
+        assert.equal(document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Markdown 源码"]'), null);
+        assert.equal(h.api.current!.getMarkdown(), input);
+      }
+    } },
+    { name: '源码保护：反斜杠公式、WikiLink、Footnote 与未支持扩展仍保真', run: async () => {
       await h.mount('# 普通正文\n');
-      const samples = ['$x^2 + y^2 = z^2$\n', '$$\nE = mc^2\n$$\n', '\\(x + y\\)\n',
+      const samples = ['\\(x + y\\)\n', '\\[x + y\\]\n',
         '[[Useful Skew]]\n', '文字[^1]\n\n[^1]: 注释\n',
         '```mermaid\ngraph LR; A-->B\n```\n', '```js title="sample"\nlet n = 1\n```\n',
         ':::warning\n注意\n:::\n'];

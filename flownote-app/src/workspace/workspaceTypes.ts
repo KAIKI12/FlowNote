@@ -31,4 +31,5 @@ export interface WorkspacePort {
   search(query: string): Promise<WorkspaceSearchResult[]>;
   createMarkdown(folder: string): Promise<WorkspaceMutation>;
   rename(relativePath: string, newName: string): Promise<WorkspaceMutation>;
+  delete?(relativePath: string): Promise<WorkspaceMutation>;
 }

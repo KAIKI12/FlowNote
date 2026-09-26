@@ -97,5 +97,8 @@ export function createNativeWorkspacePort(call: WorkspaceInvoke = invoke): Works
     async rename(path, newName) {
       return mutation(await request('workspace_rename', { request: { relativePath: path, newName } }));
     },
+    async delete(path) {
+      return mutation(await request('workspace_delete', { request: { relativePath: path } }));
+    },
   };
 }

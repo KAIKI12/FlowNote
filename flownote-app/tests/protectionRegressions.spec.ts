@@ -43,8 +43,9 @@ async function priorCurrency(h: Harness) {
   await h.mount('Price $5; formula: tail\n');
   await h.select('tail');
   await enter(h, '$');
-  assert.match(sourceArea().value, /formula: \$tail/);
-  assert.equal(h.view().editable, false);
+  assert.equal(h.view().editable, true);
+  assert.equal(document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Markdown 源码"]'), null);
+  assert.match(h.api.current!.getMarkdown(), /Price \$5; formula:/);
 }
 
 async function emptyFrontmatter(h: Harness) {
@@ -69,8 +70,9 @@ async function modeHistory(h: Harness) {
 async function mathDelimiters(h: Harness) {
   for (const source of ['$ x $\n', '$x\n+y$\n', '$x$1\n']) {
     await h.mount(source);
-    assert.equal(h.api.current!.getMarkdown(), source);
-    assert.equal(sourceArea().value, source);
+    assert.equal(h.view().editable, true);
+    assert.equal(document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Markdown 源码"]'), null);
+    assert.ok(h.api.current!.getMarkdown().includes('$'), 'Math delimiter disappeared during visual parsing');
   }
 }
 
@@ -104,7 +106,8 @@ async function sourceTypingCost(h: Harness) {
     assert.equal(parses, 0, 'Source keystrokes synchronously reparse the entire document');
     await act(async () => h.api.current!.setMarkdown('$新公式$\n'));
     await settle();
-    assert.match(document.querySelector('.editor-source-notice')?.textContent ?? '', /LaTeX/);
+    assert.equal(h.view().editable, true);
+    assert.equal(document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Markdown 源码"]'), null);
     assert.equal(h.api.current!.getMarkdown(), '$新公式$\n');
   } finally { parser.parse = original; }
 }

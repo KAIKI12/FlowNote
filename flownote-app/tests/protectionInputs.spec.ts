@@ -102,6 +102,23 @@ async function rawHtmlIsInert(h: Harness) {
   assert.match(h.api.current!.getMarkdown(), /<script>window\.untrustedCode = true<\/script>/);
 }
 
+async function standaloneHtmlPasteUsesVisualImport(h: Harness) {
+  await h.mount('# Before\n');
+  let pasted = '';
+  h.setHtmlPasteHandler(html => { pasted = html; });
+  const source = '<section class="card"><h2>Visual</h2><p>Hello</p></section>';
+  const event = new Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'clipboardData', { value: {
+    getData: (type: string) => type === 'text/plain' ? source : '',
+    files: [],
+  } });
+  await act(async () => h.view().dom.dispatchEvent(event));
+  await settle();
+  assert.equal(pasted, source);
+  assert.equal(h.view().editable, true, 'Standalone HTML paste should not switch the Markdown editor into source mode');
+  assert.equal(document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Markdown 源码"]'), null);
+}
+
 async function parserFailure(h: Harness) {
   await h.mount('旧文档\n');
   const parser = h.editor().ctx.get(parserCtx);
@@ -122,6 +139,7 @@ export function protectionInputChecks(h: Harness) {
     { name: '输入保护：源码 IME 与外部更新冲突保留两个版本', run: () => sourceComposition(h) },
     { name: '输入保护：源码回传不重建、不移动光标，并支持撤销重做', run: () => sourceEchoUndo(h) },
     { name: '输入保护：Raw HTML 可视化但保持惰性，源码只读与命令隔离', run: () => rawHtmlIsInert(h) },
+    { name: 'HTML 粘贴：独立 HTML 源码进入 Visual 导入而不是切源码保护', run: () => standaloneHtmlPasteUsesVisualImport(h) },
     { name: '输入保护：解析异常可见，仍可编辑和导出原文', run: () => parserFailure(h) },
   ];
 }

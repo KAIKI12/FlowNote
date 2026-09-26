@@ -233,6 +233,32 @@ fn rename_preserves_extensions_and_folder_moves_stay_inside_workspace() {
 }
 
 #[test]
+fn deletes_markdown_note_and_only_empty_folders() {
+    let root = temp_workspace();
+    fs::write(root.join("delete.md"), "# delete").unwrap();
+    let note = root.join("delete.note");
+    fs::create_dir_all(&note).unwrap();
+    fs::write(note.join("content.md"), "# Visual").unwrap();
+    fs::write(note.join("note.json"), r#"{"formatVersion":1,"type":"mixed","title":"Visual"}"#).unwrap();
+    fs::create_dir_all(root.join("Empty")).unwrap();
+    fs::create_dir_all(root.join("NonEmpty")).unwrap();
+    fs::write(root.join("NonEmpty").join("keep.md"), "# keep").unwrap();
+
+    let mut store = WorkspaceStore::default();
+    store.bind(&root).unwrap();
+    assert_eq!(store.delete("delete.md").unwrap().relative_path, "delete.md");
+    assert_eq!(store.delete("delete.note").unwrap().relative_path, "delete.note");
+    assert_eq!(store.delete("Empty").unwrap().relative_path, "Empty");
+    assert!(!root.join("delete.md").exists());
+    assert!(!root.join("delete.note").exists());
+    assert!(!root.join("Empty").exists());
+    assert!(store.delete("NonEmpty").is_err());
+    assert!(root.join("NonEmpty").join("keep.md").exists());
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn markdown_and_note_resolvers_reject_the_wrong_entry_kind() {
     let root = temp_workspace();
     fs::write(root.join("plain.md"), "# Plain").unwrap();

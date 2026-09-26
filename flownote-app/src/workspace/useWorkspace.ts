@@ -40,7 +40,7 @@ export function useWorkspace(options: Options) {
   openRef.current = options.openEntry;
   const searchGeneration = useRef(0);
   const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null);
-  const [busy, setBusy] = useState<'restore' | 'pick' | 'scan' | 'search' | 'create' | 'rename' | null>(null);
+  const [busy, setBusy] = useState<'restore' | 'pick' | 'scan' | 'search' | 'create' | 'rename' | 'delete' | null>(null);
   const [error, setError] = useState<MarkdownFileError | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<WorkspaceSearchResult[]>([]);
@@ -216,6 +216,33 @@ export function useWorkspace(options: Options) {
     finally { setBusy(null); }
   };
 
+  const deleteEntry = async (entry: WorkspaceEntry) => {
+    const port = portRef.current;
+    const current = snapshot;
+    if (!port?.delete || !current) {
+      setError(fileError(new Error('当前 Workspace 不支持删除')));
+      return false;
+    }
+    setBusy('delete'); setError(null);
+    try {
+      const deleted = await port.delete(entry.relativePath);
+      const removed = deleted.relativePath;
+      for (const item of loadRecent(current.workspaceId)) {
+        if (item.relativePath === removed || item.relativePath.startsWith(removed + '/')) {
+          removeRecent(current.workspaceId, item.relativePath);
+        }
+      }
+      const value = await port.scan();
+      setSnapshot(value);
+      setRecent(loadRecent(current.workspaceId));
+      setSelectedFolder(folder => folder === removed || folder.startsWith(removed + '/') ? '' : folder);
+      setExpanded(paths => new Set([...paths].filter(path => path !== removed && !path.startsWith(removed + '/'))));
+      setActiveRelativePath(path => path && (path === removed || path.startsWith(removed + '/')) ? null : path);
+      return true;
+    } catch (cause) { setError(fileError(cause)); return false; }
+    finally { setBusy(null); }
+  };
+
   const recentView: WorkspaceRecentView[] = recent.map(item => ({
     ...item,
     available: !!snapshot && !!findWorkspaceEntry(snapshot.entries, item.relativePath),
@@ -226,6 +253,6 @@ export function useWorkspace(options: Options) {
     portAvailable: !!portRef.current,
     snapshot, busy, error, query, setQuery, results, recent: recentView,
     activeRelativePath, selectedFolder, setSelectedFolder, expanded, setExpanded,
-    pick, refresh, open, createNote, rename,
+    pick, refresh, open, createNote, rename, deleteEntry,
   };
 }

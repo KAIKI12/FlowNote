@@ -9,16 +9,16 @@
 ## Markdown / 文件基础能力 — completed
 
 - [x] 可视化 / 源码双模式，复杂列表、任务列表、表格、代码、图片、粘贴、撤销 / 重做。
-- [x] Frontmatter、WikiLink、脚注、raw HTML、Mermaid、LaTeX 等风险语法进入保真路径，不静默丢失。
+- [x] Frontmatter、WikiLink、脚注、raw HTML、Mermaid 与反斜杠定界 LaTeX 等风险语法进入保真路径；标准 `$...$` / `$$...$$` LaTeX 已支持可视化编辑，不静默丢失。
 - [x] Windows 普通 `.md` 新建、打开、保存、另存为、重载、关闭 / 重开。
 - [x] Dirty / 外部版本检查、保存失败恢复、迟到回执保护、关闭 / 切换生命周期保护。
 - [x] 用户已完成真实输入法、原生文件选择器和界面操作验证；Markdown Gate 已通过。
-- [x] Mermaid / LaTeX 源码保留；渲染增强仍属于后续候选。
+- [x] 标准 `$...$` / `$$...$$` LaTeX 使用 Milkdown math 可视化编辑；`\\(...\\)` / `\\[...\\]` 与 Mermaid 继续源码保护。
 
 ## Slice 1 — completed
 
 - [x] Markdown + HTML → `.note` 持久化 → Close → Reopen。
-- [x] 显式 HTML 导入；raw HTML 不自动升级为可执行 HTML Block。
+- [x] HTML 导入：现有 Markdown 中的 raw HTML 仍保持惰性；用户粘贴独立 HTML 源码时显式路由到 sandboxed HTML Visual / Mixed Note 导入。
 - [x] `content.md` 作为正文 / 顺序唯一事实来源，`note.json` 不重复正文。
 - [x] HTML Block Current / Original 分离，普通保存不覆盖 Original。
 - [x] HTML NodeView 已注册，在 Markdown 原位置渲染隔离 iframe。
@@ -86,7 +86,8 @@
 - [x] Sidebar 使用真实 Workspace 数据，无静态 Research / PD / Cislunar 假目录；row action 按 hover/focus 渐进显示。
 - [x] 手动 Refresh + create / rename / restore / change 后 rescan。
 - [ ] Favorites 持久化。
-- [ ] Trash / delete / recovery。
+- [x] Workspace Delete：三点菜单 / 右键均可删除 Markdown、`.note` 与空文件夹；删除命令经过 native 路径校验。
+- [ ] Workspace Trash / recovery：当前删除仍是确认后的直接删除，尚未加入可恢复回收站。
 - [ ] filesystem watcher。
 - [ ] multi-Workspace。
 - [ ] SQLite / FTS 索引搜索。
@@ -94,13 +95,13 @@
 ## 最新验证 — completed
 
 - [x] Workspace Frontend：**8 / 8**
-- [x] Workspace Native：**11 / 11**
+- [x] Workspace Native：**12 / 12**
 - [x] Format Freeze Gate：PASS
-- [x] HTML：**12 / 12**
-- [x] Stage One：**62 / 62**
-- [x] Protection：**38 / 38**
+- [x] HTML：**17 / 17**
+- [x] Stage One：**70 / 70**
+- [x] Protection：**44 / 44**
 - [x] Qualification：**36 / 36**
-- [x] Files：**18 / 18**
+- [x] Files：**19 / 19**
 - [x] 真实磁盘：**16 / 16**
 - [x] Desktop UI：**12 / 12**
 - [x] Desktop IPC / Rust desktop commands：**12 / 12**

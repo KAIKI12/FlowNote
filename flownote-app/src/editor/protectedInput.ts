@@ -6,7 +6,16 @@ import { createMarkdownBridge } from './markdownBridge';
 import { isCodeSelection } from './inputContext';
 
 interface InputRange { from: number; to: number; text: string }
-interface InputContext { ctx: Ctx; session: EditorSession; view: EditorView }
+interface InputContext {
+  ctx: Ctx; session: EditorSession; view: EditorView;
+  pasteHtmlSource?: (html: string) => void | Promise<unknown>;
+}
+
+function looksLikeStandaloneHtmlSource(text: string): boolean {
+  const trimmed = text.trim();
+  return /^(?:<!doctype\s+html\b|<!--|<[a-zA-Z][\w:-]*(?:\s|>|\/))/.test(trimmed)
+    && /(?:<\/[a-zA-Z][\w:-]*\s*>|\/>|<!doctype\s+html\b|-->)/i.test(trimmed);
+}
 
 function sourceWithInput(context: InputContext, range: InputRange): { source: string; caret: number } {
   const marker = 'FLOWNOTESOURCE' + crypto.randomUUID().replace(/-/g, '');
@@ -36,7 +45,7 @@ function typedRange(view: EditorView, range: InputRange): InputRange | null {
   const $from = view.state.doc.resolve(range.from);
   const prefix = $from.parent.textBetween(0, $from.parentOffset, '', '\uFFFC');
   const joined = prefix + range.text;
-  const syntax = [...joined.matchAll(/\[\[|\[\^|\$|<\/?[a-zA-Z!]|\\[([]/g)]
+  const syntax = [...joined.matchAll(/\[\[|\[\^|<\/?[a-zA-Z!]|\\[([]/g)]
     .find(match => match.index! + match[0].length > prefix.length);
   if (syntax) {
     const start = Math.min(prefix.length, syntax.index);
@@ -57,6 +66,16 @@ function handleText(context: InputContext, range: InputRange): boolean {
 function handlePaste(context: InputContext, event: ClipboardEvent): boolean {
   const text = event.clipboardData?.getData('text/plain');
   if (!text || !context.view.editable || isCodeSelection(context.view)) return false;
+  if (context.pasteHtmlSource && looksLikeStandaloneHtmlSource(text)) {
+    event.preventDefault();
+    if (context.view.composing || context.session.getSnapshot().composing) {
+      context.session.reportNotice('请先完成组合输入，再粘贴 HTML；剪贴板内容尚未插入。');
+      return true;
+    }
+    void Promise.resolve(context.pasteHtmlSource(text)).catch(error =>
+      context.session.reportNotice(error instanceof Error ? error.message : String(error)));
+    return true;
+  }
   const reasons = createMarkdownBridge(context.ctx).inspect(text);
   const { from, to } = context.view.state.selection;
   const range = typedRange(context.view, { from, to, text });
@@ -74,7 +93,8 @@ function handleFence(context: InputContext, event: KeyboardEvent): boolean {
   return protectInput(context, { from: from - prefix.length, to, text: prefix + '\n' });
 }
 
-export function configureProtectedInput(ctx: Ctx, session: EditorSession): void {
+export function configureProtectedInput(ctx: Ctx, session: EditorSession,
+  pasteHtmlSource?: (html: string) => void | Promise<unknown>): void {
   ctx.update(editorViewOptionsCtx, previous => ({ ...previous,
     handleTextInput(...args) {
       const [view, from, to, text] = args;
@@ -86,7 +106,8 @@ export function configureProtectedInput(ctx: Ctx, session: EditorSession): void 
     },
     handleDOMEvents: { ...previous.handleDOMEvents,
       paste(view, event) {
-        return handlePaste({ ctx, session, view }, event) || previous.handleDOMEvents?.paste?.call(previous, view, event);
+        return handlePaste({ ctx, session, view, pasteHtmlSource }, event)
+          || previous.handleDOMEvents?.paste?.call(previous, view, event);
       },
     },
   }));

@@ -1,6 +1,6 @@
 # FlowNote 当前状态
 
-**更新时间：2026-09-22**
+**更新时间：2026-09-26**
 
 **当前阶段：V1 基线能力与发布收尾保持稳定；V1.1 Visual Library 已完成 Slice 1–2。除收藏 / 复用外，Visuals Sidebar 现已支持 rename、tags、favorite、title/tag search、Favorites 过滤，以及可恢复的 app-owned Trash / Restore；这些状态全部属于 Library metadata，不写入 Note Format v1，也不会联动修改来源 Note 或已经插入的 Block 副本。下一步进入 V1.1 的资源本地化 / reusable visual 资产增强。**
 
@@ -22,7 +22,7 @@ FlowNote 当前已经从“Markdown 编辑器验证”进入可持续收尾阶�
 - 共享资源保护基础：已补 shared read-only probe / resource snapshot，用于识别共享或外部资源变化并避免把不可安全写回的对象当成普通可写资源。
 - 生命周期保护：disposal guard 已覆盖关闭 / 切换 / 异步回执边界，避免已释放编辑器、Note capability 或旧会话的迟到结果重新写入当前文档。
 
-公式与 Mermaid 当前继续保证源码不丢失，渲染增强仍属于后续候选，不作为 V1 Format Freeze 的前置条件。
+标准 `$...$` / `$$...$$` LaTeX 已接入 Milkdown math 并可在可视化编辑器中直接编辑；`\\(...\\)` / `\\[...\\]` 仍走源码保护。Mermaid 继续保证源码不丢失，其可视化增强仍属于后续候选。
 
 ## 2. Slice 状态
 
@@ -241,6 +241,17 @@ Browser Bundle 已解决 Mixed Note 的主要可移植分享路径，并与后�
 - **验证覆盖**：新增 native legacy metadata / Trash / Restore / backup recovery、前端 rename / tags / favorite / search / filter、真实磁盘 metadata + Trash + Restore + Insert 隔离测试。
 
 VLIB-06 已完成；Library metadata 仍与 `.note` 的 `note.json` / `block.json` 解耦。
+
+## 2.19 V1.1 Editing Usability Fixes — completed
+
+2026-09-26 针对真实使用反馈完成一轮编辑体验与桌面交互修复，不改变 Document-first / Local-first 架构：
+
+- **LaTeX**：标准 `$...$` / `$$...$$` 不再把整篇文档踢进源码保护，启用现有 Milkdown math 插件；反斜杠定界公式仍保留源码保护。
+- **空白画布光标**：点击 Markdown 正文下方 / 周围的编辑空白会聚焦 ProseMirror，并按坐标定位，无法映射坐标时落到文末；不再出现“只能点到已有文字才能继续输入”。
+- **HTML 粘贴**：独立 HTML 源码的 plain-text 粘贴直接走现有 HTML Visual / Mixed Note 导入管线；普通浏览器富文本粘贴仍按 Markdown 结构处理，不误转成 Visual。
+- **文件操作**：Workspace 行的三点按钮改为明确菜单，提供 Rename / Delete；右键打开同一菜单。删除链路已从 React → Workspace Port → Tauri/Rust 接通；Markdown / .note 可删除，普通文件夹仅允许空目录删除，避免递归误删未展示文件。
+- **关闭窗口**：IME composition 不再形成“关闭事件被拦截但对话框也不显示”的死路；关闭请求始终进入明确决策，用户可取消，或明确放弃后关闭。
+- **验证**：Stage One 70/70、Protection 44/44、Files 19/19、Workspace Frontend 8/8、Workspace Native 12/12，production build PASS；Desktop UI 在本轮更新旧断言后再次验证。
 
 ## 3. 最新验证基线
 

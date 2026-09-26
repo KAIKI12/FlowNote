@@ -31,6 +31,7 @@ export function createHarness() {
   let changeSource: (text: string) => void = () => { throw new Error('Harness is not mounted'); };
   let changeMode: (mode: EditorMode) => void = () => { throw new Error('Harness is not mounted'); };
   let latest = '';
+  let htmlPasteHandler: ((html: string) => void | Promise<unknown>) | undefined;
   function Probe() { const [, get] = useInstance(); getEditor = get; return null; }
   function Host({ source }: { source: string }) {
     const [text, setText] = useState(source);
@@ -38,13 +39,15 @@ export function createHarness() {
     changeSource = setText;
     changeMode = setMode;
     return <MilkdownProvider><FlowNoteEditor ref={api} initialContent={text} mode={mode}
-      onContentChange={value => { latest = value; setText(value); }} /><Probe /></MilkdownProvider>;
+      onContentChange={value => { latest = value; setText(value); }}
+      onPasteHtmlSource={html => htmlPasteHandler?.(html)} /><Probe /></MilkdownProvider>;
   }
   const editor = () => { const value = getEditor(); assert.ok(value); return value; };
   const view = () => editor().ctx.get(editorViewCtx);
   const unmount = async () => { if (root) await act(async () => { root!.unmount(); }); };
   return {
     api, editor, view, latest: () => latest, unmount,
+    setHtmlPasteHandler(handler: ((html: string) => void | Promise<unknown>) | undefined) { htmlPasteHandler = handler; },
     async mount(source: string) {
       await unmount();
       document.body.innerHTML = '<main id="harness"></main>';

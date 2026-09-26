@@ -13,6 +13,7 @@ function fixture() {
   let next = disk;
   const writes: string[] = [];
   const released: string[] = [];
+  let windowCloseCount = 0;
   const port: MarkdownFilePort = { mode: 'desktop', canWrite: true,
     open: async () => ({ ...next }),
     openWorkspace: async relativePath => ({ ...next, id: 'workspace-' + relativePath, path: 'C:/notes/' + relativePath, name: relativePath.split('/').at(-1)! }),
@@ -25,9 +26,9 @@ function fixture() {
     apply: selected => { current = { hasDocument: true, content: selected?.content ?? '', dirty: false, composing: false, kind: 'markdown' }; },
     close: () => { current = { ...current, hasDocument: false, dirty: false }; },
     saved: update => { current = { ...current, content: update.content, dirty: !update.clean }; },
-    closeWindow: async () => {},
+    closeWindow: async () => { windowCloseCount += 1; },
   });
-  return { session, port, writes, released, current: () => current,
+  return { session, port, writes, released, current: () => current, windowCloseCount: () => windowCloseCount,
     edit: (content: string) => { current = { ...current, content, dirty: true }; },
     view: (content: string) => { current = { ...current, content }; },
     composing: (value: boolean) => { current = { ...current, composing: value }; },
@@ -132,6 +133,19 @@ async function compositionGuard() {
   assert.equal(h.session.getSnapshot().pending, null);
 }
 
+async function composingWindowCloseCanBeDiscarded() {
+  const h = fixture();
+  await h.session.open();
+  h.edit('输入法尚未结束\n');
+  h.composing(true);
+  await h.session.requestWindowClose();
+  assert.equal(h.session.getSnapshot().pending?.kind, 'window',
+    'Window close during IME should surface a recoverable pending close action');
+  assert.equal(h.windowCloseCount(), 0);
+  await h.session.resolvePending('discard');
+  assert.equal(h.windowCloseCount(), 1, 'Explicit discard should close the window even if composition is still active');
+}
+
 async function postSaveRefreshStaysSerialized() {
   const h = fixture();
   await h.session.open();
@@ -210,6 +224,7 @@ export const documentSessionChecks = [
   { name: '文件会话：新建的取消和放弃行为明确', run: switchGuard },
   { name: '文件会话：保存并重载不能应用保存前的旧候选', run: saveThenReload },
   { name: '文件会话：组合输入期间不保存或切换正文', run: compositionGuard },
+  { name: '窗口关闭：IME 组合输入期间仍可明确放弃并关闭', run: composingWindowCloseCanBeDiscarded },
   { name: '文件会话：保存后的重载仍保持操作串行', run: postSaveRefreshStaysSerialized },
   { name: '文件会话：卸载后的迟到重载不能替换正文', run: disposedRefreshCannotApply },
   { name: 'Workspace 切换：沿用 Dirty / IME 文件会话保护', run: workspaceOpenUsesExistingDirtyAndImeSwitchGuard },
